@@ -32,7 +32,8 @@ OK
 | Git 身份 | `hurry114514 <345704669+hurry114514@users.noreply.github.com>`（GitHub 匿名邮箱） | 已配置 |
 | 凭据 | Git Credential Manager 2.9.1，GitHub 账号已登录并缓存 | 可用，push 免重复登录 |
 | Python | `py --version` → **3.14.0** | 可用 |
-| `python` 命令 | 指向 `WindowsApps\python.exe`，是 Microsoft Store 的占位别名，执行报「Python was not found」 | **不可用** |
+| `python` 命令 | 原为 Microsoft Store 占位别名；已将 `Python314` 与 `Python314\Scripts` 加入用户 PATH，现指向 `C:\Users\hanrui\AppData\Local\Programs\Python\Python314\python.exe` | **已修复** |
+| pip | `pip 25.2`（随 Python 3.14 安装） | 可用 |
 | Node | `v22.22.2`，但路径为 `C:\Users\hanrui\.workbuddy\binaries\node\...`，非系统安装 | 仅工具内置 |
 | npm | 不可用 | **不可用** |
 
@@ -42,7 +43,7 @@ OK
 
 | 编号 | 问题 | 作用范围 | 影响 | 建议处理 |
 | --- | --- | --- | --- | --- |
-| ENV-01 | `python -m unittest` 会失败，`python` 是 Microsoft Store 别名占位 | 仅本机 | 本机按 README 抄命令会失败，需改用 `py -m unittest` | 本机统一用 `py`；或在「设置 → 应用 → 高级应用设置 → 应用执行别名」关闭 python.exe 别名后重装 Python |
+| ENV-01 | `python -m unittest` 会失败，`python` 是 Microsoft Store 别名占位 | 仅本机 | **已于 2026-10-22 修复**：把 `Python314` 和 `Python314\Scripts` 前置到用户 PATH，现在 `python -m unittest discover -s tests -v` 可直接执行并返回 17 项通过 | 修改前已备份用户 PATH 到 `%USERPROFILE%\path-user-backup-20261022.txt`，如需回退可直接恢复该文件内容 |
 | ENV-02 | 系统未安装 Node.js 和 npm，现有 Node 来自开发工具内置目录 | 仅本机 | 本机无法执行前端 `npm install` / `vite dev`，10/29 的响应式检查会阻塞 | 10/28 前在本机安装 LTS 版 Node.js（自带 npm） |
 | ENV-03 | 仓库尚无 `.gitattributes` | 全仓库 | 换行符由各人本机设置决定，可能出现整文件被判定为修改的假 diff | 由仓库负责人统一添加 `* text=auto` 后再逐次提交，避免一次改动过多文件 |
 
