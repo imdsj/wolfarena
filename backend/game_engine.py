@@ -46,6 +46,7 @@ class EventType(str, Enum):
 
     GAME_CREATED = "GAME_CREATED"
     ROLE_ASSIGNED = "ROLE_ASSIGNED"
+    NIGHT_STARTED = "NIGHT_STARTED"
 
 
 class Visibility(str, Enum):
@@ -242,3 +243,59 @@ def get_player(state: GameState, identifier: str) -> Player:
         if player.player_id == identifier or player.name == identifier:
             return player
     raise KeyError(f"找不到玩家：{identifier}")
+
+
+def start_night(state: GameState) -> GameState:
+    """Advance the game to the next night.
+
+    The full night-action sequence is intentionally outside this milestone.
+    This function only changes the day, phase, and empty night-result object.
+    """
+
+    allowed_previous_phases = {
+        Phase.INIT,
+        Phase.VOTE,
+        Phase.SELF_DESTRUCT,
+    }
+    if state.phase not in allowed_previous_phases:
+        raise ValueError(f"当前阶段不能开始夜晚：{state.phase.value}")
+
+    state.day += 1
+    state.phase = Phase.NIGHT
+    state.night_result = NightResult()
+    state.events.append(
+        Event(
+            event_seq=len(state.events),
+            event_type=EventType.NIGHT_STARTED,
+            day=state.day,
+            phase=state.phase,
+            actor_id=None,
+            target_id=None,
+            visibility=Visibility.PUBLIC,
+            data={"day": state.day},
+        )
+    )
+    return state
+
+
+def check_winner(state: GameState) -> Team | None:
+    """Return the winning team based only on living role counts.
+
+    ``None`` means neither win condition is currently satisfied. Death and
+    phase handling must call this function after every death event.
+    """
+
+    living_wolves = sum(
+        player.is_alive and player.role is Role.WEREWOLF
+        for player in state.players
+    )
+    living_good = sum(
+        player.is_alive and player.role is not Role.WEREWOLF
+        for player in state.players
+    )
+
+    if living_wolves == 0:
+        return Team.GOOD
+    if living_wolves >= living_good:
+        return Team.WOLF
+    return None

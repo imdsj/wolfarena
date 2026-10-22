@@ -10,8 +10,10 @@ from .game_engine import (
     Role,
     Team,
     Visibility,
+    check_winner,
     create_game,
     get_player,
+    start_night,
 )
 
 __all__ = [
@@ -24,6 +26,8 @@ __all__ = [
     "Role",
     "Team",
     "Visibility",
+    "check_winner",
     "create_game",
     "get_player",
+    "start_night",
 ]

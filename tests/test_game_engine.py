@@ -6,12 +6,15 @@ from unittest import TestCase
 from backend.game_engine import (
     EventType,
     GameState,
+    NightResult,
     Phase,
     Role,
     Team,
     Visibility,
+    check_winner,
     create_game,
     get_player,
+    start_night,
 )
 
 
@@ -127,3 +130,76 @@ class GameCreationTests(TestCase):
             create_game(seed=1, player_names=["同名"] * 9)
         with self.assertRaises(TypeError):
             create_game(seed="1")  # type: ignore[arg-type]
+
+
+class NightTransitionTests(TestCase):
+    def test_start_night_advances_to_day_one_night(self) -> None:
+        state = create_game(seed=11)
+
+        returned_state = start_night(state)
+
+        self.assertIs(returned_state, state)
+        self.assertEqual(state.day, 1)
+        self.assertEqual(state.phase, Phase.NIGHT)
+        self.assertIsInstance(state.night_result, NightResult)
+        self.assertEqual(state.events[-1].event_type, EventType.NIGHT_STARTED)
+        self.assertEqual(state.events[-1].day, 1)
+
+    def test_start_night_rejects_duplicate_night_transition(self) -> None:
+        state = create_game(seed=12)
+        start_night(state)
+
+        with self.assertRaises(ValueError):
+            start_night(state)
+
+    def test_start_next_night_from_vote_phase(self) -> None:
+        state = create_game(seed=13)
+        state.phase = Phase.VOTE
+
+        start_night(state)
+
+        self.assertEqual(state.day, 1)
+        self.assertEqual(state.phase, Phase.NIGHT)
+
+
+class WinnerCheckTests(TestCase):
+    def test_game_continues_at_initial_three_versus_six(self) -> None:
+        state = create_game(seed=21)
+
+        self.assertIsNone(check_winner(state))
+
+    def test_good_wins_when_all_wolves_are_dead(self) -> None:
+        state = create_game(seed=22)
+        for player in state.players:
+            if player.role is Role.WEREWOLF:
+                player.is_alive = False
+
+        self.assertEqual(check_winner(state), Team.GOOD)
+
+    def test_wolves_win_when_their_count_reaches_good_count(self) -> None:
+        state = create_game(seed=23)
+        living_good = [
+            player
+            for player in state.players
+            if player.team is Team.GOOD
+        ]
+        for player in living_good[3:]:
+            player.is_alive = False
+
+        self.assertEqual(check_winner(state), Team.WOLF)
+
+    def test_good_wins_when_both_win_checks_are_true(self) -> None:
+        state = create_game(seed=24)
+        for player in state.players:
+            player.is_alive = False
+
+        self.assertEqual(check_winner(state), Team.GOOD)
+
+    def test_dead_players_do_not_count_toward_winner(self) -> None:
+        state = create_game(seed=25)
+        wolves = [player for player in state.players if player.role is Role.WEREWOLF]
+        wolves[0].is_alive = False
+
+        self.assertIsNone(check_winner(state))
+        wolves[1].is_alive = False
+        self.assertIsNone(check_winner(state))
