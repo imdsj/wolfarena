@@ -1,0 +1,56 @@
+# WolfArena
+
+WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项目，目标是把九人狼人杀、可解释的 AI Agent 行为和可复现的策略训练放在同一个 Web 平台中。
+
+当前仓库处于基础规则与游戏引擎搭建阶段，尚不能用于完整对局，也不包含已经完成的前端页面、DeepSeek 集成或训练场。
+
+## 当前完成内容
+
+- 九人局第一版规则，使用稳定规则编号供代码和测试引用。
+- 可复现的九人游戏创建与角色分配。
+- `Player`、`GameState`、`Event` 和 `NightResult` 基础数据结构。
+- 9 个自动化测试，覆盖角色数量、真人/AI 标记、可复现随机分配和事件记录。
+
+## 技术方向
+
+| 部分 | 计划技术 |
+| --- | --- |
+| 前端 | Vue 3、TypeScript、Vite |
+| 后端 | Python、FastAPI、WebSocket |
+| 数据 | SQLite |
+| 模型 | DeepSeek OpenAI 兼容接口 |
+| 策略训练 | 共享表格型 Q-learning |
+
+## 目录
+
+```text
+wolfarena/
+  backend/            后端游戏引擎
+  frontend/           Vue 前端
+  docs/               规则、决策与比赛材料记录
+  training_runs/      本地训练输出，不直接提交原始结果
+  tests/              自动化测试
+  .env.example        环境变量名称模板
+  .gitignore          敏感文件与生成文件忽略规则
+  README.md           项目说明
+```
+
+## 运行测试
+
+在项目根目录运行：
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+当前基线应显示 9 个测试全部通过，并输出 `OK`。
+
+## 规则与数据安全
+
+完整九人局规则位于 `docs/01_game_rules_v1.md`。
+
+真实 API Key 只能写入本地 `.env`，不得写入源码、文档、截图或 Git 历史。`.env.example` 只允许保存变量名。发布前应再次运行 `git status` 和密钥扫描。
+
+## 重要声明
+
+旧终端项目只作为规则、提示词和技术思路参考。本仓库的 Web 实现、数据结构、测试和后续训练代码由团队重新实现，并通过真实 Git 提交记录开发过程。
