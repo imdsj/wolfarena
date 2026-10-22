@@ -34,8 +34,9 @@ OK
 | Python | `py --version` → **3.14.0** | 可用 |
 | `python` 命令 | 原为 Microsoft Store 占位别名；已将 `Python314` 与 `Python314\Scripts` 加入用户 PATH，现指向 `C:\Users\hanrui\AppData\Local\Programs\Python\Python314\python.exe` | **已修复** |
 | pip | `pip 25.2`（随 Python 3.14 安装） | 可用 |
-| Node | `v22.22.2`，但路径为 `C:\Users\hanrui\.workbuddy\binaries\node\...`，非系统安装 | 仅工具内置 |
-| npm | 不可用 | **不可用** |
+| Node | `v24.22.1`，系统安装于 `D:\Edge\node.exe`，已在 PATH | **已修复** |
+| npm | `11.19.1`（随 Node 安装） | **已修复** |
+| PowerShell 执行策略 | CurrentUser = `RemoteSigned`（原为 Undefined，导致 `npm.ps1` 被禁止执行） | **已修复** |
 
 ## 3. 已知问题
 
@@ -44,7 +45,8 @@ OK
 | 编号 | 问题 | 作用范围 | 影响 | 建议处理 |
 | --- | --- | --- | --- | --- |
 | ENV-01 | `python -m unittest` 会失败，`python` 是 Microsoft Store 别名占位 | 仅本机 | **已于 2026-10-22 修复**：把 `Python314` 和 `Python314\Scripts` 前置到用户 PATH，现在 `python -m unittest discover -s tests -v` 可直接执行并返回 17 项通过 | 修改前已备份用户 PATH 到 `%USERPROFILE%\path-user-backup-20261022.txt`，如需回退可直接恢复该文件内容 |
-| ENV-02 | 系统未安装 Node.js 和 npm，现有 Node 来自开发工具内置目录 | 仅本机 | 本机无法执行前端 `npm install` / `vite dev`，10/29 的响应式检查会阻塞 | 10/28 前在本机安装 LTS 版 Node.js（自带 npm） |
+| ENV-02 | 系统未安装 Node.js 和 npm，现有 Node 来自开发工具内置目录 | 仅本机 | **已于 2026-10-22 修复**：安装 Node.js LTS 到 `D:\Edge`，现为 `v24.22.1` + `npm 11.19.1` | 前端初始化后可执行 `npm install` 与 `npm run dev` |
+| ENV-04 | PowerShell 执行策略默认禁止运行 `.ps1`，`npm` 命令报「无法加载文件 …npm.ps1，因为在此系统上禁止运行脚本」 | 仅本机 | **已于 2026-10-22 修复**：设置 `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`（仅影响当前用户，无需管理员） | 如需回退：`Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Undefined`。若不想改策略，也可改用 `npm.cmd` 代替 `npm` |
 | ENV-03 | 仓库尚无 `.gitattributes` | 全仓库 | 换行符由各人本机设置决定，可能出现整文件被判定为修改的假 diff | 由仓库负责人统一添加 `* text=auto` 后再逐次提交，避免一次改动过多文件 |
 
 ## 4. 本次确认
