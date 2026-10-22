@@ -38,11 +38,13 @@ OK
 
 ## 3. 已知问题
 
-| 编号 | 问题 | 影响 | 建议处理 |
-| --- | --- | --- | --- |
-| ENV-01 | `python -m unittest` 会失败，`python` 是 Microsoft Store 别名占位 | README 与文档里的示例命令在这台机器上跑不通，新人容易卡住 | 本机统一用 `py -m unittest`；或在「设置 → 应用 → 高级应用设置 → 应用执行别名」关闭 python.exe 别名后重装 Python |
-| ENV-02 | 系统未安装 Node.js 和 npm，现有 Node 来自开发工具内置目录 | 前端 `npm install` / `vite dev` 无法执行，10/29 的响应式检查会阻塞 | 10/28 前安装 LTS 版 Node.js（自带 npm） |
-| ENV-03 | 仓库尚无 `.gitattributes` | 换行符由各人本机设置决定，可能出现整文件被判定为修改的假 diff | 由仓库负责人统一添加 `* text=auto` 后再逐次提交，避免一次改动过多文件 |
+作用范围说明：**ENV-01 和 ENV-02 只影响本机（Hurry 的开发电脑），不是项目缺陷，也不影响仓库和别人的机器**；ENV-03 属于仓库级问题，影响所有人。
+
+| 编号 | 问题 | 作用范围 | 影响 | 建议处理 |
+| --- | --- | --- | --- | --- |
+| ENV-01 | `python -m unittest` 会失败，`python` 是 Microsoft Store 别名占位 | 仅本机 | 本机按 README 抄命令会失败，需改用 `py -m unittest` | 本机统一用 `py`；或在「设置 → 应用 → 高级应用设置 → 应用执行别名」关闭 python.exe 别名后重装 Python |
+| ENV-02 | 系统未安装 Node.js 和 npm，现有 Node 来自开发工具内置目录 | 仅本机 | 本机无法执行前端 `npm install` / `vite dev`，10/29 的响应式检查会阻塞 | 10/28 前在本机安装 LTS 版 Node.js（自带 npm） |
+| ENV-03 | 仓库尚无 `.gitattributes` | 全仓库 | 换行符由各人本机设置决定，可能出现整文件被判定为修改的假 diff | 由仓库负责人统一添加 `* text=auto` 后再逐次提交，避免一次改动过多文件 |
 
 ## 4. 本次确认
 
