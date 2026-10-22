@@ -1,0 +1,33 @@
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+
+# Python 虚拟环境与缓存
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node.js
+node_modules/
+dist/
+.vite/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 训练结果与日志
+training_runs/*
+!training_runs/.gitkeep
+*.log
+runs/
+
+# 编辑器和系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
