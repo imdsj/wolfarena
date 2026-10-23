@@ -150,8 +150,8 @@ def create_game(
     Args:
         seed: Controls only the role shuffle. The same seed produces the same
             seat-to-role assignment.
-        human_count: Number of human-controlled seats. P0 uses 1 to 3, while
-            0 may be used later for AI-only training games.
+        human_count: Number of human-controlled seats. P0 user games allow
+            1 to 3 (GAME-004); 0 is reserved for AI-only training games.
         player_names: Optional names for seats 1 to 9. Defaults to 玩家1-玩家9.
 
     Raises:
@@ -163,8 +163,10 @@ def create_game(
         raise TypeError("seed 必须是整数")
     if isinstance(human_count, bool) or not isinstance(human_count, int):
         raise TypeError("human_count 必须是整数")
-    if not 0 <= human_count <= 9:
-        raise ValueError("human_count 必须在 0 到 9 之间")
+    # GAME-004 allows 1 to 3 human players in P0 games. Zero is reserved
+    # for AI-only training, while 4 to 9 have no valid game mode.
+    if human_count != 0 and not 1 <= human_count <= 3:
+        raise ValueError("human_count 必须为 0（AI-only）或 1 至 3")
 
     names = (
         [f"玩家{seat}" for seat in range(1, 10)]

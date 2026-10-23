@@ -93,6 +93,16 @@ class GameCreationTests(TestCase):
         self.assertTrue(all(player.is_human for player in state.players[:3]))
         self.assertTrue(all(not player.is_human for player in state.players[3:]))
 
+    def test_human_count_above_three_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            create_game(seed=1, human_count=4)
+
+    def test_zero_human_count_is_allowed_for_ai_only(self) -> None:
+        state = create_game(seed=1, human_count=0)
+
+        self.assertEqual(sum(player.is_human for player in state.players), 0)
+        self.assertTrue(all(not player.is_human for player in state.players))
+
     def test_custom_names_and_player_lookup_work(self) -> None:
         names = [f"选手{number}" for number in range(1, 10)]
         state = create_game(seed=8, player_names=names)

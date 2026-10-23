@@ -19,9 +19,11 @@ create_game(seed: int, human_count: int = 1, player_names=None) -> GameState
 | 主要作用 | 固定生成九名玩家，并按 seed 打乱角色牌堆 |
 | 初始状态 | `phase=INIT`、`day=0`、`night_result=None` |
 | 角色组成 | 3 狼人、3 村民、预言家/女巫/猎人各 1 名 |
-| 错误情况 | seed 类型错误、真人数量越界、昵称不足九个或重复 |
+| 错误情况 | seed 类型错误、真人数量不是 0 或 1 至 3、昵称不足九个或重复 |
 
 同一个 seed 只控制角色分配的随机顺序。使用新的相同 seed 再创建一局时，座位与角色的对应关系一致。
+
+`human_count=0` 仅用于 AI-only 训练局；面向用户的九人局允许 1 至 3 名真人，4 至 9 会被拒绝。
 
 ## 2. `get_player`
 
