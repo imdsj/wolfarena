@@ -1,5 +1,12 @@
 """WolfArena backend package."""
 
+from .ai_growth import (
+    GROWTH_STAGE_ORDER,
+    DecisionRecord,
+    GrowthStage,
+    L0Policy,
+    StrategyRecord,
+)
 from .game_engine import (
     Event,
     EventType,
@@ -28,15 +35,20 @@ from .game_engine import (
 )
 
 __all__ = [
+    "GROWTH_STAGE_ORDER",
+    "DecisionRecord",
     "Event",
     "EventType",
+    "GrowthStage",
     "GameState",
+    "L0Policy",
     "NightResult",
     "PHASE_ORDER",
     "Phase",
     "Player",
     "Role",
     "SPECTATOR_VIEW",
+    "StrategyRecord",
     "Team",
     "Visibility",
     "append_event",
