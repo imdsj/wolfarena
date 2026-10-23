@@ -15,9 +15,16 @@ from .game_engine import (
     append_event,
     check_winner,
     create_game,
+    elect_wolf_captain,
     get_player,
+    get_witch_kill_target,
     get_visible_events,
+    record_wolf_speech,
+    resolve_night,
+    select_wolf_kill,
     start_night,
+    submit_seer_check,
+    submit_witch_action,
 )
 
 __all__ = [
@@ -35,7 +42,14 @@ __all__ = [
     "append_event",
     "check_winner",
     "create_game",
+    "elect_wolf_captain",
     "get_player",
+    "get_witch_kill_target",
     "get_visible_events",
+    "record_wolf_speech",
+    "resolve_night",
+    "select_wolf_kill",
     "start_night",
+    "submit_seer_check",
+    "submit_witch_action",
 ]
