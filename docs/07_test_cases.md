@@ -1,8 +1,8 @@
 # 九人局验收用例清单 V0.1
 
-日期：2026-10-22
+日期：2026-10-23
 
-基线提交：`394fabf`（`docs: document core functions and test evidence`）
+基线提交：`54e0f94`（`feat: model detailed phases and event visibility`）
 
 对应规则：`docs/01_game_rules_v1.md`
 
