@@ -200,7 +200,8 @@
 | 事件代码 | 触发者 | 关键字段 | 默认可见范围 |
 | --- | --- | --- | --- |
 | `GAME_CREATED` | 系统 | `game_id`, `seed`, `players` | 服务端 |
-| `ROLE_ASSIGNED` | 系统 | `player_id`, `role` | 本人和观战者 |
+| `NIGHT_STARTED` | 系统 | `day`, `phase` | 所有人 |
+| `ROLE_ASSIGNED` | 系统 | `player_id`, `role` | 好人本人；狼人身份对狼队和观战者可见 |
 | `WOLF_CAPTAIN_ELECTED` | 狼队 | `captain_id`, `day` | 狼队和观战者 |
 | `WOLF_SPEECH` | 存活狼人 | `actor_id`, `round`, `content` | 狼队和观战者 |
 | `WOLF_KILL_SELECTED` | 狼队长 | `actor_id`, `target_id`, `kill_type` | 狼队和观战者 |

@@ -10,7 +10,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 from random import Random
-from typing import Final, Sequence
+from typing import Final, Mapping, Sequence
 
 
 class Role(str, Enum):
@@ -34,10 +34,19 @@ class Phase(str, Enum):
     """The phases in which players are allowed to act."""
 
     INIT = "INIT"
-    NIGHT = "NIGHT"
+    NIGHT_WOLF_DISCUSSION_R1 = "NIGHT_WOLF_DISCUSSION_R1"
+    NIGHT_WOLF_DISCUSSION_R2 = "NIGHT_WOLF_DISCUSSION_R2"
+    NIGHT_WOLF_KILL = "NIGHT_WOLF_KILL"
+    NIGHT_SEER_CHECK = "NIGHT_SEER_CHECK"
+    NIGHT_WITCH_ACTION = "NIGHT_WITCH_ACTION"
+    NIGHT_RESOLUTION = "NIGHT_RESOLUTION"
+    NIGHT_HUNTER_SHOT = "NIGHT_HUNTER_SHOT"
+    DAY_ANNOUNCEMENT = "DAY_ANNOUNCEMENT"
+    DAY_LAST_WORDS = "DAY_LAST_WORDS"
     DAY_DISCUSSION = "DAY_DISCUSSION"
     SELF_DESTRUCT = "SELF_DESTRUCT"
     VOTE = "VOTE"
+    DAY_HUNTER_SHOT = "DAY_HUNTER_SHOT"
     END = "END"
 
 
@@ -46,6 +55,17 @@ class EventType(str, Enum):
 
     GAME_CREATED = "GAME_CREATED"
     ROLE_ASSIGNED = "ROLE_ASSIGNED"
+    WOLF_CAPTAIN_ELECTED = "WOLF_CAPTAIN_ELECTED"
+    WOLF_SPEECH = "WOLF_SPEECH"
+    WOLF_KILL_SELECTED = "WOLF_KILL_SELECTED"
+    SEER_CHECKED = "SEER_CHECKED"
+    WITCH_USED_ANTIDOTE = "WITCH_USED_ANTIDOTE"
+    WITCH_USED_POISON = "WITCH_USED_POISON"
+    PLAYER_DIED = "PLAYER_DIED"
+    HUNTER_SHOT = "HUNTER_SHOT"
+    SELF_DESTRUCTED = "SELF_DESTRUCTED"
+    VOTE_CAST = "VOTE_CAST"
+    WINNER_DECIDED = "WINNER_DECIDED"
     NIGHT_STARTED = "NIGHT_STARTED"
 
 
@@ -56,6 +76,27 @@ class Visibility(str, Enum):
     PLAYER = "player"
     WOLVES = "wolves"
     GOD = "god"
+
+
+PHASE_ORDER: Final[tuple[Phase, ...]] = (
+    Phase.INIT,
+    Phase.NIGHT_WOLF_DISCUSSION_R1,
+    Phase.NIGHT_WOLF_DISCUSSION_R2,
+    Phase.NIGHT_WOLF_KILL,
+    Phase.NIGHT_SEER_CHECK,
+    Phase.NIGHT_WITCH_ACTION,
+    Phase.NIGHT_RESOLUTION,
+    Phase.NIGHT_HUNTER_SHOT,
+    Phase.DAY_ANNOUNCEMENT,
+    Phase.DAY_LAST_WORDS,
+    Phase.DAY_DISCUSSION,
+    Phase.SELF_DESTRUCT,
+    Phase.VOTE,
+    Phase.DAY_HUNTER_SHOT,
+    Phase.END,
+)
+
+SPECTATOR_VIEW: Final[str] = "spectator"
 
 
 ROLE_DECK: Final[tuple[Role, ...]] = (
@@ -140,6 +181,37 @@ class GameState:
         return Counter(player.role for player in self.players)
 
 
+def append_event(
+    state: GameState,
+    event_type: EventType,
+    *,
+    actor_id: str | None = None,
+    target_id: str | None = None,
+    visibility: Visibility = Visibility.PUBLIC,
+    visible_to: Sequence[str] = (),
+    data: Mapping[str, object] | None = None,
+) -> Event:
+    """Append one event while enforcing a contiguous event sequence."""
+
+    expected_seq = len(state.events)
+    if state.events and state.events[-1].event_seq != expected_seq - 1:
+        raise ValueError("事件序号必须从 0 开始连续递增")
+
+    event = Event(
+        event_seq=expected_seq,
+        event_type=event_type,
+        day=state.day,
+        phase=state.phase,
+        actor_id=actor_id,
+        target_id=target_id,
+        visibility=visibility,
+        visible_to=tuple(dict.fromkeys(visible_to)),
+        data=dict(data or {}),
+    )
+    state.events.append(event)
+    return event
+
+
 def create_game(
     seed: int,
     human_count: int = 1,
@@ -201,41 +273,31 @@ def create_game(
         for seat in range(1, 10)
     ]
 
-    events = [
-        Event(
-            event_seq=0,
-            event_type=EventType.GAME_CREATED,
-            day=0,
-            phase=Phase.INIT,
-            actor_id=None,
-            target_id=None,
-            visibility=Visibility.GOD,
-            data={"seed": seed, "human_count": human_count},
-        )
-    ]
-    for event_seq, player in enumerate(players, start=1):
-        events.append(
-            Event(
-                event_seq=event_seq,
-                event_type=EventType.ROLE_ASSIGNED,
-                day=0,
-                phase=Phase.INIT,
-                actor_id=None,
-                target_id=player.player_id,
-                visibility=Visibility.PLAYER,
-                visible_to=(player.player_id,),
-                data={"role": player.role.value},
-            )
-        )
-
-    return GameState(
+    state = GameState(
         seed=seed,
         players=players,
         phase=Phase.INIT,
         day=0,
         night_result=None,
-        events=events,
     )
+    append_event(
+        state,
+        EventType.GAME_CREATED,
+        visibility=Visibility.GOD,
+        data={"seed": seed, "human_count": human_count},
+    )
+    for player in players:
+        is_wolf = player.role is Role.WEREWOLF
+        append_event(
+            state,
+            EventType.ROLE_ASSIGNED,
+            target_id=player.player_id,
+            visibility=Visibility.WOLVES if is_wolf else Visibility.PLAYER,
+            visible_to=() if is_wolf else (player.player_id,),
+            data={"role": player.role.value},
+        )
+
+    return state
 
 
 def get_player(state: GameState, identifier: str) -> Player:
@@ -263,21 +325,49 @@ def start_night(state: GameState) -> GameState:
         raise ValueError(f"当前阶段不能开始夜晚：{state.phase.value}")
 
     state.day += 1
-    state.phase = Phase.NIGHT
+    state.phase = Phase.NIGHT_WOLF_DISCUSSION_R1
     state.night_result = NightResult()
-    state.events.append(
-        Event(
-            event_seq=len(state.events),
-            event_type=EventType.NIGHT_STARTED,
-            day=state.day,
-            phase=state.phase,
-            actor_id=None,
-            target_id=None,
-            visibility=Visibility.PUBLIC,
-            data={"day": state.day},
-        )
+    append_event(
+        state,
+        EventType.NIGHT_STARTED,
+        visibility=Visibility.PUBLIC,
+        data={"day": state.day},
     )
     return state
+
+
+def get_visible_events(
+    state: GameState,
+    viewer: Player | str,
+) -> tuple[Event, ...]:
+    """Return events visible to a player or to the authenticated spectator."""
+
+    if viewer == SPECTATOR_VIEW:
+        return tuple(state.events)
+
+    player = viewer if isinstance(viewer, Player) else get_player(state, viewer)
+    if not any(candidate is player for candidate in state.players):
+        raise ValueError("玩家不属于当前游戏")
+    if state.phase is Phase.END:
+        return tuple(state.events)
+
+    visible_events: list[Event] = []
+    for event in state.events:
+        if event.visibility is Visibility.PUBLIC:
+            visible_events.append(event)
+        elif (
+            event.visibility is Visibility.PLAYER
+            and player.player_id in event.visible_to
+        ):
+            visible_events.append(event)
+        elif (
+            event.visibility is Visibility.WOLVES
+            and player.is_alive
+            and player.role is Role.WEREWOLF
+        ):
+            visible_events.append(event)
+
+    return tuple(visible_events)
 
 
 def check_winner(state: GameState) -> Team | None:

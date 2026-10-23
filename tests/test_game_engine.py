@@ -4,16 +4,21 @@ from collections import Counter
 from unittest import TestCase
 
 from backend.game_engine import (
+    Event,
     EventType,
     GameState,
     NightResult,
+    PHASE_ORDER,
     Phase,
     Role,
+    SPECTATOR_VIEW,
     Team,
     Visibility,
+    append_event,
     check_winner,
     create_game,
     get_player,
+    get_visible_events,
     start_night,
 )
 
@@ -112,20 +117,35 @@ class GameCreationTests(TestCase):
         with self.assertRaises(KeyError):
             get_player(state, "不存在")
 
-    def test_role_assignment_events_are_private_and_complete(self) -> None:
+    def test_role_assignment_events_follow_team_visibility(self) -> None:
         state = create_game(seed=3)
         role_events = [
             event
             for event in state.events
             if event.event_type is EventType.ROLE_ASSIGNED
         ]
+        role_by_player = {
+            player.player_id: player.role for player in state.players
+        }
 
         self.assertEqual(len(state.events), 10)
         self.assertEqual(len(role_events), 9)
         self.assertTrue(
-            all(event.visibility is Visibility.PLAYER for event in role_events)
+            all(
+                event.visibility is Visibility.WOLVES
+                if role_by_player[event.target_id] is Role.WEREWOLF
+                else event.visibility is Visibility.PLAYER
+                for event in role_events
+            )
         )
-        self.assertTrue(all(len(event.visible_to) == 1 for event in role_events))
+        self.assertTrue(
+            all(
+                len(event.visible_to) == 0
+                if role_by_player[event.target_id] is Role.WEREWOLF
+                else event.visible_to == (event.target_id,)
+                for event in role_events
+            )
+        )
         self.assertEqual(
             {event.target_id for event in role_events},
             {player.player_id for player in state.players},
@@ -150,7 +170,7 @@ class NightTransitionTests(TestCase):
 
         self.assertIs(returned_state, state)
         self.assertEqual(state.day, 1)
-        self.assertEqual(state.phase, Phase.NIGHT)
+        self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
         self.assertIsInstance(state.night_result, NightResult)
         self.assertEqual(state.events[-1].event_type, EventType.NIGHT_STARTED)
         self.assertEqual(state.events[-1].day, 1)
@@ -169,7 +189,7 @@ class NightTransitionTests(TestCase):
         start_night(state)
 
         self.assertEqual(state.day, 1)
-        self.assertEqual(state.phase, Phase.NIGHT)
+        self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
 
 
 class WinnerCheckTests(TestCase):
@@ -225,7 +245,7 @@ class NightTransitionEdgeTests(TestCase):
         start_night(state)
 
         self.assertEqual(state.day, 1)
-        self.assertEqual(state.phase, Phase.NIGHT)
+        self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
 
     def test_start_night_rejects_day_discussion_phase(self) -> None:
         state = create_game(seed=15)
@@ -245,3 +265,163 @@ class NightTransitionEdgeTests(TestCase):
             start_night(state)
 
         self.assertEqual(state.phase, Phase.END)
+
+
+class PhaseAndEventModelTests(TestCase):
+    def test_phase_order_and_values_are_stable_and_unique(self) -> None:
+        expected_phases = (
+            Phase.INIT,
+            Phase.NIGHT_WOLF_DISCUSSION_R1,
+            Phase.NIGHT_WOLF_DISCUSSION_R2,
+            Phase.NIGHT_WOLF_KILL,
+            Phase.NIGHT_SEER_CHECK,
+            Phase.NIGHT_WITCH_ACTION,
+            Phase.NIGHT_RESOLUTION,
+            Phase.NIGHT_HUNTER_SHOT,
+            Phase.DAY_ANNOUNCEMENT,
+            Phase.DAY_LAST_WORDS,
+            Phase.DAY_DISCUSSION,
+            Phase.SELF_DESTRUCT,
+            Phase.VOTE,
+            Phase.DAY_HUNTER_SHOT,
+            Phase.END,
+        )
+
+        self.assertEqual(PHASE_ORDER, expected_phases)
+        self.assertEqual(tuple(Phase), expected_phases)
+        self.assertEqual(len(Phase), len({phase.value for phase in Phase}))
+
+    def test_required_event_types_are_stable_and_unique(self) -> None:
+        required_event_values = {
+            "GAME_CREATED",
+            "ROLE_ASSIGNED",
+            "WOLF_CAPTAIN_ELECTED",
+            "WOLF_SPEECH",
+            "WOLF_KILL_SELECTED",
+            "SEER_CHECKED",
+            "WITCH_USED_ANTIDOTE",
+            "WITCH_USED_POISON",
+            "PLAYER_DIED",
+            "HUNTER_SHOT",
+            "SELF_DESTRUCTED",
+            "VOTE_CAST",
+            "WINNER_DECIDED",
+        }
+
+        self.assertTrue(required_event_values <= {item.value for item in EventType})
+        self.assertEqual(
+            len(EventType),
+            len({event_type.value for event_type in EventType}),
+        )
+
+    def test_event_sequence_is_contiguous(self) -> None:
+        state = create_game(seed=31)
+        start_night(state)
+        append_event(
+            state,
+            EventType.WOLF_SPEECH,
+            visibility=Visibility.WOLVES,
+            data={"round": 1},
+        )
+
+        event_sequences = [event.event_seq for event in state.events]
+        self.assertEqual(event_sequences, list(range(len(state.events))))
+        self.assertIsInstance(state.events[-1], Event)
+
+    def test_every_event_keeps_required_fields(self) -> None:
+        state = create_game(seed=32)
+        event = state.events[0]
+        required_fields = {
+            "event_seq",
+            "event_type",
+            "day",
+            "phase",
+            "actor_id",
+            "target_id",
+            "visibility",
+            "visible_to",
+            "data",
+        }
+
+        self.assertEqual(set(event.__dataclass_fields__), required_fields)
+
+
+class EventVisibilityTests(TestCase):
+    def test_player_wolf_and_spectator_views_are_different(self) -> None:
+        state = create_game(seed=33)
+        start_night(state)
+        player = next(player for player in state.players if player.role is Role.SEER)
+        wolf = next(player for player in state.players if player.role is Role.WEREWOLF)
+
+        private_event = append_event(
+            state,
+            EventType.SEER_CHECKED,
+            actor_id=player.player_id,
+            target_id=wolf.player_id,
+            visibility=Visibility.PLAYER,
+            visible_to=(player.player_id,),
+            data={"result": "wolf"},
+        )
+        wolf_event = append_event(
+            state,
+            EventType.WOLF_SPEECH,
+            actor_id=wolf.player_id,
+            visibility=Visibility.WOLVES,
+            data={"round": 1},
+        )
+        god_event = append_event(
+            state,
+            EventType.WOLF_KILL_SELECTED,
+            actor_id=wolf.player_id,
+            target_id=player.player_id,
+            visibility=Visibility.GOD,
+        )
+
+        player_event_ids = {
+            event.event_seq for event in get_visible_events(state, player)
+        }
+        wolf_event_ids = {
+            event.event_seq for event in get_visible_events(state, wolf.player_id)
+        }
+        spectator_event_ids = {
+            event.event_seq for event in get_visible_events(state, SPECTATOR_VIEW)
+        }
+
+        self.assertIn(private_event.event_seq, player_event_ids)
+        self.assertNotIn(wolf_event.event_seq, player_event_ids)
+        self.assertNotIn(god_event.event_seq, player_event_ids)
+
+        self.assertIn(wolf_event.event_seq, wolf_event_ids)
+        self.assertNotIn(private_event.event_seq, wolf_event_ids)
+        self.assertNotIn(god_event.event_seq, wolf_event_ids)
+
+        self.assertEqual(
+            spectator_event_ids,
+            {event.event_seq for event in state.events},
+        )
+        self.assertNotEqual(player_event_ids, wolf_event_ids)
+        self.assertNotEqual(player_event_ids, spectator_event_ids)
+
+    def test_dead_wolf_loses_team_view_until_game_end(self) -> None:
+        state = create_game(seed=34)
+        start_night(state)
+        wolf = next(player for player in state.players if player.role is Role.WEREWOLF)
+        wolf_event = append_event(
+            state,
+            EventType.WOLF_SPEECH,
+            actor_id=wolf.player_id,
+            visibility=Visibility.WOLVES,
+            data={"round": 1},
+        )
+
+        wolf.is_alive = False
+        hidden_event_ids = {
+            event.event_seq for event in get_visible_events(state, wolf)
+        }
+        self.assertNotIn(wolf_event.event_seq, hidden_event_ids)
+
+        state.phase = Phase.END
+        revealed_event_ids = {
+            event.event_seq for event in get_visible_events(state, wolf)
+        }
+        self.assertIn(wolf_event.event_seq, revealed_event_ids)

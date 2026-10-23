@@ -53,10 +53,10 @@ start_night(state: GameState) -> GameState
 | --- | --- |
 | 输入 | 当前 `GameState` |
 | 输出 | 更新后的同一个 `GameState` |
-| 主要作用 | 天数加一，阶段切换为 `NIGHT`，清空旧的夜间结果 |
+| 主要作用 | 天数加一，阶段切换为 `NIGHT_WOLF_DISCUSSION_R1`，清空旧的夜间结果 |
 | 可进入夜晚的阶段 | `INIT`、`VOTE`、`SELF_DESTRUCT` |
 | 当前不负责 | 狼人讨论、刀人、查验、女巫用药、死亡和猎人开枪 |
-| 错误情况 | 已经在 `NIGHT` 或游戏已经结束时拒绝重复切换 |
+| 错误情况 | 已经处于任一 `NIGHT_*` 阶段或游戏已经结束时拒绝重复切换 |
 
 调用后可以选择：
 
@@ -86,7 +86,48 @@ check_winner(state: GameState) -> Team | None
 
 若两个条件同时成立，先判断狼人是否全灭，因此好人阵营获胜。
 
-## 5. 当前验收基线
+## 5. `append_event`
+
+调用形式：
+
+```python
+append_event(state: GameState, event_type: EventType, ...) -> Event
+```
+
+该函数自动写入当前的 `day` 和 `phase`，并使用 `len(state.events)` 生成连续的 `event_seq`。所有新事件都应通过该函数追加，避免手写序号造成重复或跳号。
+
+每个事件固定包含：
+
+```text
+event_seq
+event_type
+day
+phase
+actor_id
+target_id
+visibility
+visible_to
+data
+```
+
+## 6. `get_visible_events`
+
+调用形式：
+
+```python
+get_visible_events(state: GameState, viewer: Player | str) -> tuple[Event, ...]
+```
+
+| 视角 | 输入方式 | 可见内容 |
+| --- | --- | --- |
+| 普通玩家 | `Player` 或玩家编号 | 公共事件和明确发给自己的私有事件 |
+| 存活狼人 | 狼人 `Player` 或狼人编号 | 公共事件、本人私有事件和狼队事件 |
+| 观战者 | `SPECTATOR_VIEW` | 全部事件 |
+| 已结束的游戏 | 任意玩家 | 全部事件 |
+
+死亡狼人不再获得新的狼队视角事件；游戏进入 `END` 后统一揭示。
+
+## 7. 当前验收基线
 
 运行：
 
@@ -94,7 +135,7 @@ check_winner(state: GameState) -> Team | None
 python -m unittest discover -s tests -v
 ```
 
-功能提交 `a969d0c` 的基线结果是 17 项测试通过。测试把创建、查询、阶段切换和胜负判断分开验证，不使用界面操作代替规则检查。
+当前基线结果是 28 项测试通过。测试把创建、查询、阶段切换、胜负判断、事件序号和三类视角的可见性分开验证，不使用界面操作代替规则检查。
 
 学习这四个函数时应能回答：
 

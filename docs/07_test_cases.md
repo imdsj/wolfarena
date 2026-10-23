@@ -10,7 +10,7 @@
 
 ## 1. 已有自动化测试覆盖的规则
 
-以下规则已由 `tests/test_game_engine.py` 的 20 项测试验证，执行 `python -m unittest discover -s tests -v` 即可复现，本清单不再重复。
+以下规则已由 `tests/test_game_engine.py` 的 28 项测试验证，执行 `python -m unittest discover -s tests -v` 即可复现，本清单不再重复。
 
 | 已覆盖内容 | 规则编号 |
 | --- | --- |
@@ -19,11 +19,14 @@
 | 同一 `seed` 角色分配可复现 | WOLF-002 的前提条件 |
 | 非法输入被拒绝（人数越界、昵称不足、昵称重复、seed 类型错误） | GAME-001 的输入校验 |
 | 初始阶段 `INIT`、第 0 天、无夜间结果 | GAME-003 |
-| `start_night` 推进到第 1 天 `NIGHT` 并写入事件 | 夜晚顺序第 1 步前置 |
+| `start_night` 推进到第 1 天 `NIGHT_WOLF_DISCUSSION_R1` 并写入事件 | 夜晚顺序第 1 步前置 |
 | 同一夜晚重复调用 `start_night` 被拒绝 | 阶段校验 |
 | 可从 `SELF_DESTRUCT` 进入下一夜；`DAY_DISCUSSION`、`END` 阶段被拒绝 | DESTRUCT-008、白天流程第 7 步 |
 | 胜负判定三种情况与同时成立的优先级 | WIN-001 至 WIN-004 |
-| 身份事件为私有可见、每人一条 | 2.1 可见性表、VIEW-002 |
+| 15 个阶段顺序固定，阶段值和事件值不重复 | 规则第 4、9 章 |
+| 每个事件包含固定的九个字段，且 `event_seq` 从 0 连续递增 | 规则第 9 章 |
+| 普通玩家、存活狼人和观战者得到的过滤结果不同 | 2.1 可见性表、VIEW-001 至 VIEW-004 |
+| 身份事件按角色阵营设置可见范围，死亡狼人失去狼队视角 | 2.1 可见性表、VIEW-002 |
 
 ## 2. 待实现功能的验收用例
 
@@ -70,9 +73,9 @@
 
 | 编号 | 现象 | 影响 |
 | --- | --- | --- |
-| GAP-05 | `Phase` 只有 `INIT`、`NIGHT`、`DAY_DISCUSSION`、`SELF_DESTRUCT`、`VOTE`、`END` 六个；规则文档要求 15 个细分阶段（`NIGHT_WOLF_DISCUSSION_R1`、`NIGHT_WOLF_KILL`、`NIGHT_WITCH_ACTION`、`DAY_ANNOUNCEMENT`、`DAY_LAST_WORDS`、`DAY_HUNTER_SHOT` 等） | WOLF-013「不得在投票阶段或夜间自爆」和 DESTRUCT-001「只能在 `DAY_DISCUSSION` 自爆」目前无法精确校验；女巫也分不清自己是否处在行动阶段 |
-| GAP-06 | `EventType` 只有 `GAME_CREATED`、`ROLE_ASSIGNED`、`NIGHT_STARTED`，规则第 9 章要求的另外 10 个事件（`WOLF_CAPTAIN_ELECTED`、`WOLF_SPEECH`、`WOLF_KILL_SELECTED`、`SEER_CHECKED`、`WITCH_USED_ANTIDOTE`、`WITCH_USED_POISON`、`PLAYER_DIED`、`HUNTER_SHOT`、`SELF_DESTRUCTED`、`VOTE_CAST`、`WINNER_DECIDED`）尚未定义 | 事件表是可见性校验的入口，缺事件就无法按规则 2.1 做信息隔离 |
-| GAP-07 | `Visibility` 已支持 `PUBLIC`、`PLAYER`、`WOLVES`、`GOD` 四档 | 结构上支持 VIEW-001 至 VIEW-004，但需要 `get_visible_events` 实现后才能验证 TC-09，不能只靠界面隐藏 |
+| GAP-05 | `Phase` 已升级为规则要求的 15 个稳定阶段，并由 `PHASE_ORDER` 固定顺序 | **已解决**：`start_night` 进入 `NIGHT_WOLF_DISCUSSION_R1`，不再保留粗粒度 `NIGHT` |
+| GAP-06 | `EventType` 已覆盖规则第 9 章的 13 个事件，并保留阶段开始事件 `NIGHT_STARTED` | **已解决**：枚举值唯一，测试验证必需事件全部存在 |
+| GAP-07 | `Visibility` 支持 `PUBLIC`、`PLAYER`、`WOLVES`、`GOD` | **已解决**：`get_visible_events` 已实现，测试验证普通玩家、存活狼人、观战者和游戏结束视角 |
 
 ## 5. 执行与记录方式
 
