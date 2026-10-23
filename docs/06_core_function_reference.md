@@ -135,7 +135,7 @@ get_visible_events(state: GameState, viewer: Player | str) -> tuple[Event, ...]
 python -m unittest discover -s tests -v
 ```
 
-当前基线结果是 28 项测试通过。测试把创建、查询、阶段切换、胜负判断、事件序号和三类视角的可见性分开验证，不使用界面操作代替规则检查。
+当前基线结果是 54 项测试通过。测试把创建、查询、阶段切换、夜间行动、死亡结算、胜负判断、事件序号和三类视角的可见性分开验证，不使用界面操作代替规则检查。
 
 学习这四个函数时应能回答：
 
