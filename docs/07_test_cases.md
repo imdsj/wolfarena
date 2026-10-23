@@ -2,7 +2,7 @@
 
 日期：2026-10-23
 
-基线提交：`82aa5d1`（`feat: implement authoritative night actions and resolution`）
+基线提交：`629e1c7`（`docs: record L0 baseline and blocked growth metrics`）
 
 对应规则：`docs/01_game_rules_v1.md`
 
