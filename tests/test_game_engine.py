@@ -203,3 +203,35 @@ class WinnerCheckTests(TestCase):
         self.assertIsNone(check_winner(state))
         wolves[1].is_alive = False
         self.assertIsNone(check_winner(state))
+
+
+class NightTransitionEdgeTests(TestCase):
+    """Boundary cases for entering the night phase (GAME-003, DESTRUCT-008)."""
+
+    def test_start_night_from_self_destruct_phase(self) -> None:
+        state = create_game(seed=14)
+        state.phase = Phase.SELF_DESTRUCT
+
+        start_night(state)
+
+        self.assertEqual(state.day, 1)
+        self.assertEqual(state.phase, Phase.NIGHT)
+
+    def test_start_night_rejects_day_discussion_phase(self) -> None:
+        state = create_game(seed=15)
+        state.phase = Phase.DAY_DISCUSSION
+
+        with self.assertRaises(ValueError):
+            start_night(state)
+
+        self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
+        self.assertEqual(state.day, 0)
+
+    def test_start_night_rejects_finished_game(self) -> None:
+        state = create_game(seed=16)
+        state.phase = Phase.END
+
+        with self.assertRaises(ValueError):
+            start_night(state)
+
+        self.assertEqual(state.phase, Phase.END)
