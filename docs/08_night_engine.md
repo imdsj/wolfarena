@@ -20,7 +20,7 @@ INIT
 → DAY_ANNOUNCEMENT
 ```
 
-已经死亡的预言家或女巫会被自动跳过。猎人有开枪资格时，`resolve_night` 停在 `NIGHT_HUNTER_SHOT`；本版本只记录资格，尚未实现猎人选择目标和开枪。
+已经死亡的预言家或女巫会被自动跳过。猎人有开枪资格时，`resolve_night` 停在 `NIGHT_HUNTER_SHOT`，随后由 `submit_night_hunter_shot` 完成开枪或不开枪。
 
 ## 2. 服务端接口
 
@@ -33,6 +33,7 @@ INIT
 | `get_witch_kill_target` | 状态、女巫编号 | 刀口编号或 `None` | 按解药持有状态返回女巫可见刀口 |
 | `submit_witch_action` | 状态、女巫编号、动作、目标 | 更新后的状态 | 提交救人、毒人或不用药 |
 | `resolve_night` | 状态 | 更新后的状态 | 合并死亡、隐藏死因并检查胜负 |
+| `submit_night_hunter_shot` | 状态、猎人编号、目标或 `None` | 更新后的状态 | 完成夜间猎人开枪 |
 | `get_visible_events` | 状态、玩家或观战者 | 事件元组 | 按视角过滤和脱敏事件 |
 
 玩家动作统一按以下顺序校验：
@@ -114,12 +115,6 @@ INIT
 
 ## 8. 当前明确未实现
 
-- 夜间猎人选择开枪目标和结算。
-- `DAY_ANNOUNCEMENT` 之后的白日流程。
-- 白天公开发言和发言顺序。
-- 投票、弃权和放逐。
-- 自爆与 10 秒自爆窗口。
-- 白天猎人开枪和被带走者遗言。
 - 前端动画、计时器和 DeepSeek 动作生成。
 
-这些功能不得在测试、README 或展示材料中描述为已经完成。
+白天服务端流程见 `docs/10_day_engine.md`。前端、真实计时器和 DeepSeek 仍不得描述为已经完成。

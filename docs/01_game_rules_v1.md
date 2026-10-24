@@ -212,6 +212,8 @@
 | `HUNTER_SHOT` | 猎人 | `actor_id`, `target_id` | 白天公开；夜间仅本人和观战者 |
 | `SELF_DESTRUCTED` | 狼人 | `actor_id`, `revealed_role` | 所有人 |
 | `VOTE_CAST` | 存活玩家 | `actor_id`, `target_id` 或 `null` | 投票结束后公开 |
+| `PUBLIC_SPEECH` | 存活玩家 | `actor_id`, `content` | 所有人 |
+| `LAST_WORDS` | 合法死亡玩家 | `actor_id`, `content` | 所有人 |
 | `WINNER_DECIDED` | 系统 | `winner`, `reason` | 所有人 |
 
 `PLAYER_DIED.causes` 使用以下固定值：
