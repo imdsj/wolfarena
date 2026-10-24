@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import type { GameEvent, RoomSnapshot } from "../types";
 import ConnectionStatus from "./ConnectionStatus.vue";
@@ -25,6 +25,8 @@ const emit = defineEmits<{
   reconnect: [];
   leave: [];
 }>();
+
+const copyLabel = ref("复制房间号");
 
 const humanCount = computed(
   () => props.room.players.filter((player) => player.is_human).length,
@@ -58,13 +60,32 @@ const phaseLabels: Record<string, string> = {
 function phaseLabel(phase: string): string {
   return phaseLabels[phase] ?? phase;
 }
+
+async function copyRoomId(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(props.room.room_id);
+    copyLabel.value = "已复制";
+    window.setTimeout(() => {
+      copyLabel.value = "复制房间号";
+    }, 1500);
+  } catch {
+    copyLabel.value = "请手动选择";
+  }
+}
 </script>
 
 <template>
   <section class="room-shell">
     <header class="room-header">
       <div>
-        <div class="eyebrow">房间 {{ room.room_id }}</div>
+        <div class="room-identity">
+          <div class="eyebrow room-code">
+            房间 <code>{{ room.room_id }}</code>
+          </div>
+          <button class="text-button copy-room-id" type="button" @click="copyRoomId">
+            {{ copyLabel }}
+          </button>
+        </div>
         <h1>{{ phaseLabel(room.phase) }}</h1>
       </div>
       <button class="text-button" type="button" @click="emit('leave')">

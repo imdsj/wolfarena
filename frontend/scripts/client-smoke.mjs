@@ -11,6 +11,7 @@ const baseUrl = process.env.WOLFARENA_SMOKE_URL ?? "http://127.0.0.1:8010";
 const window = new Window({ url: `${baseUrl}/` });
 window.document.body.innerHTML = '<div id="app"></div>';
 const nativeFetch = globalThis.fetch;
+let createdRoomId = "";
 
 Object.assign(globalThis, {
   window,
@@ -26,7 +27,13 @@ Object.assign(globalThis, {
       typeof input === "string" && input.startsWith("/")
         ? `${baseUrl}${input}`
         : input;
-    return nativeFetch(target, init);
+    return nativeFetch(target, init).then(async (response) => {
+      if (target === `${baseUrl}/api/rooms` && init?.method === "POST") {
+        const payload = await response.clone().json();
+        createdRoomId = payload.room_id;
+      }
+      return response;
+    });
   },
 });
 
@@ -67,6 +74,30 @@ buttonByText("创建房间").click();
 await waitFor(".room-shell");
 await waitFor('.connection-status[data-state="connected"]');
 const createdPhase = document.querySelector(".room-header h1")?.textContent?.trim();
+const displayedRoomId = document
+  .querySelector(".room-code code")
+  ?.textContent?.trim();
+const exactJoinResponse = await nativeFetch(
+  `${baseUrl}/api/rooms/${encodeURIComponent(createdRoomId)}/join`,
+  {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ nickname: "ExactCasePlayer" }),
+  },
+);
+const uppercaseRoomId = createdRoomId.toUpperCase();
+let uppercaseJoinStatus = null;
+if (uppercaseRoomId !== createdRoomId) {
+  const uppercaseJoinResponse = await nativeFetch(
+    `${baseUrl}/api/rooms/${encodeURIComponent(uppercaseRoomId)}/join`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ nickname: "UppercasePlayer" }),
+    },
+  );
+  uppercaseJoinStatus = uppercaseJoinResponse.status;
+}
 
 buttonByText("AI 推荐并执行").click();
 const fallbackNotice = await waitFor(".ai-notice");
@@ -91,6 +122,11 @@ console.log(
   JSON.stringify(
     {
       createdPhase,
+      createdRoomId,
+      displayedRoomId,
+      roomIdDisplayedExactly: createdRoomId === displayedRoomId,
+      exactJoinStatus: exactJoinResponse.status,
+      uppercaseJoinStatus,
       phaseAfterAction,
       fallbackNotice: fallbackNotice.textContent?.trim(),
       connectionText,

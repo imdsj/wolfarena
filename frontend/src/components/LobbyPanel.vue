@@ -66,6 +66,8 @@ function joinRoom(): void {
         v-model="form.roomId"
         maxlength="32"
         autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
         placeholder="粘贴房主发来的房间号"
       />
     </label>

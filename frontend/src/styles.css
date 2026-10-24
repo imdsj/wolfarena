@@ -179,6 +179,27 @@ h2 {
   font-size: clamp(26px, 5vw, 42px);
 }
 
+.room-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.room-code {
+  text-transform: none;
+}
+
+.room-code code {
+  color: #2a332b;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.copy-room-id {
+  font-size: 12px;
+}
+
 .connection-status {
   justify-content: flex-start;
   width: fit-content;

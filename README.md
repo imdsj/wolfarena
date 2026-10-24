@@ -87,6 +87,9 @@ python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
 读取房间时必须把创建或加入时返回的 `player_token` 放入
 `X-Player-Token` 请求头。房间数据当前保存在进程内存中，服务重启后清空。
 
+房间号区分大小写。页面会原样显示混合大小写的房间号，并提供“复制房间号”
+按钮；不要手动转成全大写或全小写。
+
 WebSocket URL 只包含房间号。连接后的第一条消息必须完成认证：
 
 ```json
