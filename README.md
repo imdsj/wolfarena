@@ -145,7 +145,7 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **147 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **148 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 

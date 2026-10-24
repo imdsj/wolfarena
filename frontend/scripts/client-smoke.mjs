@@ -85,6 +85,15 @@ const exactJoinResponse = await nativeFetch(
     body: JSON.stringify({ nickname: "ExactCasePlayer" }),
   },
 );
+let hostUpdatedAfterJoin = false;
+const joinUpdateDeadline = Date.now() + 5000;
+while (Date.now() < joinUpdateDeadline) {
+  if ((document.querySelector(".metric-grid")?.textContent ?? "").includes("2 / 7")) {
+    hostUpdatedAfterJoin = true;
+    break;
+  }
+  await delay(50);
+}
 const uppercaseRoomId = createdRoomId.toUpperCase();
 let uppercaseJoinStatus = null;
 if (uppercaseRoomId !== createdRoomId) {
@@ -126,6 +135,7 @@ console.log(
       displayedRoomId,
       roomIdDisplayedExactly: createdRoomId === displayedRoomId,
       exactJoinStatus: exactJoinResponse.status,
+      hostUpdatedAfterJoin,
       uppercaseJoinStatus,
       phaseAfterAction,
       fallbackNotice: fallbackNotice.textContent?.trim(),

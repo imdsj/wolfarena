@@ -93,3 +93,15 @@ class RealtimeHub:
                         "event_seq": mutation.current_event_seq,
                     },
                 )
+                snapshot = self._repository.snapshot_for_access(
+                    mutation.room,
+                    connection.access,
+                )
+                await self.send(
+                    connection,
+                    {
+                        "type": "snapshot",
+                        "event_seq": mutation.current_event_seq,
+                        "room": snapshot.model_dump(mode="json"),
+                    },
+                )

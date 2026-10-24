@@ -384,6 +384,38 @@ class VisibilityTests(WebSocketTestBase):
 
 
 class ReconnectAndActionTests(WebSocketTestBase):
+    def test_existing_player_receives_updated_snapshot_after_join(self) -> None:
+        room = self.create_room(seed=1)
+        with self.client.websocket_connect(
+            f"/ws/rooms/{room['room_id']}"
+        ) as host_socket:
+            self.authenticate_player(
+                host_socket,
+                room["player_token"],
+                room["room_id"],
+            )
+            self.join_room(room["room_id"], "SecondPlayer")
+
+            messages = []
+            while True:
+                message = host_socket.receive_json()
+                messages.append(message)
+                if message["type"] == "snapshot":
+                    break
+
+        event_types = [
+            message["event_type"]
+            for message in messages
+            if message["type"] == "event"
+        ]
+        snapshot = messages[-1]["room"]
+        self.assertIn("PLAYER_JOINED", event_types)
+        self.assertEqual(snapshot["human_count"], 2)
+        self.assertEqual(
+            sum(player["is_human"] for player in snapshot["players"]),
+            2,
+        )
+
     def test_reconnect_keeps_seat_and_current_phase(self) -> None:
         room = self.create_room(seed=1)
         url = f"/ws/rooms/{room['room_id']}"
