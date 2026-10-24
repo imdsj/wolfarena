@@ -65,6 +65,8 @@ class EventType(str, Enum):
     HUNTER_SHOT = "HUNTER_SHOT"
     SELF_DESTRUCTED = "SELF_DESTRUCTED"
     VOTE_CAST = "VOTE_CAST"
+    PUBLIC_SPEECH = "PUBLIC_SPEECH"
+    LAST_WORDS = "LAST_WORDS"
     WINNER_DECIDED = "WINNER_DECIDED"
     NIGHT_STARTED = "NIGHT_STARTED"
 
@@ -157,6 +159,26 @@ class NightResult:
     death_causes: dict[str, list[str]] = field(default_factory=dict)
 
 
+@dataclass(slots=True)
+class DayResult:
+    """State for the current public day."""
+
+    announced_death_ids: list[str] = field(default_factory=list)
+    last_words_queue: list[str] = field(default_factory=list)
+    last_words_done: list[str] = field(default_factory=list)
+    speech_order: list[str] = field(default_factory=list)
+    next_speaker_index: int = 0
+    self_destruct_ids: list[str] = field(default_factory=list)
+    self_destruct_deadline: float | None = None
+    votes: dict[str, str | None] = field(default_factory=dict)
+    banished_id: str | None = None
+    day_hunter_can_shoot: bool = False
+    day_hunter_target_id: str | None = None
+    death_causes: dict[str, list[str]] = field(default_factory=dict)
+    after_last_words_phase: Phase | None = None
+    resolved: bool = False
+
+
 @dataclass(frozen=True)
 class Event:
     """A structured fact that happened during the game."""
@@ -184,6 +206,7 @@ class GameState:
     phase: Phase = Phase.INIT
     day: int = 0
     night_result: NightResult | None = None
+    day_result: DayResult | None = None
     events: list[Event] = field(default_factory=list)
 
     def role_counts(self) -> Counter[Role]:
@@ -328,6 +351,31 @@ def _night_result_or_error(state: GameState) -> NightResult:
     return state.night_result
 
 
+def _choose_wolf_captain(
+    state: GameState,
+    captain_id: str | None,
+    selection_day: int,
+) -> tuple[Player, str]:
+    living_wolves = _living_players_with_role(state, Role.WEREWOLF)
+    if not living_wolves:
+        raise ValueError("没有存活的狼人可以选择")
+
+    human_wolves = [player for player in living_wolves if player.is_human]
+    if captain_id is not None:
+        requested = get_player(state, captain_id)
+        if requested not in living_wolves:
+            raise ValueError("狼队长必须是存活的狼人")
+        if human_wolves and requested not in human_wolves:
+            raise ValueError("狼队存在真人时，狼队长必须是真人狼人")
+        return requested, "manual"
+    if len(human_wolves) == 1:
+        return human_wolves[0], "only_human"
+
+    candidates = human_wolves or living_wolves
+    rng = Random(f"{state.seed}:{selection_day}:wolf-captain")
+    return rng.choice(candidates), "seed_random"
+
+
 def elect_wolf_captain(
     state: GameState,
     captain_id: str | None = None,
@@ -349,23 +397,11 @@ def elect_wolf_captain(
         if current.is_alive:
             raise ValueError("存活狼队长已经存在")
 
-    human_wolves = [player for player in living_wolves if player.is_human]
-    if captain_id is not None:
-        requested = get_player(state, captain_id)
-        if requested not in living_wolves:
-            raise ValueError("狼队长必须是存活的狼人")
-        if human_wolves and requested not in human_wolves:
-            raise ValueError("狼队存在真人时，狼队长必须是真人狼人")
-        captain = requested
-        selection_method = "manual"
-    elif len(human_wolves) == 1:
-        captain = human_wolves[0]
-        selection_method = "only_human"
-    else:
-        candidates = human_wolves or living_wolves
-        rng = Random(f"{state.seed}:{state.day}:wolf-captain")
-        captain = rng.choice(candidates)
-        selection_method = "seed_random"
+    captain, selection_method = _choose_wolf_captain(
+        state,
+        captain_id,
+        state.day,
+    )
 
     state.wolf_captain_id = captain.player_id
     append_event(
@@ -704,6 +740,415 @@ def resolve_night(state: GameState) -> GameState:
     return state
 
 
+def submit_night_hunter_shot(
+    state: GameState,
+    actor_id: str,
+    target_id: str | None,
+) -> GameState:
+    """Resolve the night hunter's optional shot."""
+
+    actor = get_player(state, actor_id)
+    if actor.role is not Role.HUNTER:
+        raise ValueError("只有猎人可以提交猎人开枪")
+    if state.phase is not Phase.NIGHT_HUNTER_SHOT:
+        raise ValueError(f"当前阶段不能进行夜间猎人开枪：{state.phase.value}")
+
+    night_result = _night_result_or_error(state)
+    if not night_result.hunter_can_shoot:
+        raise ValueError("当前猎人没有夜间开枪资格")
+
+    if target_id is not None:
+        target = get_player(state, target_id)
+        if not target.is_alive:
+            raise ValueError("猎人开枪目标必须存活")
+
+    night_result.hunter_can_shoot = False
+    night_result.hunter_target_id = target_id
+    append_event(
+        state,
+        EventType.HUNTER_SHOT,
+        actor_id=actor.player_id,
+        target_id=target_id,
+        visibility=Visibility.PLAYER,
+        visible_to=(actor.player_id,),
+        data={"night": True},
+    )
+
+    if target_id is not None:
+        target = get_player(state, target_id)
+        target.is_alive = False
+        causes = night_result.death_causes.setdefault(target_id, [])
+        if "hunter_shot" not in causes:
+            causes.append("hunter_shot")
+        if target_id not in night_result.death_ids:
+            night_result.death_ids.append(target_id)
+            night_result.death_ids.sort(
+                key=lambda player_id: get_player(state, player_id).seat
+            )
+        append_event(
+            state,
+            EventType.PLAYER_DIED,
+            target_id=target_id,
+            visibility=Visibility.PUBLIC,
+            data={"causes": list(causes)},
+        )
+
+    winner = check_winner(state)
+    if winner is None:
+        state.phase = Phase.DAY_ANNOUNCEMENT
+        return state
+
+    state.phase = Phase.END
+    append_event(
+        state,
+        EventType.WINNER_DECIDED,
+        visibility=Visibility.PUBLIC,
+        data={"winner": winner.value, "reason": "night_hunter_shot"},
+    )
+    return state
+
+
+def _day_result_or_error(state: GameState) -> DayResult:
+    if state.day_result is None:
+        raise ValueError("当前没有进行中的白天结果")
+    return state.day_result
+
+
+def _living_speech_order(state: GameState) -> list[str]:
+    return [
+        player.player_id
+        for player in sorted(state.players, key=lambda item: item.seat)
+        if player.is_alive
+    ]
+
+
+def _finish_day(state: GameState, reason: str) -> GameState:
+    day_result = _day_result_or_error(state)
+    day_result.resolved = True
+    winner = check_winner(state)
+    if winner is None:
+        return start_night(state)
+
+    state.phase = Phase.END
+    append_event(
+        state,
+        EventType.WINNER_DECIDED,
+        visibility=Visibility.PUBLIC,
+        data={"winner": winner.value, "reason": reason},
+    )
+    return state
+
+
+def begin_day(state: GameState) -> GameState:
+    """Create the public day context from the completed night."""
+
+    if state.phase is not Phase.DAY_ANNOUNCEMENT:
+        raise ValueError(f"当前阶段不能开始白天：{state.phase.value}")
+    if state.day_result is not None and not state.day_result.resolved:
+        raise ValueError("当前白天已经开始")
+
+    announced_death_ids = (
+        list(state.night_result.death_ids)
+        if state.night_result is not None
+        else []
+    )
+    day_result = DayResult(announced_death_ids=announced_death_ids)
+    state.day_result = day_result
+
+    if state.day == 1 and announced_death_ids:
+        day_result.last_words_queue = list(announced_death_ids)
+        day_result.after_last_words_phase = Phase.DAY_DISCUSSION
+        state.phase = Phase.DAY_LAST_WORDS
+        return state
+
+    day_result.speech_order = _living_speech_order(state)
+    state.phase = Phase.DAY_DISCUSSION
+    return state
+
+
+def submit_last_words(
+    state: GameState,
+    actor_id: str,
+    content: str,
+) -> GameState:
+    """Record one queued player's last words."""
+
+    actor = get_player(state, actor_id)
+    if actor.is_alive:
+        raise ValueError("只有死亡玩家可以提交遗言")
+    if state.phase is not Phase.DAY_LAST_WORDS:
+        raise ValueError(f"当前阶段不能提交遗言：{state.phase.value}")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("遗言内容不能为空")
+    normalized_content = content.strip()
+    if len(normalized_content) > 30:
+        raise ValueError("遗言不能超过30个字符")
+
+    day_result = _day_result_or_error(state)
+    if not day_result.last_words_queue or (
+        day_result.last_words_queue[0] != actor.player_id
+    ):
+        raise ValueError("该玩家当前没有遗言资格")
+
+    append_event(
+        state,
+        EventType.LAST_WORDS,
+        actor_id=actor.player_id,
+        visibility=Visibility.PUBLIC,
+        data={"content": normalized_content},
+    )
+    day_result.last_words_queue.pop(0)
+    day_result.last_words_done.append(actor.player_id)
+
+    if day_result.last_words_queue:
+        return state
+    next_phase = day_result.after_last_words_phase
+    day_result.after_last_words_phase = None
+    if next_phase is None:
+        return _finish_day(state, "day_last_words_complete")
+    state.phase = next_phase
+    return state
+
+
+def record_public_speech(
+    state: GameState,
+    actor_id: str,
+    content: str,
+) -> GameState:
+    """Record one public speech in seat order."""
+
+    actor = get_player(state, actor_id)
+    if not actor.is_alive:
+        raise ValueError("死亡玩家不能公开发言")
+    if state.phase is not Phase.DAY_DISCUSSION:
+        raise ValueError(f"当前阶段不能公开发言：{state.phase.value}")
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("公开发言内容不能为空")
+
+    day_result = _day_result_or_error(state)
+    while (
+        day_result.next_speaker_index < len(day_result.speech_order)
+        and not get_player(
+            state,
+            day_result.speech_order[day_result.next_speaker_index],
+        ).is_alive
+    ):
+        day_result.next_speaker_index += 1
+
+    if day_result.next_speaker_index >= len(day_result.speech_order):
+        state.phase = Phase.VOTE
+        return state
+
+    expected_id = day_result.speech_order[day_result.next_speaker_index]
+    if actor.player_id != expected_id:
+        raise ValueError("公开发言必须按照存活玩家座次进行")
+
+    append_event(
+        state,
+        EventType.PUBLIC_SPEECH,
+        actor_id=actor.player_id,
+        visibility=Visibility.PUBLIC,
+        data={"content": content.strip()},
+    )
+    day_result.next_speaker_index += 1
+    if day_result.next_speaker_index >= len(day_result.speech_order):
+        state.phase = Phase.VOTE
+    return state
+
+
+def self_destruct(
+    state: GameState,
+    actor_id: str,
+    now: float,
+) -> GameState:
+    """Make a living wolf self-destruct and open or use the 10-second window."""
+
+    actor = get_player(state, actor_id)
+    if actor.role is not Role.WEREWOLF:
+        raise ValueError("只有狼人可以自爆")
+    if not actor.is_alive:
+        raise ValueError("死亡狼人不能自爆")
+    if state.phase not in {Phase.DAY_DISCUSSION, Phase.SELF_DESTRUCT}:
+        raise ValueError(f"当前阶段不能自爆：{state.phase.value}")
+
+    day_result = _day_result_or_error(state)
+    if state.phase is Phase.SELF_DESTRUCT:
+        if (
+            day_result.self_destruct_deadline is None
+            or now > day_result.self_destruct_deadline
+        ):
+            raise ValueError("自爆窗口已经关闭")
+    else:
+        state.phase = Phase.SELF_DESTRUCT
+        day_result.self_destruct_deadline = now + 10.0
+
+    actor.is_alive = False
+    day_result.self_destruct_ids.append(actor.player_id)
+    day_result.death_causes[actor.player_id] = ["self_destruct"]
+    append_event(
+        state,
+        EventType.SELF_DESTRUCTED,
+        actor_id=actor.player_id,
+        visibility=Visibility.PUBLIC,
+        data={"revealed_role": Role.WEREWOLF.value, "has_last_words": False},
+    )
+
+    winner = check_winner(state)
+    if winner is None:
+        return state
+
+    day_result.resolved = True
+    state.phase = Phase.END
+    append_event(
+        state,
+        EventType.WINNER_DECIDED,
+        visibility=Visibility.PUBLIC,
+        data={"winner": winner.value, "reason": "self_destruct"},
+    )
+    return state
+
+
+def close_self_destruct_window(
+    state: GameState,
+    now: float,
+) -> GameState:
+    """Close the self-destruct window and continue to the next night."""
+
+    if state.phase is not Phase.SELF_DESTRUCT:
+        raise ValueError(f"当前阶段没有自爆窗口：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if day_result.self_destruct_deadline is None:
+        raise ValueError("自爆窗口尚未建立")
+    if now < day_result.self_destruct_deadline:
+        raise ValueError("自爆窗口尚未结束")
+    return _finish_day(state, "self_destruct_window_closed")
+
+
+def submit_vote(
+    state: GameState,
+    actor_id: str,
+    target_id: str | None,
+) -> GameState:
+    """Record or replace a living player's current vote."""
+
+    actor = get_player(state, actor_id)
+    if not actor.is_alive:
+        raise ValueError("死亡玩家不能投票")
+    if state.phase is not Phase.VOTE:
+        raise ValueError(f"当前阶段不能投票：{state.phase.value}")
+    if target_id is not None:
+        target = get_player(state, target_id)
+        if not target.is_alive:
+            raise ValueError("投票目标必须存活")
+
+    day_result = _day_result_or_error(state)
+    day_result.votes[actor.player_id] = target_id
+    append_event(
+        state,
+        EventType.VOTE_CAST,
+        actor_id=actor.player_id,
+        target_id=target_id,
+        visibility=Visibility.PUBLIC,
+        data={"abstain": target_id is None},
+    )
+    return state
+
+
+def resolve_vote(state: GameState) -> GameState:
+    """Resolve one vote without a tie-break round."""
+
+    if state.phase is not Phase.VOTE:
+        raise ValueError(f"当前阶段不能结算投票：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if day_result.resolved:
+        raise ValueError("本日投票已经结算")
+
+    counts = Counter(
+        target_id
+        for target_id in day_result.votes.values()
+        if target_id is not None
+    )
+    if not counts:
+        return _finish_day(state, "vote_no_elimination")
+
+    highest = max(counts.values())
+    leaders = [player_id for player_id, count in counts.items() if count == highest]
+    if len(leaders) != 1:
+        return _finish_day(state, "vote_tie")
+
+    banished = get_player(state, leaders[0])
+    banished.is_alive = False
+    day_result.banished_id = banished.player_id
+    day_result.death_causes[banished.player_id] = ["banished"]
+    append_event(
+        state,
+        EventType.PLAYER_DIED,
+        target_id=banished.player_id,
+        visibility=Visibility.PUBLIC,
+        data={"causes": ["banished"]},
+    )
+
+    if banished.role is Role.HUNTER:
+        day_result.day_hunter_can_shoot = True
+        day_result.after_last_words_phase = Phase.DAY_HUNTER_SHOT
+    else:
+        day_result.after_last_words_phase = None
+    day_result.last_words_queue = [banished.player_id]
+    state.phase = Phase.DAY_LAST_WORDS
+    return state
+
+
+def submit_day_hunter_shot(
+    state: GameState,
+    actor_id: str,
+    target_id: str | None,
+) -> GameState:
+    """Resolve the banished hunter's optional daytime shot."""
+
+    actor = get_player(state, actor_id)
+    if actor.role is not Role.HUNTER:
+        raise ValueError("只有猎人可以提交猎人开枪")
+    if state.phase is not Phase.DAY_HUNTER_SHOT:
+        raise ValueError(f"当前阶段不能进行白天猎人开枪：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if not day_result.day_hunter_can_shoot:
+        raise ValueError("当前猎人不具备白天开枪资格")
+
+    if target_id is not None:
+        target = get_player(state, target_id)
+        if not target.is_alive:
+            raise ValueError("猎人开枪目标必须存活")
+
+    day_result.day_hunter_can_shoot = False
+    day_result.day_hunter_target_id = target_id
+    append_event(
+        state,
+        EventType.HUNTER_SHOT,
+        actor_id=actor.player_id,
+        target_id=target_id,
+        visibility=Visibility.PUBLIC,
+        data={"night": False},
+    )
+
+    if target_id is None:
+        return _finish_day(state, "day_hunter_no_shot")
+
+    target = get_player(state, target_id)
+    target.is_alive = False
+    day_result.death_causes[target_id] = ["hunter_shot"]
+    append_event(
+        state,
+        EventType.PLAYER_DIED,
+        target_id=target_id,
+        visibility=Visibility.PUBLIC,
+        data={"causes": ["hunter_shot"]},
+    )
+    day_result.last_words_queue = [target_id]
+    day_result.after_last_words_phase = None
+    state.phase = Phase.DAY_LAST_WORDS
+    return state
+
+
 def get_player(state: GameState, identifier: str) -> Player:
     """Find a player by player_id or unique nickname."""
 
@@ -713,7 +1158,10 @@ def get_player(state: GameState, identifier: str) -> Player:
     raise KeyError(f"找不到玩家：{identifier}")
 
 
-def start_night(state: GameState) -> GameState:
+def start_night(
+    state: GameState,
+    captain_id: str | None = None,
+) -> GameState:
     """Advance the game to the next night.
 
     The full night-action sequence is intentionally outside this milestone.
@@ -724,13 +1172,46 @@ def start_night(state: GameState) -> GameState:
         Phase.INIT,
         Phase.VOTE,
         Phase.SELF_DESTRUCT,
+        Phase.DAY_LAST_WORDS,
+        Phase.DAY_HUNTER_SHOT,
     }
     if state.phase not in allowed_previous_phases:
         raise ValueError(f"当前阶段不能开始夜晚：{state.phase.value}")
 
+    current_captain = (
+        get_player(state, state.wolf_captain_id)
+        if state.wolf_captain_id is not None
+        else None
+    )
+    needs_captain = current_captain is None or not current_captain.is_alive
+    new_captain: Player | None = None
+    selection_method: str | None = None
+    if needs_captain:
+        new_captain, selection_method = _choose_wolf_captain(
+            state,
+            captain_id,
+            state.day + 1,
+        )
+    elif captain_id is not None and captain_id != current_captain.player_id:
+        raise ValueError("存活狼队长已经存在，不能重复选择")
+
     state.day += 1
     state.phase = Phase.NIGHT_WOLF_DISCUSSION_R1
     state.night_result = NightResult()
+    state.day_result = None
+    if new_captain is not None:
+        state.wolf_captain_id = new_captain.player_id
+        append_event(
+            state,
+            EventType.WOLF_CAPTAIN_ELECTED,
+            target_id=new_captain.player_id,
+            visibility=Visibility.WOLVES,
+            data={
+                "captain_id": new_captain.player_id,
+                "day": state.day,
+                "selection": selection_method,
+            },
+        )
     append_event(
         state,
         EventType.NIGHT_STARTED,
