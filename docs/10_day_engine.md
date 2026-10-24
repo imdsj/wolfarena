@@ -49,6 +49,7 @@ LAST_WORDS
 | `begin_day` | `DAY_ANNOUNCEMENT` | 状态 | 更新后的状态 |
 | `submit_last_words` | `DAY_LAST_WORDS` | 状态、死亡玩家、最多30字内容 | 更新后的状态 |
 | `record_public_speech` | `DAY_DISCUSSION` | 状态、存活玩家、内容 | 更新后的状态 |
+| `timeout_public_speech` | `DAY_DISCUSSION` | 状态、服务端当前时间 | 更新后的状态 |
 | `self_destruct` | `DAY_DISCUSSION`、`SELF_DESTRUCT` | 状态、存活狼人、当前时间 | 更新后的状态 |
 | `close_self_destruct_window` | `SELF_DESTRUCT` | 状态、当前时间 | 更新后的状态 |
 | `submit_vote` | `VOTE` | 状态、存活玩家、目标或 `None` | 更新后的状态 |
@@ -73,6 +74,8 @@ LAST_WORDS
 - 每人一轮且只能提交一次。
 - 全员完成后进入投票。
 - 狼人可以在讨论阶段任意时刻自爆。
+- 发言期限由调用方传入服务端时间；未到截止时间不能跳过。
+- 超时会记录 `PUBLIC_SPEECH_TIMEOUT`，并推进到下一名存活玩家。
 
 ### 自爆
 
@@ -102,8 +105,9 @@ LAST_WORDS
 
 ## 5. 当前边界
 
-- 尚未接入真实 WebSocket 计时器。
-- 超时策略尚未实现；当前由服务端显式传入自爆窗口时间。
+- 尚未接入真实 WebSocket 定时器。
+- 公开发言超时规则已经实现，但实际倒计时触发仍需 WebSocket 或任务调度器调用。
+- 自爆窗口也使用调用方传入的服务端时间。
 - 前端没有播放动画或展示面板。
 - 尚未实现 AI 自动选择白天动作。
 - 200局成长对比仍为阻塞，直到完整自动对局与动作日志导出接入。

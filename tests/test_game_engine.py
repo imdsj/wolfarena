@@ -368,6 +368,7 @@ class PhaseAndEventModelTests(TestCase):
             "SELF_DESTRUCTED",
             "VOTE_CAST",
             "PUBLIC_SPEECH",
+            "PUBLIC_SPEECH_TIMEOUT",
             "LAST_WORDS",
             "WINNER_DECIDED",
         }
