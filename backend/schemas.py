@@ -44,12 +44,14 @@ class JoinRoomRequest(ApiModel):
         return value
 
 
-class ViewerPlayer(ApiModel):
-    player_id: str
-    seat: int
+class ViewerIdentity(ApiModel):
+    kind: Literal["player", "spectator"]
+    player_id: str | None
+    seat: int | None
     name: str
-    role: str
-    is_alive: bool
+    role: str | None
+    is_alive: bool | None
+    is_host: bool
 
 
 class PublicPlayer(ApiModel):
@@ -77,7 +79,7 @@ class RoomSnapshot(ApiModel):
     day: int
     human_count: int
     max_humans: int
-    viewer: ViewerPlayer
+    viewer: ViewerIdentity
     players: list[PublicPlayer]
     visible_events: list[PublicEvent]
 
@@ -85,6 +87,7 @@ class RoomSnapshot(ApiModel):
 class CreatedRoomResponse(ApiModel):
     room_id: str
     player_token: str
+    spectator_password: str
     room: RoomSnapshot
 
 

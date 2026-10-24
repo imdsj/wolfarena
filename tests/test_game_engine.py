@@ -356,6 +356,7 @@ class PhaseAndEventModelTests(TestCase):
     def test_required_event_types_are_stable_and_unique(self) -> None:
         required_event_values = {
             "GAME_CREATED",
+            "PLAYER_JOINED",
             "ROLE_ASSIGNED",
             "WOLF_CAPTAIN_ELECTED",
             "WOLF_SPEECH",

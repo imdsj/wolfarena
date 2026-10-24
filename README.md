@@ -2,7 +2,7 @@
 
 WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项目，目标是把九人狼人杀、可解释的 AI Agent 行为和可复现的策略训练放在同一个 Web 平台中。
 
-当前仓库已完成服务端九人局规则引擎和最小 FastAPI 房间入口。规则引擎可从首夜推进到天亮、发言、自爆、投票、放逐、夜间或白天猎人开枪和最终胜负。浏览器房间页面、WebSocket、真实计时器、DeepSeek、RAG 和训练场仍在后续阶段实现。
+当前仓库已完成服务端九人局规则引擎、最小 FastAPI 房间入口和按玩家视角过滤的 WebSocket 通道。规则引擎可从首夜推进到天亮、发言、自爆、投票、放逐、夜间或白天猎人开枪和最终胜负。浏览器房间页面、完整动作接口、真实计时器、DeepSeek、RAG 和训练场仍在后续阶段实现。
 
 ## 当前完成内容
 
@@ -22,13 +22,16 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - 基于存活狼人和好人数量判断最小胜负结果。
 - 自动化测试覆盖角色数量、真人/AI 标记、可复现随机分配、事件记录和阶段切换。
 - FastAPI 健康检查、内存房间创建、加入、玩家凭证和身份过滤。
+- WebSocket 首消息认证、玩家/观战者身份确认、阶段事件和重连。
+- 每局独立观战密码，以及普通玩家、存活狼人、死亡玩家和观战者的不同事件流。
+- 同一房间的状态变更使用房间级锁串行执行。
 
 ## 技术方向
 
 | 部分 | 计划技术 |
 | --- | --- |
 | 前端 | Vue 3、TypeScript、Vite（未实现） |
-| 后端 | Python、FastAPI（最小入口已实现）、WebSocket（未实现） |
+| 后端 | Python、FastAPI、WebSocket（最小事件通道已实现） |
 | 数据 | SQLite |
 | 模型 | DeepSeek OpenAI 兼容接口 |
 | 策略训练 | 共享表格型 Q-learning |
@@ -65,9 +68,32 @@ python -m uvicorn backend.api:app --reload
 - 创建房间：`POST /api/rooms`
 - 加入房间：`POST /api/rooms/{room_id}/join`
 - 读取当前玩家视角：`GET /api/rooms/{room_id}`
+- WebSocket：`/ws/rooms/{room_id}`
 
 读取房间时必须把创建或加入时返回的 `player_token` 放入
 `X-Player-Token` 请求头。房间数据当前保存在进程内存中，服务重启后清空。
+
+WebSocket URL 只包含房间号。连接后的第一条消息必须完成认证：
+
+```json
+{"type":"authenticate","token":"玩家凭证"}
+```
+
+观战者使用创建房间时返回的 `spectator_password`：
+
+```json
+{"type":"authenticate","spectator_password":"本局观战密码"}
+```
+
+认证成功后依次收到 `authenticated`、`snapshot` 和 `phase`。当前只实现了
+`start_night` 动作：
+
+```json
+{"type":"action","action":"start_night"}
+```
+
+状态变化会发送经过 `get_visible_events` 过滤的 `event`，随后发送新的
+`phase`。Token 和观战密码不得放入 URL 查询参数或公开日志。
 
 ## 运行测试
 
@@ -77,11 +103,11 @@ python -m uvicorn backend.api:app --reload
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **122 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **136 个测试**全部通过，并输出 `OK`。
 
 ## 当前未完成
 
-- WebSocket 阶段广播、断线重连、观战密码和真实联机服务。
+- 除 `start_night` 外的完整游戏动作接口和中文错误码文案。
 - Vue 前端、移动端页面和真实倒计时。
 - DeepSeek、RAG 与 Function Calling 集成。
 - 训练场、策略版本切换、200局批量模拟和指标导出。

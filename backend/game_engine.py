@@ -54,6 +54,7 @@ class EventType(str, Enum):
     """Stable event names used by the game log."""
 
     GAME_CREATED = "GAME_CREATED"
+    PLAYER_JOINED = "PLAYER_JOINED"
     ROLE_ASSIGNED = "ROLE_ASSIGNED"
     WOLF_CAPTAIN_ELECTED = "WOLF_CAPTAIN_ELECTED"
     WOLF_SPEECH = "WOLF_SPEECH"
