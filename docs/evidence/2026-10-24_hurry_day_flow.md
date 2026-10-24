@@ -45,8 +45,8 @@ Ran 87 tests in 0.010s  OK       ← 拉取后基线
 
 | 测试 | 对应规则 | 验证内容 |
 | --- | --- | --- |
-| `test_exactly_thirty_characters_is_allowed` | 规则表第 7 章 | 遗言正好 30 字被接受 |
-| `test_thirty_one_characters_is_rejected` | 规则表第 7 章 | 31 字被拒绝且不进入已完成队列 |
+| `test_exactly_thirty_characters_is_allowed` | 规则表第 7 章 | 遗言正好 30 字被接受（**上限已改为 100 汉字，待代码落地后改为 100/101**） |
+| `test_thirty_one_characters_is_rejected` | 规则表第 7 章 | 31 字被拒绝且不进入已完成队列（**同上，改为 101 字**） |
 | `test_vote_is_rejected_while_self_destruct_window_is_open` | DESTRUCT-003 | 自爆窗口内投票被拒绝 |
 | `test_second_self_destruct_after_deadline_is_rejected` | DESTRUCT-004 | 超过 110.0 秒再自爆被拒绝 |
 | `test_hunter_shot_killing_last_wolf_gives_target_last_words_then_ends` | VOTE-008、WIN-001 | 猎人打死最后一狼后，被带走者先留遗言，再进入 `END` 并写入 `WINNER_DECIDED` |
@@ -99,7 +99,7 @@ Ran 87 tests in 0.010s  OK       ← 拉取后基线
 
 建议：在 `controlled_game` 的 docstring 里注明「覆写角色后事件表不同步，勿用于可见性测试」，或改为覆写后重建 `ROLE_ASSIGNED` 事件。
 
-### 5.2 自爆窗口在 110.0 秒处存在边界歧义（低）
+### 5.2 自爆窗口在 110.0 秒处存在边界歧义（规则已明确，待代码对齐）
 
 实测结果：
 
@@ -112,9 +112,9 @@ now=110.1 第二狼自爆 → 被拒绝：自爆窗口已经关闭
 
 而既有测试 `test_other_wolves_can_continue_until_window_closes` 中，`close_self_destruct_window(now=110.0)` 也能成功关闭窗口。
 
-也就是说，在 `now=110.0` 这一时刻，**自爆与关闭窗口同时合法**，最终行为取决于调用顺序。DESTRUCT-004 写的是「自爆窗口最多持续 10 秒」，严格解释应为截止时刻起自爆即失效。建议统一边界：`now < deadline` 才允许自爆，`now >= deadline` 才允许关闭。
+也就是说，在 `now=110.0` 这一时刻，**自爆与关闭窗口同时合法**，最终行为取决于调用顺序。
 
-当前风险低（真实场景中两者不会精确同时触发），但会给回归测试留下不确定结果。
+**2026-10-24 更新**：订书机已确认规则——自爆窗口到达 10 秒边界**立即关闭**，`now >= deadline` 时自爆应被拒绝。本文记录的问题得到规则层面的确认，代码对齐后需新增 `now=110.0` 自爆被拒的断言。变更影响与执行顺序见 `docs/evidence/2026-10-24_rule-change-impact.md`。
 
 ### 5.3 死亡玩家的自我身份事件也消失了（待确认）
 
