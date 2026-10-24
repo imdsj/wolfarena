@@ -358,6 +358,8 @@ class PhaseAndEventModelTests(TestCase):
             "GAME_CREATED",
             "PLAYER_JOINED",
             "ROLE_ASSIGNED",
+            "AI_FALLBACK_USED",
+            "AI_ACTION_REJECTED",
             "WOLF_CAPTAIN_ELECTED",
             "WOLF_SPEECH",
             "WOLF_KILL_SELECTED",

@@ -94,6 +94,17 @@ class RoomMutation:
     current_event_seq: int
 
 
+@dataclass(frozen=True, slots=True)
+class AIActionContext:
+    """The only game information a model is allowed to receive."""
+
+    room: "Room"
+    access: ViewerAccess
+    snapshot: RoomSnapshot
+    legal_actions: tuple[str, ...]
+    valid_target_ids: tuple[str, ...]
+
+
 @dataclass(slots=True)
 class Room:
     """One game, its credentials, and its serialization lock."""
@@ -302,6 +313,26 @@ class InMemoryRoomRepository:
             )
             return self.snapshot_for_access(room, access)
 
+    def ai_action_context(self, access: ViewerAccess) -> AIActionContext:
+        room = self._get_room(access.room_id)
+        with room.lock:
+            if access.kind != "player" or access.player_id is None:
+                raise RoomPermissionError("观战者不能调用 AI 行动")
+            player = self._access_player(room, access)
+            legal_actions: tuple[str, ...] = ()
+            if (
+                player.player_id == room.host_player_id
+                and room.state.phase is Phase.INIT
+            ):
+                legal_actions = ("start_night",)
+            return AIActionContext(
+                room=room,
+                access=access,
+                snapshot=self.snapshot_for_access(room, access),
+                legal_actions=legal_actions,
+                valid_target_ids=(),
+            )
+
     def start_night(
         self,
         access: ViewerAccess,
@@ -319,6 +350,64 @@ class InMemoryRoomRepository:
 
             previous_event_seq = room.last_event_seq
             advance_to_night(room.state, captain_id)
+            return RoomMutation(
+                room=room,
+                previous_event_seq=previous_event_seq,
+                current_event_seq=room.last_event_seq,
+            )
+
+    def record_ai_fallback(
+        self,
+        access: ViewerAccess,
+        *,
+        reason: str,
+        action: str,
+    ) -> RoomMutation:
+        room = self._get_room(access.room_id)
+        with room.lock:
+            player = self._access_player(room, access)
+            previous_event_seq = room.last_event_seq
+            append_event(
+                room.state,
+                EventType.AI_FALLBACK_USED,
+                actor_id=player.player_id,
+                visibility=Visibility.PLAYER,
+                visible_to=(player.player_id,),
+                data={
+                    "reason": reason[:120],
+                    "fallback_action": action[:64],
+                },
+            )
+            return RoomMutation(
+                room=room,
+                previous_event_seq=previous_event_seq,
+                current_event_seq=room.last_event_seq,
+            )
+
+    def record_ai_rejection(
+        self,
+        access: ViewerAccess,
+        *,
+        reason: str,
+        candidate_action: str,
+        candidate_target_id: str | None,
+    ) -> RoomMutation:
+        room = self._get_room(access.room_id)
+        with room.lock:
+            player = self._access_player(room, access)
+            previous_event_seq = room.last_event_seq
+            append_event(
+                room.state,
+                EventType.AI_ACTION_REJECTED,
+                actor_id=player.player_id,
+                target_id=candidate_target_id,
+                visibility=Visibility.PLAYER,
+                visible_to=(player.player_id,),
+                data={
+                    "reason": reason[:120],
+                    "candidate_action": candidate_action[:64],
+                },
+            )
             return RoomMutation(
                 room=room,
                 previous_event_seq=previous_event_seq,

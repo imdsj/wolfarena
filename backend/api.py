@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from json import JSONDecodeError
+from pathlib import Path
 from typing import Any
 
 from fastapi import (
@@ -14,7 +15,14 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
+from fastapi.staticfiles import StaticFiles
 
+from .ai_provider import (
+    AIActionResponse,
+    CandidateProvider,
+    DeepSeekCandidateProvider,
+    DeepSeekSettings,
+)
 from .realtime import RealtimeHub
 from .rooms import (
     AuthenticatedSession,
@@ -38,7 +46,7 @@ from .schemas import (
 )
 
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 WS_CLOSE_AUTH_REQUIRED = 4400
 WS_CLOSE_INVALID_TOKEN = 4401
@@ -93,7 +101,10 @@ def _authenticate_websocket(
     return repository.authenticate_spectator(room_id, spectator_password)
 
 
-def create_app(repository: InMemoryRoomRepository | None = None) -> FastAPI:
+def create_app(
+    repository: InMemoryRoomRepository | None = None,
+    ai_provider: CandidateProvider | None = None,
+) -> FastAPI:
     application = FastAPI(
         title="WolfArena API",
         version=APP_VERSION,
@@ -102,6 +113,9 @@ def create_app(repository: InMemoryRoomRepository | None = None) -> FastAPI:
     room_repository = repository or InMemoryRoomRepository()
     application.state.rooms = room_repository
     application.state.realtime = RealtimeHub(room_repository)
+    application.state.ai_provider = ai_provider or DeepSeekCandidateProvider(
+        DeepSeekSettings.from_environment()
+    )
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
@@ -171,6 +185,91 @@ def create_app(repository: InMemoryRoomRepository | None = None) -> FastAPI:
                 "INVALID_PLAYER_TOKEN",
                 str(error),
             ) from error
+
+    @application.post(
+        "/api/rooms/{room_id}/ai-action",
+        response_model=AIActionResponse,
+    )
+    async def ai_action(
+        room_id: str,
+        player_token: str | None = Header(default=None, alias="X-Player-Token"),
+    ) -> AIActionResponse:
+        try:
+            session = room_repository.authenticate_player(room_id, player_token)
+        except RoomNotFoundError as error:
+            raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
+        except InvalidPlayerTokenError as error:
+            raise _error(401, "INVALID_PLAYER_TOKEN", str(error)) from error
+
+        context = room_repository.ai_action_context(session.access)
+        if not context.legal_actions:
+            rejection = room_repository.record_ai_rejection(
+                session.access,
+                reason="no_legal_actions",
+                candidate_action="none",
+                candidate_target_id=None,
+            )
+            await application.state.realtime.broadcast_mutation(rejection)
+            raise _error(409, "AI_NO_LEGAL_ACTION", "当前阶段没有可执行动作")
+
+        decision = await application.state.ai_provider.propose(
+            context.snapshot,
+            legal_actions=context.legal_actions,
+            valid_target_ids=context.valid_target_ids,
+        )
+        candidate = decision.candidate
+        if candidate.action not in context.legal_actions:
+            rejection = room_repository.record_ai_rejection(
+                session.access,
+                reason="action_not_legal",
+                candidate_action=candidate.action,
+                candidate_target_id=candidate.target_id,
+            )
+            await application.state.realtime.broadcast_mutation(rejection)
+            raise _error(
+                422,
+                "AI_ACTION_INVALID",
+                "模型候选动作不在服务端合法动作中",
+            )
+        if (
+            candidate.target_id is not None
+            and candidate.target_id not in context.valid_target_ids
+        ):
+            rejection = room_repository.record_ai_rejection(
+                session.access,
+                reason="target_not_valid",
+                candidate_action=candidate.action,
+                candidate_target_id=candidate.target_id,
+            )
+            await application.state.realtime.broadcast_mutation(rejection)
+            raise _error(
+                422,
+                "AI_TARGET_INVALID",
+                "模型候选目标不在服务端合法目标中",
+            )
+
+        if decision.source == "fallback":
+            fallback = room_repository.record_ai_fallback(
+                session.access,
+                reason=decision.fallback_reason or "unknown_fallback",
+                action=candidate.action,
+            )
+            await application.state.realtime.broadcast_mutation(fallback)
+
+        try:
+            mutation = room_repository.start_night(session.access)
+        except RoomPermissionError as error:
+            raise _error(403, "ACTION_FORBIDDEN", str(error)) from error
+        except OutOfPhaseError as error:
+            raise _error(409, "OUT_OF_PHASE", str(error)) from error
+
+        await application.state.realtime.broadcast_mutation(mutation)
+        return AIActionResponse(
+            decision=decision,
+            executed=True,
+            phase=mutation.room.state.phase.value,
+            event_seq=mutation.current_event_seq,
+        )
 
     @application.websocket("/ws/rooms/{room_id}")
     async def room_websocket(websocket: WebSocket, room_id: str) -> None:
@@ -361,6 +460,16 @@ def create_app(repository: InMemoryRoomRepository | None = None) -> FastAPI:
         finally:
             if connection is not None:
                 await application.state.realtime.unregister(connection)
+
+    frontend_dist = (
+        Path(__file__).resolve().parent.parent / "frontend" / "dist"
+    )
+    if frontend_dist.is_dir():
+        application.mount(
+            "/",
+            StaticFiles(directory=frontend_dist, html=True),
+            name="frontend",
+        )
 
     return application
 
