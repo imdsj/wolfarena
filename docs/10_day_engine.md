@@ -47,11 +47,12 @@ LAST_WORDS
 | --- | --- | --- | --- |
 | `submit_night_hunter_shot` | `NIGHT_HUNTER_SHOT` | 状态、猎人、目标或 `None` | 更新后的状态 |
 | `begin_day` | `DAY_ANNOUNCEMENT` | 状态 | 更新后的状态 |
-| `submit_last_words` | `DAY_LAST_WORDS` | 状态、死亡玩家、最多30字内容 | 更新后的状态 |
+| `submit_last_words` | `DAY_LAST_WORDS` | 状态、死亡玩家、最多100个汉字的内容 | 更新后的状态 |
+| `timeout_last_words` | `DAY_LAST_WORDS` | 状态、服务端当前时间 | 更新后的状态 |
 | `record_public_speech` | `DAY_DISCUSSION` | 状态、存活玩家、内容 | 更新后的状态 |
 | `timeout_public_speech` | `DAY_DISCUSSION` | 状态、服务端当前时间 | 更新后的状态 |
 | `self_destruct` | `DAY_DISCUSSION`、`SELF_DESTRUCT` | 状态、存活狼人、当前时间 | 更新后的状态 |
-| `close_self_destruct_window` | `SELF_DESTRUCT` | 状态、当前时间 | 更新后的状态 |
+| `close_self_destruct_window` | `SELF_DESTRUCT` | 状态、可选服务端当前时间 | 更新后的状态 |
 | `submit_vote` | `VOTE` | 状态、存活玩家、目标或 `None` | 更新后的状态 |
 | `resolve_vote` | `VOTE` | 状态 | 更新后的状态 |
 | `submit_day_hunter_shot` | `DAY_HUNTER_SHOT` | 状态、被放逐猎人、目标或 `None` | 更新后的状态 |
@@ -66,6 +67,8 @@ LAST_WORDS
 - 白天被猎人带走的目标有遗言。
 - 自爆玩家没有遗言。
 - 每条遗言最多100个汉字；标点、数字和表情不计入汉字数量。
+- 每名玩家的遗言发言固定最多30秒。
+- 超时会记录 `LAST_WORDS_TIMEOUT`，并推进到下一条遗言或后续阶段。
 
 ### 公开发言
 
@@ -85,6 +88,7 @@ LAST_WORDS
 - 窗口内只允许其他存活狼人自爆。
 - 每次自爆死亡后立即检查胜负。
 - 窗口关闭后进入下一夜；死亡队长会在 `start_night` 前自动重选。
+- `close_self_destruct_window(state)` 可以由计时层显式调用；传入时间时还会校验是否真的到达截止点。
 
 ### 投票
 

@@ -85,7 +85,7 @@ status = untested
 python -m unittest discover -s tests -v
 ```
 
-当前完整测试基线为 89 项，其中 15 项覆盖 AI 成长数据与 L0。
+当前完整测试基线为 91 项，其中 15 项覆盖 AI 成长数据与 L0。
 
 ## 6. 成长指标状态
 
