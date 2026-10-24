@@ -69,6 +69,7 @@ class EventType(str, Enum):
     PUBLIC_SPEECH = "PUBLIC_SPEECH"
     PUBLIC_SPEECH_TIMEOUT = "PUBLIC_SPEECH_TIMEOUT"
     LAST_WORDS = "LAST_WORDS"
+    LAST_WORDS_TIMEOUT = "LAST_WORDS_TIMEOUT"
     WINNER_DECIDED = "WINNER_DECIDED"
     NIGHT_STARTED = "NIGHT_STARTED"
 
@@ -102,6 +103,7 @@ PHASE_ORDER: Final[tuple[Phase, ...]] = (
 
 SPECTATOR_VIEW: Final[str] = "spectator"
 PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 30.0
+LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 30.0
 
 
 ROLE_DECK: Final[tuple[Role, ...]] = (
@@ -169,6 +171,8 @@ class DayResult:
     announced_death_ids: list[str] = field(default_factory=list)
     last_words_queue: list[str] = field(default_factory=list)
     last_words_done: list[str] = field(default_factory=list)
+    last_words_timeout_seconds: float = LAST_WORDS_TIMEOUT_SECONDS
+    last_words_deadline: float | None = None
     speech_order: list[str] = field(default_factory=list)
     next_speaker_index: int = 0
     speech_timeout_seconds: float = PUBLIC_SPEECH_TIMEOUT_SECONDS
@@ -911,6 +915,9 @@ def begin_day(
         day_result.last_words_queue = list(announced_death_ids)
         day_result.after_last_words_phase = Phase.DAY_DISCUSSION
         state.phase = Phase.DAY_LAST_WORDS
+        day_result.last_words_deadline = (
+            None if now is None else now + LAST_WORDS_TIMEOUT_SECONDS
+        )
         return state
 
     state.phase = Phase.DAY_DISCUSSION
@@ -961,11 +968,52 @@ def submit_last_words(
     day_result.last_words_done.append(actor.player_id)
 
     if day_result.last_words_queue:
+        day_result.last_words_deadline = (
+            None if now is None else now + LAST_WORDS_TIMEOUT_SECONDS
+        )
         return state
+    day_result.last_words_deadline = None
     next_phase = day_result.after_last_words_phase
     day_result.after_last_words_phase = None
     if next_phase is None:
         return _finish_day(state, "day_last_words_complete")
+    state.phase = next_phase
+    if next_phase is Phase.DAY_DISCUSSION:
+        _arm_public_speech_timer(state, now)
+    return state
+
+
+def timeout_last_words(state: GameState, now: float) -> GameState:
+    """Expire the current player's 30-second last-words turn."""
+
+    if state.phase is not Phase.DAY_LAST_WORDS:
+        raise ValueError(f"当前阶段没有遗言：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if day_result.last_words_deadline is None:
+        raise ValueError("当前遗言没有可校验的截止时间")
+    if now < day_result.last_words_deadline:
+        raise ValueError("遗言时间尚未结束")
+    if not day_result.last_words_queue:
+        raise ValueError("当前没有等待中的遗言")
+
+    actor_id = day_result.last_words_queue.pop(0)
+    day_result.last_words_done.append(actor_id)
+    append_event(
+        state,
+        EventType.LAST_WORDS_TIMEOUT,
+        actor_id=actor_id,
+        visibility=Visibility.PUBLIC,
+        data={"deadline": day_result.last_words_deadline},
+    )
+    if day_result.last_words_queue:
+        day_result.last_words_deadline = now + LAST_WORDS_TIMEOUT_SECONDS
+        return state
+
+    day_result.last_words_deadline = None
+    next_phase = day_result.after_last_words_phase
+    day_result.after_last_words_phase = None
+    if next_phase is None:
+        return _finish_day(state, "last_words_timeout_complete")
     state.phase = next_phase
     if next_phase is Phase.DAY_DISCUSSION:
         _arm_public_speech_timer(state, now)
@@ -1097,7 +1145,7 @@ def self_destruct(
 
 def close_self_destruct_window(
     state: GameState,
-    now: float,
+    now: float | None = None,
 ) -> GameState:
     """Close the self-destruct window and continue to the next night."""
 
@@ -1106,7 +1154,7 @@ def close_self_destruct_window(
     day_result = _day_result_or_error(state)
     if day_result.self_destruct_deadline is None:
         raise ValueError("自爆窗口尚未建立")
-    if now < day_result.self_destruct_deadline:
+    if now is not None and now < day_result.self_destruct_deadline:
         raise ValueError("自爆窗口尚未结束")
     return _finish_day(state, "self_destruct_window_closed")
 

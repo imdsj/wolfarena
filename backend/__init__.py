@@ -13,6 +13,7 @@ from .game_engine import (
     EventType,
     GameState,
     NightResult,
+    LAST_WORDS_TIMEOUT_SECONDS,
     PHASE_ORDER,
     PUBLIC_SPEECH_TIMEOUT_SECONDS,
     Phase,
@@ -43,6 +44,7 @@ from .game_engine import (
     submit_seer_check,
     submit_vote,
     submit_witch_action,
+    timeout_last_words,
     timeout_public_speech,
 )
 
@@ -55,6 +57,7 @@ __all__ = [
     "GrowthStage",
     "GameState",
     "L0Policy",
+    "LAST_WORDS_TIMEOUT_SECONDS",
     "NightResult",
     "PHASE_ORDER",
     "PUBLIC_SPEECH_TIMEOUT_SECONDS",
@@ -87,5 +90,6 @@ __all__ = [
     "submit_seer_check",
     "submit_vote",
     "submit_witch_action",
+    "timeout_last_words",
     "timeout_public_speech",
 ]
