@@ -2,15 +2,15 @@
 
 日期：2026-10-23
 
-基线提交：`54afcd8`（`feat: add deterministic self-destruct and last-word timers`）
+基线提交：`4137ad1`（`feat: separate vote closing and banishment last words`）
 
 对应规则：`docs/01_game_rules_v1.md`
 
-用途：记录**自动化单元测试还没覆盖、或功能尚未实现**的验收用例。已有 91 项 `unittest` 覆盖的部分只在此做状态索引。
+用途：记录**自动化单元测试还没覆盖、或功能尚未实现**的验收用例。已有 98 项 `unittest` 覆盖的部分只在此做状态索引。
 
 ## 1. 已有自动化测试覆盖的规则
 
-当前测试套件共有 91 项，执行 `python -m unittest discover -s tests -v` 即可复现。
+当前测试套件共有 98 项，执行 `python -m unittest discover -s tests -v` 即可复现。
 
 | 已覆盖内容 | 规则编号 |
 | --- | --- |
@@ -41,6 +41,8 @@
 | 遗言固定30秒超时和自动推进 | DAY-008 |
 | 自爆取消投票、公开身份、10秒窗口和无遗言 | DESTRUCT-001 至 DESTRUCT-008 |
 | 投票自投、改票、弃权、零票和平票 | VOTE-001 至 VOTE-006 |
+| 投票截止后锁票、唯一结算和最终票型公开 | VOTE-009、VOTE-010 |
+| 放逐结果与放逐遗言入口拆分为独立步骤 | VOTE-004 至 VOTE-008 |
 | 放逐普通玩家和被放逐猎人的遗言与开枪 | VOTE-007、VOTE-008、规则 4.2 |
 | 夜间猎人实际开枪与被带走者遗言 | 规则 4.2、规则表第7章 |
 | 队长死亡后第二夜自动重选 | WOLF-006 |

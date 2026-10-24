@@ -163,6 +163,7 @@
 | VOTE-007 | 投票结束后先处理被放逐者遗言；若被放逐者是猎人，随后进入猎人开枪 |
 | VOTE-008 | 猎人开枪带走的目标在死亡后获得遗言，再执行下一次胜负检查 |
 | VOTE-009 | 投票进行中不公开具体票型；投票结束后立即向所有人公开每名存活玩家的最终选择或弃权 |
+| VOTE-010 | 投票截止后锁票，不能再提交或修改；结算只能执行一次，不进行第二轮投票 |
 
 ## 7. 死亡处理与遗言
 
@@ -216,7 +217,9 @@
 | `HUNTER_SHOT` | 猎人 | `actor_id`, `target_id` | 白天开枪后公开；白天不开枪仅观战者可见；夜间仅本人和观战者 |
 | `SELF_DESTRUCTED` | 狼人 | `actor_id`, `revealed_role` | 所有人 |
 | `VOTE_CAST` | 存活玩家 | `actor_id`, `target_id` 或 `null` | 服务端和观战者实时可见，玩家投票结束后才看到最终结果 |
+| `VOTE_CLOSED` | 系统 | `submitted_votes` | 所有人 |
 | `VOTE_RESULT` | 系统 | 全部最终投票、票数汇总和出局结果 | 投票结束后所有人 |
+| `BANISHMENT_LAST_WORDS_STARTED` | 系统 | `player_id` | 所有人 |
 | `PUBLIC_SPEECH` | 存活玩家 | `actor_id`, `content` | 所有人 |
 | `PUBLIC_SPEECH_TIMEOUT` | 系统 | `actor_id`, `deadline` | 所有人 |
 | `LAST_WORDS` | 合法死亡玩家 | `actor_id`, `content` | 所有人 |

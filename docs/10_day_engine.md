@@ -54,7 +54,9 @@ LAST_WORDS
 | `self_destruct` | `DAY_DISCUSSION`、`SELF_DESTRUCT` | 状态、存活狼人、当前时间 | 更新后的状态 |
 | `close_self_destruct_window` | `SELF_DESTRUCT` | 状态、可选服务端当前时间 | 更新后的状态 |
 | `submit_vote` | `VOTE` | 状态、存活玩家、目标或 `None` | 更新后的状态 |
+| `close_vote` | `VOTE` | 状态 | 锁定票箱后的状态 |
 | `resolve_vote` | `VOTE` | 状态 | 更新后的状态 |
+| `begin_banishment_last_words` | `VOTE` | 已结算出局的被放逐者 | 进入遗言阶段 |
 | `submit_day_hunter_shot` | `DAY_HUNTER_SHOT` | 状态、被放逐猎人、目标或 `None` | 更新后的状态 |
 
 ## 4. 关键规则
@@ -96,9 +98,11 @@ LAST_WORDS
 - 可以投自己，也可以弃权。
 - 改票时保存最后一次有效选择。
 - 投票进行中不公开具体票型。
-- 投票结束后通过 `VOTE_RESULT` 一次性公开每名存活玩家的最终选择。
+- `close_vote` 截止后立即锁票，任何改票都被拒绝。
+- `resolve_vote` 只能在截止后执行一次，通过 `VOTE_RESULT` 一次性公开最终选择。
 - 所有零票或最高票并列时无人出局。
 - 唯一最高票玩家被放逐。
+- 唯一最高票确定后，由 `begin_banishment_last_words` 开始被放逐者遗言。
 - 未提交的玩家在结算时视为弃权。
 
 ### 猎人
