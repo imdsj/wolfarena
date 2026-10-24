@@ -101,6 +101,7 @@ PHASE_ORDER: Final[tuple[Phase, ...]] = (
 )
 
 SPECTATOR_VIEW: Final[str] = "spectator"
+PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 30.0
 
 
 ROLE_DECK: Final[tuple[Role, ...]] = (
@@ -170,7 +171,7 @@ class DayResult:
     last_words_done: list[str] = field(default_factory=list)
     speech_order: list[str] = field(default_factory=list)
     next_speaker_index: int = 0
-    speech_timeout_seconds: float = 30.0
+    speech_timeout_seconds: float = PUBLIC_SPEECH_TIMEOUT_SECONDS
     speech_deadline: float | None = None
     self_destruct_ids: list[str] = field(default_factory=list)
     self_destruct_deadline: float | None = None
@@ -886,7 +887,6 @@ def begin_day(
     state: GameState,
     *,
     now: float | None = None,
-    speech_timeout_seconds: float = 30.0,
 ) -> GameState:
     """Create the public day context from the completed night."""
 
@@ -900,11 +900,9 @@ def begin_day(
         if state.night_result is not None
         else []
     )
-    if speech_timeout_seconds <= 0:
-        raise ValueError("公开发言超时必须大于0秒")
     day_result = DayResult(
         announced_death_ids=announced_death_ids,
-        speech_timeout_seconds=float(speech_timeout_seconds),
+        speech_timeout_seconds=PUBLIC_SPEECH_TIMEOUT_SECONDS,
     )
     day_result.speech_order = _living_speech_order(state)
     state.day_result = day_result
