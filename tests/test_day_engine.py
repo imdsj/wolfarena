@@ -320,6 +320,11 @@ class SelfDestructTests(TestCase):
         self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
         self.assertEqual(state.day, 2)
 
+        event_count = len(state.events)
+        close_self_destruct_window(state)
+        self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
+        self.assertEqual(len(state.events), event_count)
+
     def test_non_wolf_and_late_self_destruct_are_rejected(self) -> None:
         state = make_day(day=1)
         wolf = player_with_role(state, Role.WEREWOLF)
@@ -585,6 +590,18 @@ class DayHunterTests(TestCase):
                 for event in get_visible_events(state, living_villager)
             )
         )
+
+    def test_day_hunter_shot_rejects_dead_target(self) -> None:
+        state, hunter = self.setup_hunter_vote()
+        target = player_with_role(state, Role.VILLAGER)
+        target.is_alive = False
+        submit_last_words(state, hunter.player_id, "尝试开枪")
+
+        with self.assertRaises(ValueError):
+            submit_day_hunter_shot(state, hunter.player_id, target.player_id)
+
+        self.assertIs(state.phase, Phase.DAY_HUNTER_SHOT)
+        self.assertTrue(state.day_result.day_hunter_can_shoot)
 
 
 class NextNightCaptainTests(TestCase):
