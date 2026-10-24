@@ -65,9 +65,11 @@ class EventType(str, Enum):
     HUNTER_SHOT = "HUNTER_SHOT"
     SELF_DESTRUCTED = "SELF_DESTRUCTED"
     VOTE_CAST = "VOTE_CAST"
+    VOTE_RESULT = "VOTE_RESULT"
     PUBLIC_SPEECH = "PUBLIC_SPEECH"
     PUBLIC_SPEECH_TIMEOUT = "PUBLIC_SPEECH_TIMEOUT"
     LAST_WORDS = "LAST_WORDS"
+    LAST_WORDS_TIMEOUT = "LAST_WORDS_TIMEOUT"
     WINNER_DECIDED = "WINNER_DECIDED"
     NIGHT_STARTED = "NIGHT_STARTED"
 
@@ -100,6 +102,8 @@ PHASE_ORDER: Final[tuple[Phase, ...]] = (
 )
 
 SPECTATOR_VIEW: Final[str] = "spectator"
+PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 30.0
+LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 30.0
 
 
 ROLE_DECK: Final[tuple[Role, ...]] = (
@@ -167,9 +171,11 @@ class DayResult:
     announced_death_ids: list[str] = field(default_factory=list)
     last_words_queue: list[str] = field(default_factory=list)
     last_words_done: list[str] = field(default_factory=list)
+    last_words_timeout_seconds: float = LAST_WORDS_TIMEOUT_SECONDS
+    last_words_deadline: float | None = None
     speech_order: list[str] = field(default_factory=list)
     next_speaker_index: int = 0
-    speech_timeout_seconds: float = 30.0
+    speech_timeout_seconds: float = PUBLIC_SPEECH_TIMEOUT_SECONDS
     speech_deadline: float | None = None
     self_destruct_ids: list[str] = field(default_factory=list)
     self_destruct_deadline: float | None = None
@@ -885,7 +891,6 @@ def begin_day(
     state: GameState,
     *,
     now: float | None = None,
-    speech_timeout_seconds: float = 30.0,
 ) -> GameState:
     """Create the public day context from the completed night."""
 
@@ -899,11 +904,9 @@ def begin_day(
         if state.night_result is not None
         else []
     )
-    if speech_timeout_seconds <= 0:
-        raise ValueError("公开发言超时必须大于0秒")
     day_result = DayResult(
         announced_death_ids=announced_death_ids,
-        speech_timeout_seconds=float(speech_timeout_seconds),
+        speech_timeout_seconds=PUBLIC_SPEECH_TIMEOUT_SECONDS,
     )
     day_result.speech_order = _living_speech_order(state)
     state.day_result = day_result
@@ -912,6 +915,9 @@ def begin_day(
         day_result.last_words_queue = list(announced_death_ids)
         day_result.after_last_words_phase = Phase.DAY_DISCUSSION
         state.phase = Phase.DAY_LAST_WORDS
+        day_result.last_words_deadline = (
+            None if now is None else now + LAST_WORDS_TIMEOUT_SECONDS
+        )
         return state
 
     state.phase = Phase.DAY_DISCUSSION
@@ -936,8 +942,14 @@ def submit_last_words(
     if not isinstance(content, str) or not content.strip():
         raise ValueError("遗言内容不能为空")
     normalized_content = content.strip()
-    if len(normalized_content) > 30:
-        raise ValueError("遗言不能超过30个字符")
+    han_character_count = sum(
+        "\u3400" <= character <= "\u4dbf"
+        or "\u4e00" <= character <= "\u9fff"
+        or "\uf900" <= character <= "\ufaff"
+        for character in normalized_content
+    )
+    if han_character_count > 100:
+        raise ValueError("遗言中的汉字不能超过100个")
 
     day_result = _day_result_or_error(state)
     if not day_result.last_words_queue or (
@@ -956,11 +968,52 @@ def submit_last_words(
     day_result.last_words_done.append(actor.player_id)
 
     if day_result.last_words_queue:
+        day_result.last_words_deadline = (
+            None if now is None else now + LAST_WORDS_TIMEOUT_SECONDS
+        )
         return state
+    day_result.last_words_deadline = None
     next_phase = day_result.after_last_words_phase
     day_result.after_last_words_phase = None
     if next_phase is None:
         return _finish_day(state, "day_last_words_complete")
+    state.phase = next_phase
+    if next_phase is Phase.DAY_DISCUSSION:
+        _arm_public_speech_timer(state, now)
+    return state
+
+
+def timeout_last_words(state: GameState, now: float) -> GameState:
+    """Expire the current player's 30-second last-words turn."""
+
+    if state.phase is not Phase.DAY_LAST_WORDS:
+        raise ValueError(f"当前阶段没有遗言：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if day_result.last_words_deadline is None:
+        raise ValueError("当前遗言没有可校验的截止时间")
+    if now < day_result.last_words_deadline:
+        raise ValueError("遗言时间尚未结束")
+    if not day_result.last_words_queue:
+        raise ValueError("当前没有等待中的遗言")
+
+    actor_id = day_result.last_words_queue.pop(0)
+    day_result.last_words_done.append(actor_id)
+    append_event(
+        state,
+        EventType.LAST_WORDS_TIMEOUT,
+        actor_id=actor_id,
+        visibility=Visibility.PUBLIC,
+        data={"deadline": day_result.last_words_deadline},
+    )
+    if day_result.last_words_queue:
+        day_result.last_words_deadline = now + LAST_WORDS_TIMEOUT_SECONDS
+        return state
+
+    day_result.last_words_deadline = None
+    next_phase = day_result.after_last_words_phase
+    day_result.after_last_words_phase = None
+    if next_phase is None:
+        return _finish_day(state, "last_words_timeout_complete")
     state.phase = next_phase
     if next_phase is Phase.DAY_DISCUSSION:
         _arm_public_speech_timer(state, now)
@@ -1057,7 +1110,7 @@ def self_destruct(
     if state.phase is Phase.SELF_DESTRUCT:
         if (
             day_result.self_destruct_deadline is None
-            or now > day_result.self_destruct_deadline
+            or now >= day_result.self_destruct_deadline
         ):
             raise ValueError("自爆窗口已经关闭")
     else:
@@ -1092,7 +1145,7 @@ def self_destruct(
 
 def close_self_destruct_window(
     state: GameState,
-    now: float,
+    now: float | None = None,
 ) -> GameState:
     """Close the self-destruct window and continue to the next night."""
 
@@ -1101,7 +1154,7 @@ def close_self_destruct_window(
     day_result = _day_result_or_error(state)
     if day_result.self_destruct_deadline is None:
         raise ValueError("自爆窗口尚未建立")
-    if now < day_result.self_destruct_deadline:
+    if now is not None and now < day_result.self_destruct_deadline:
         raise ValueError("自爆窗口尚未结束")
     return _finish_day(state, "self_destruct_window_closed")
 
@@ -1130,7 +1183,7 @@ def submit_vote(
         EventType.VOTE_CAST,
         actor_id=actor.player_id,
         target_id=target_id,
-        visibility=Visibility.PUBLIC,
+        visibility=Visibility.GOD,
         data={"abstain": target_id is None},
     )
     return state
@@ -1145,16 +1198,42 @@ def resolve_vote(state: GameState) -> GameState:
     if day_result.resolved:
         raise ValueError("本日投票已经结算")
 
+    living_player_ids = _living_speech_order(state)
+    final_votes = {
+        player_id: day_result.votes.get(player_id)
+        for player_id in living_player_ids
+    }
     counts = Counter(
-        target_id
-        for target_id in day_result.votes.values()
-        if target_id is not None
+        target_id for target_id in final_votes.values() if target_id is not None
     )
+    highest = max(counts.values(), default=0)
+    leaders = (
+        [player_id for player_id, count in counts.items() if count == highest]
+        if highest
+        else []
+    )
+    banished_id = leaders[0] if len(leaders) == 1 else None
+    result_reason = (
+        "unique_highest"
+        if banished_id is not None
+        else ("tie" if len(leaders) > 1 else "all_abstain")
+    )
+    day_result.votes = final_votes
+    append_event(
+        state,
+        EventType.VOTE_RESULT,
+        visibility=Visibility.PUBLIC,
+        data={
+            "votes": dict(final_votes),
+            "tally": dict(counts),
+            "banished_id": banished_id,
+            "reason": result_reason,
+        },
+    )
+
     if not counts:
         return _finish_day(state, "vote_no_elimination")
 
-    highest = max(counts.values())
-    leaders = [player_id for player_id, count in counts.items() if count == highest]
     if len(leaders) != 1:
         return _finish_day(state, "vote_tie")
 
@@ -1208,7 +1287,9 @@ def submit_day_hunter_shot(
         EventType.HUNTER_SHOT,
         actor_id=actor.player_id,
         target_id=target_id,
-        visibility=Visibility.PUBLIC,
+        visibility=(
+            Visibility.PUBLIC if target_id is not None else Visibility.GOD
+        ),
         data={"night": False},
     )
 

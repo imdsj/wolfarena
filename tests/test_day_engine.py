@@ -30,6 +30,7 @@ from backend.game_engine import (
     submit_seer_check,
     submit_vote,
     submit_witch_action,
+    timeout_last_words,
     timeout_public_speech,
 )
 
@@ -176,9 +177,9 @@ class DayAnnouncementAndLastWordsTests(TestCase):
         with self.assertRaises(ValueError):
             submit_last_words(state, alive.player_id, "活人遗言")
         with self.assertRaises(ValueError):
-            submit_last_words(state, "p4", "字" * 31)
+            submit_last_words(state, "p4", "字" * 101)
 
-        submit_last_words(state, "p4", "合法遗言")
+        submit_last_words(state, "p4", "字" * 100)
         with self.assertRaises(ValueError):
             submit_last_words(state, "p4", "重复遗言")
 
@@ -187,6 +188,38 @@ class DayAnnouncementAndLastWordsTests(TestCase):
 
         with self.assertRaises(ValueError):
             begin_day(state)
+
+    def test_last_words_limit_counts_han_characters_only(self) -> None:
+        allowed_state = make_day(day=1, death_ids=["p4"])
+        submit_last_words(allowed_state, "p4", "字" * 100 + "！" * 20)
+
+        rejected_state = make_day(day=1, death_ids=["p4"])
+        with self.assertRaises(ValueError):
+            submit_last_words(rejected_state, "p4", "字" * 101)
+        self.assertEqual(rejected_state.day_result.last_words_queue, ["p4"])
+
+    def test_last_words_timeout_advances_after_fixed_30_seconds(self) -> None:
+        state = make_day(day=1, death_ids=["p4", "p2"], now=100.0)
+        self.assertEqual(state.day_result.last_words_deadline, 130.0)
+
+        event_count_before = len(state.events)
+        with self.assertRaises(ValueError):
+            timeout_last_words(state, 129.9)
+        self.assertEqual(state.day_result.last_words_queue, ["p4", "p2"])
+        self.assertEqual(len(state.events), event_count_before)
+
+        timeout_last_words(state, 130.0)
+        self.assertEqual(state.day_result.last_words_queue, ["p2"])
+        self.assertEqual(state.day_result.last_words_deadline, 160.0)
+        timeout_last_words(state, 160.0)
+        self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
+        self.assertEqual(state.day_result.last_words_deadline, None)
+        timeout_events = [
+            event
+            for event in state.events
+            if event.event_type is EventType.LAST_WORDS_TIMEOUT
+        ]
+        self.assertEqual(len(timeout_events), 2)
 
 
 class PublicSpeechTests(TestCase):
@@ -263,6 +296,7 @@ class SelfDestructTests(TestCase):
         self.assertIs(event.visibility, Visibility.PUBLIC)
         self.assertEqual(event.data["revealed_role"], "werewolf")
         self.assertFalse(event.data["has_last_words"])
+        self.assertEqual(state.day_result.last_words_queue, [])
 
     def test_other_wolves_can_continue_until_window_closes(self) -> None:
         state = make_day(day=1)
@@ -280,7 +314,7 @@ class SelfDestructTests(TestCase):
         with self.assertRaises(ValueError):
             close_self_destruct_window(state, now=109.9)
 
-        close_self_destruct_window(state, now=110.0)
+        close_self_destruct_window(state)
         self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
         self.assertEqual(state.day, 2)
 
@@ -293,7 +327,24 @@ class SelfDestructTests(TestCase):
 
         self_destruct(state, wolf.player_id, now=100.0)
         with self.assertRaises(ValueError):
-            self_destruct(state, villager.player_id, now=111.0)
+            self_destruct(state, villager.player_id, now=110.0)
+
+        other_wolf = next(
+            player
+            for player in state.players
+            if player.role is Role.WEREWOLF and player.is_alive
+        )
+        with self.assertRaises(ValueError):
+            self_destruct(state, other_wolf.player_id, now=110.0)
+
+    def test_vote_phase_self_destruct_is_rejected(self) -> None:
+        state = make_vote_day()
+        wolf = player_with_role(state, Role.WEREWOLF)
+
+        with self.assertRaises(ValueError):
+            self_destruct(state, wolf.player_id, now=100.0)
+        self.assertTrue(wolf.is_alive)
+        self.assertIs(state.phase, Phase.VOTE)
 
     def test_all_wolves_self_destruct_ends_with_good_win(self) -> None:
         state = make_day(day=1)
@@ -328,12 +379,32 @@ class VoteTests(TestCase):
             state.day_result.votes[voter.player_id],
             second_target.player_id,
         )
+        self.assertFalse(
+            any(
+                event.event_type is EventType.VOTE_CAST
+                for event in get_visible_events(state, voter)
+            )
+        )
         vote_events = [
             event
             for event in state.events
             if event.event_type is EventType.VOTE_CAST
         ]
         self.assertEqual(len(vote_events), 3)
+        self.assertTrue(
+            all(event.visibility is Visibility.GOD for event in vote_events)
+        )
+
+        resolve_vote(state)
+        vote_result = next(
+            event
+            for event in get_visible_events(state, voter)
+            if event.event_type is EventType.VOTE_RESULT
+        )
+        self.assertEqual(
+            vote_result.data["votes"][voter.player_id],
+            second_target.player_id,
+        )
 
     def test_zero_votes_and_ties_eliminate_nobody(self) -> None:
         zero_state = make_vote_day()
@@ -441,6 +512,18 @@ class DayHunterTests(TestCase):
             if event.event_type is EventType.HUNTER_SHOT
         )
         self.assertIsNone(no_shot_event.target_id)
+        self.assertIs(no_shot_event.visibility, Visibility.GOD)
+        living_villager = next(
+            player
+            for player in state.players
+            if player.is_alive and player.role is Role.VILLAGER
+        )
+        self.assertFalse(
+            any(
+                event.event_type is EventType.HUNTER_SHOT
+                for event in get_visible_events(state, living_villager)
+            )
+        )
 
 
 class NextNightCaptainTests(TestCase):
