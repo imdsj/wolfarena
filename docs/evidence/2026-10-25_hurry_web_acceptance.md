@@ -19,28 +19,60 @@
 
 ## 一、20:00 判定：最小入口（W 组）
 
+> 预检记录：2026-10-24 15:50 本机实测（Hurry），commit `6ae38e0`。订书机已实现 FastAPI + WebSocket 最小入口，以下为独立复核结果。
+
 | 编号 | 判据 | 结果 | 证据 |
 | --- | --- | --- | --- |
-| W-01 | 后端能启动 | 待测 | |
-| W-02 | `/health` 返回 200 且响应可解析 | 待测 | |
-| W-03 | 能创建房间，9 人（1 真人 + 8 AI） | 待测 | |
-| W-04 | WebSocket 能连并收到阶段事件 | 待测 | |
-| W-05 | 真人能看到自己 `role`，看不到他人 `role` | 待测 | |
+| W-01 | 后端能启动 | **通过**（`python -m uvicorn backend.api:app` 进程稳定） | 启动无致命错误 |
+| W-02 | `/health` 返回 200 且响应可解析 | **通过**：`{"status":"ok","service":"wolfarena-api","version":"0.2.0"}` | 见下命令记录 |
+| W-03 | 能创建房间，9 人（1 真人 + 8 AI） | **通过**：`POST /api/rooms` 返回 201，`players=9`、真人数 1、`phase=INIT`、`day=0`，返回 `room_id`/`player_token`/`spectator_password` | 见下 |
+| W-04 | WebSocket 能连并收到阶段事件 | **通过**：`/ws/rooms/{id}` 认证后收到 `{"type":"authenticated",...}`，随后收到 `{"type":"snapshot","event_seq":9,...}` | 见下 |
+| W-05 | 身份隔离：好人只看自己、狼人看狼队、观战者看全部 | **通过**（按修正后口径）：<br>好人 `seed=901`（hunter）→ `[('p1','hunter')]` 仅自己<br>狼人 `seed=904` → `[('p1','werewolf'),('p3','werewolf'),('p5','werewolf')]` 自己 + 2 队友<br>狼人 `seed=905` → `[('p1','werewolf'),('p2','werewolf'),('p4','werewolf')]` | 见下 |
 
-判定规则：**五项全通过**才进入第二部分；W-01 或 W-03 不通即判不可用，直接跳第四部分降级路径。
+判定：**Web 入口可用**（W-01 至 W-05 全部通过）。
 
-命令记录：
+### 环境注意（新人会踩）
+
+首次在新机器上跑测试会报 `ModuleNotFoundError: No module named 'fastapi'`，必须先安装依赖：
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+安装前全量测试为 `110 tests, 2 errors`（两个测试模块因缺依赖无法导入）；安装后为 **`136 tests, OK`**。
+
+### 命令记录
 
 ```powershell
 # W-01 启动
+python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
+
 # W-02 健康检查
 curl http://127.0.0.1:8000/health
 
 # W-03 创建房间
+POST /api/rooms
+{"seed": 901, "human_count": 1, "max_humans": 3, "nickname": "测试真人"}
+→ 201 {"room_id":"...","player_token":"...","spectator_password":"...","room":{...}}
 
-# W-04 WebSocket 连接
+# W-04 WebSocket
+ws://127.0.0.1:8000/ws/rooms/{room_id}
+→ send {"type":"authenticate","token":"..."}
+← {"type":"authenticated", ...}
+→ send {"type":"action","action":"start_night"}
+← {"type":"snapshot","event_seq":9,...}
 
+# W-05 身份可见性
+GET /api/rooms/{room_id}  (Header: X-Player-Token)
+查 visible_events 中 event_type=ROLE_ASSIGNED 的 target_id 与 data.role
 ```
+
+### 实测发现的实现事实
+
+- 身份**不在** `players` 数组里：`PublicPlayer` 只有 `player_id`/`seat`/`name`/`is_human`/`is_alive`。身份只出现在 `viewer.role`（自己）与 `visible_events` 的 `ROLE_ASSIGNED`（按可见性过滤）。
+- 因此 W-05 的判定**必须查事件流**，查 `players[].role` 永远为空，会误判为「身份全部隐藏」。
+- `max_humans` 默认值 3，取值范围 1 至 3（`ge=1, le=3`），与 GAME-004 一致，可用于 L-04c。
+- 创建房间返回 `spectator_password`，每局独立，可用于 P-05「无万能密码」。
 
 ---
 
