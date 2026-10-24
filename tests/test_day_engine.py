@@ -176,9 +176,9 @@ class DayAnnouncementAndLastWordsTests(TestCase):
         with self.assertRaises(ValueError):
             submit_last_words(state, alive.player_id, "活人遗言")
         with self.assertRaises(ValueError):
-            submit_last_words(state, "p4", "字" * 31)
+            submit_last_words(state, "p4", "字" * 101)
 
-        submit_last_words(state, "p4", "合法遗言")
+        submit_last_words(state, "p4", "字" * 100)
         with self.assertRaises(ValueError):
             submit_last_words(state, "p4", "重复遗言")
 
@@ -187,6 +187,15 @@ class DayAnnouncementAndLastWordsTests(TestCase):
 
         with self.assertRaises(ValueError):
             begin_day(state)
+
+    def test_last_words_limit_counts_han_characters_only(self) -> None:
+        allowed_state = make_day(day=1, death_ids=["p4"])
+        submit_last_words(allowed_state, "p4", "字" * 100 + "！" * 20)
+
+        rejected_state = make_day(day=1, death_ids=["p4"])
+        with self.assertRaises(ValueError):
+            submit_last_words(rejected_state, "p4", "字" * 101)
+        self.assertEqual(rejected_state.day_result.last_words_queue, ["p4"])
 
 
 class PublicSpeechTests(TestCase):
@@ -293,7 +302,15 @@ class SelfDestructTests(TestCase):
 
         self_destruct(state, wolf.player_id, now=100.0)
         with self.assertRaises(ValueError):
-            self_destruct(state, villager.player_id, now=111.0)
+            self_destruct(state, villager.player_id, now=110.0)
+
+        other_wolf = next(
+            player
+            for player in state.players
+            if player.role is Role.WEREWOLF and player.is_alive
+        )
+        with self.assertRaises(ValueError):
+            self_destruct(state, other_wolf.player_id, now=110.0)
 
     def test_all_wolves_self_destruct_ends_with_good_win(self) -> None:
         state = make_day(day=1)
@@ -328,12 +345,32 @@ class VoteTests(TestCase):
             state.day_result.votes[voter.player_id],
             second_target.player_id,
         )
+        self.assertFalse(
+            any(
+                event.event_type is EventType.VOTE_CAST
+                for event in get_visible_events(state, voter)
+            )
+        )
         vote_events = [
             event
             for event in state.events
             if event.event_type is EventType.VOTE_CAST
         ]
         self.assertEqual(len(vote_events), 3)
+        self.assertTrue(
+            all(event.visibility is Visibility.GOD for event in vote_events)
+        )
+
+        resolve_vote(state)
+        vote_result = next(
+            event
+            for event in get_visible_events(state, voter)
+            if event.event_type is EventType.VOTE_RESULT
+        )
+        self.assertEqual(
+            vote_result.data["votes"][voter.player_id],
+            second_target.player_id,
+        )
 
     def test_zero_votes_and_ties_eliminate_nobody(self) -> None:
         zero_state = make_vote_day()
@@ -441,6 +478,18 @@ class DayHunterTests(TestCase):
             if event.event_type is EventType.HUNTER_SHOT
         )
         self.assertIsNone(no_shot_event.target_id)
+        self.assertIs(no_shot_event.visibility, Visibility.GOD)
+        living_villager = next(
+            player
+            for player in state.players
+            if player.is_alive and player.role is Role.VILLAGER
+        )
+        self.assertFalse(
+            any(
+                event.event_type is EventType.HUNTER_SHOT
+                for event in get_visible_events(state, living_villager)
+            )
+        )
 
 
 class NextNightCaptainTests(TestCase):

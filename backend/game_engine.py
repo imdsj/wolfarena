@@ -65,6 +65,7 @@ class EventType(str, Enum):
     HUNTER_SHOT = "HUNTER_SHOT"
     SELF_DESTRUCTED = "SELF_DESTRUCTED"
     VOTE_CAST = "VOTE_CAST"
+    VOTE_RESULT = "VOTE_RESULT"
     PUBLIC_SPEECH = "PUBLIC_SPEECH"
     PUBLIC_SPEECH_TIMEOUT = "PUBLIC_SPEECH_TIMEOUT"
     LAST_WORDS = "LAST_WORDS"
@@ -936,8 +937,14 @@ def submit_last_words(
     if not isinstance(content, str) or not content.strip():
         raise ValueError("遗言内容不能为空")
     normalized_content = content.strip()
-    if len(normalized_content) > 30:
-        raise ValueError("遗言不能超过30个字符")
+    han_character_count = sum(
+        "\u3400" <= character <= "\u4dbf"
+        or "\u4e00" <= character <= "\u9fff"
+        or "\uf900" <= character <= "\ufaff"
+        for character in normalized_content
+    )
+    if han_character_count > 100:
+        raise ValueError("遗言中的汉字不能超过100个")
 
     day_result = _day_result_or_error(state)
     if not day_result.last_words_queue or (
@@ -1057,7 +1064,7 @@ def self_destruct(
     if state.phase is Phase.SELF_DESTRUCT:
         if (
             day_result.self_destruct_deadline is None
-            or now > day_result.self_destruct_deadline
+            or now >= day_result.self_destruct_deadline
         ):
             raise ValueError("自爆窗口已经关闭")
     else:
@@ -1130,7 +1137,7 @@ def submit_vote(
         EventType.VOTE_CAST,
         actor_id=actor.player_id,
         target_id=target_id,
-        visibility=Visibility.PUBLIC,
+        visibility=Visibility.GOD,
         data={"abstain": target_id is None},
     )
     return state
@@ -1145,16 +1152,42 @@ def resolve_vote(state: GameState) -> GameState:
     if day_result.resolved:
         raise ValueError("本日投票已经结算")
 
+    living_player_ids = _living_speech_order(state)
+    final_votes = {
+        player_id: day_result.votes.get(player_id)
+        for player_id in living_player_ids
+    }
     counts = Counter(
-        target_id
-        for target_id in day_result.votes.values()
-        if target_id is not None
+        target_id for target_id in final_votes.values() if target_id is not None
     )
+    highest = max(counts.values(), default=0)
+    leaders = (
+        [player_id for player_id, count in counts.items() if count == highest]
+        if highest
+        else []
+    )
+    banished_id = leaders[0] if len(leaders) == 1 else None
+    result_reason = (
+        "unique_highest"
+        if banished_id is not None
+        else ("tie" if len(leaders) > 1 else "all_abstain")
+    )
+    day_result.votes = final_votes
+    append_event(
+        state,
+        EventType.VOTE_RESULT,
+        visibility=Visibility.PUBLIC,
+        data={
+            "votes": dict(final_votes),
+            "tally": dict(counts),
+            "banished_id": banished_id,
+            "reason": result_reason,
+        },
+    )
+
     if not counts:
         return _finish_day(state, "vote_no_elimination")
 
-    highest = max(counts.values())
-    leaders = [player_id for player_id, count in counts.items() if count == highest]
     if len(leaders) != 1:
         return _finish_day(state, "vote_tie")
 
@@ -1208,7 +1241,9 @@ def submit_day_hunter_shot(
         EventType.HUNTER_SHOT,
         actor_id=actor.player_id,
         target_id=target_id,
-        visibility=Visibility.PUBLIC,
+        visibility=(
+            Visibility.PUBLIC if target_id is not None else Visibility.GOD
+        ),
         data={"night": False},
     )
 
