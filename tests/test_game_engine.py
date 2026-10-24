@@ -371,6 +371,7 @@ class PhaseAndEventModelTests(TestCase):
             "PUBLIC_SPEECH",
             "PUBLIC_SPEECH_TIMEOUT",
             "LAST_WORDS",
+            "LAST_WORDS_TIMEOUT",
             "WINNER_DECIDED",
         }
 
