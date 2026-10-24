@@ -213,6 +213,7 @@
 | `SELF_DESTRUCTED` | 狼人 | `actor_id`, `revealed_role` | 所有人 |
 | `VOTE_CAST` | 存活玩家 | `actor_id`, `target_id` 或 `null` | 投票结束后公开 |
 | `PUBLIC_SPEECH` | 存活玩家 | `actor_id`, `content` | 所有人 |
+| `PUBLIC_SPEECH_TIMEOUT` | 系统 | `actor_id`, `deadline` | 所有人 |
 | `LAST_WORDS` | 合法死亡玩家 | `actor_id`, `content` | 所有人 |
 | `WINNER_DECIDED` | 系统 | `winner`, `reason` | 所有人 |
 

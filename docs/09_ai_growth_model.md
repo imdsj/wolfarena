@@ -85,7 +85,7 @@ status = untested
 python -m unittest discover -s tests -v
 ```
 
-当前完整测试基线为 87 项，其中 15 项覆盖 AI 成长数据与 L0。
+当前完整测试基线为 88 项，其中 15 项覆盖 AI 成长数据与 L0。
 
 ## 6. 成长指标状态
 
@@ -94,7 +94,7 @@ python -m unittest discover -s tests -v
 阻塞原因：
 
 - 白天服务端主链已经实现，但自动对局编排尚未接入。
-- WebSocket 尚未驱动阶段推进与超时。
+- WebSocket 尚未驱动阶段推进和实际超时触发。
 - 训练场批量模拟入口尚未实现。
 - 结构化动作日志尚未导出到训练文件。
 
