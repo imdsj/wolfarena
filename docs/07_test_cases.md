@@ -2,15 +2,15 @@
 
 日期：2026-10-23
 
-基线提交：`d00f140`（`feat: enforce public speech timeout and stable state`）
+基线提交：`dc2a30a`（`fix: align vote, hunter, and last-word visibility rules`）
 
 对应规则：`docs/01_game_rules_v1.md`
 
-用途：记录**自动化单元测试还没覆盖、或功能尚未实现**的验收用例。已有 88 项 `unittest` 覆盖的部分只在此做状态索引。
+用途：记录**自动化单元测试还没覆盖、或功能尚未实现**的验收用例。已有 89 项 `unittest` 覆盖的部分只在此做状态索引。
 
 ## 1. 已有自动化测试覆盖的规则
 
-当前测试套件共有 88 项，执行 `python -m unittest discover -s tests -v` 即可复现。
+当前测试套件共有 89 项，执行 `python -m unittest discover -s tests -v` 即可复现。
 
 | 已覆盖内容 | 规则编号 |
 | --- | --- |
