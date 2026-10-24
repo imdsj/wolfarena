@@ -117,7 +117,7 @@
 | 顺序 | 阶段代码 | 公开事件 | 允许行动 |
 | ---: | --- | --- | --- |
 | 1 | `DAY_ANNOUNCEMENT` | 公布夜间死亡名单 | 只读；不公布死因和夜间猎人身份 |
-| 2 | `DAY_LAST_WORDS` | 按遗言表处理 | 符合条件者发言，最多 100 个汉字 |
+| 2 | `DAY_LAST_WORDS` | 按遗言表处理 | 符合条件者发言，每名玩家最多30秒且最多100个汉字 |
 | 3 | `DAY_DISCUSSION` | 存活玩家按座次轮流发言 | 每名存活玩家公开发言一次；存活狼人可在讨论期间自爆 |
 | 4 | `SELF_DESTRUCT` | 触发后公布自爆者狼人身份 | 最多持续 10 秒，只允许其他存活狼人继续自爆 |
 | 5 | `VOTE` | 没有发生自爆时进入投票 | 每名存活玩家提交一名玩家或弃权 |
@@ -135,6 +135,7 @@
 | DAY-005 | 发言内容不得由服务端直接解释成规则动作；行动必须来自结构化请求 |
 | DAY-006 | 没有合法遗言时直接跳过 `DAY_LAST_WORDS` |
 | DAY-007 | 公开发言超时固定为每人 30 秒；发言完成或超时后推进 |
+| DAY-008 | 遗言发言超时固定为每人 30 秒；发言完成或超时后推进 |
 
 ### 5.2 自爆
 
@@ -219,6 +220,7 @@
 | `PUBLIC_SPEECH` | 存活玩家 | `actor_id`, `content` | 所有人 |
 | `PUBLIC_SPEECH_TIMEOUT` | 系统 | `actor_id`, `deadline` | 所有人 |
 | `LAST_WORDS` | 合法死亡玩家 | `actor_id`, `content` | 所有人 |
+| `LAST_WORDS_TIMEOUT` | 系统 | `actor_id`, `deadline` | 所有人 |
 | `WINNER_DECIDED` | 系统 | `winner`, `reason` | 所有人 |
 
 `PLAYER_DIED.causes` 使用以下固定值：
