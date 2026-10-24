@@ -495,6 +495,26 @@ class EventVisibilityTests(TestCase):
         }
         self.assertIn(wolf_event.event_seq, revealed_event_ids)
 
+    def test_dead_wolf_keeps_own_role_but_not_teammate_roles(self) -> None:
+        state = create_game(seed=35)
+        wolves = [
+            player
+            for player in state.players
+            if player.role is Role.WEREWOLF
+        ]
+        viewer = wolves[0]
+        viewer.is_alive = False
+
+        visible_role_targets = {
+            event.target_id
+            for event in get_visible_events(state, viewer)
+            if event.event_type is EventType.ROLE_ASSIGNED
+        }
+
+        self.assertIn(viewer.player_id, visible_role_targets)
+        self.assertNotIn(wolves[1].player_id, visible_role_targets)
+        self.assertNotIn(wolves[2].player_id, visible_role_targets)
+
 
 class WolfCaptainTests(TestCase):
     def test_all_ai_captain_is_reproducible(self) -> None:

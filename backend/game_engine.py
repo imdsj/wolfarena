@@ -1155,7 +1155,7 @@ def close_self_destruct_window(
     """Close the self-destruct window and continue to the next night."""
 
     if state.phase is not Phase.SELF_DESTRUCT:
-        raise ValueError(f"当前阶段没有自爆窗口：{state.phase.value}")
+        return state
     day_result = _day_result_or_error(state)
     if day_result.self_destruct_deadline is None:
         raise ValueError("自爆窗口尚未建立")
@@ -1453,6 +1453,12 @@ def get_visible_events(
 
     visible_events: list[Event] = []
     for event in state.events:
+        if (
+            event.event_type is EventType.ROLE_ASSIGNED
+            and event.target_id == player.player_id
+        ):
+            visible_events.append(event)
+            continue
         if event.visibility is Visibility.PUBLIC:
             if event.event_type is EventType.PLAYER_DIED:
                 data = dict(event.data)
