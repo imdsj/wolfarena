@@ -15,6 +15,8 @@ work/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
+frontend/%USERPROFILE%/
 
 # 数据库
 *.db

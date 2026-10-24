@@ -2,7 +2,7 @@
 
 WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项目，目标是把九人狼人杀、可解释的 AI Agent 行为和可复现的策略训练放在同一个 Web 平台中。
 
-当前仓库已完成服务端九人局规则引擎、最小 FastAPI 房间入口和按玩家视角过滤的 WebSocket 通道。规则引擎可从首夜推进到天亮、发言、自爆、投票、放逐、夜间或白天猎人开枪和最终胜负。浏览器房间页面、完整动作接口、真实计时器、DeepSeek、RAG 和训练场仍在后续阶段实现。
+当前仓库已完成服务端九人局规则引擎、最小 FastAPI 房间入口、按玩家视角过滤的 WebSocket 通道、受控 DeepSeek 候选适配器和最小 Vue 页面。页面可以创建或加入房间、观察阶段和事件，并由房主开始首夜或请求 AI 推荐。完整游戏动作、真实计时器、RAG 和训练场仍在后续阶段实现。
 
 ## 当前完成内容
 
@@ -25,13 +25,16 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - WebSocket 首消息认证、玩家/观战者身份确认、阶段事件和重连。
 - 每局独立观战密码，以及普通玩家、存活狼人、死亡玩家和观战者的不同事件流。
 - 同一房间的状态变更使用房间级锁串行执行。
+- DeepSeek JSON 候选、Pydantic 校验、一次格式修复和无 Key/超时兜底。
+- 非法 AI 动作或目标不会进入规则引擎，并记录拒绝原因。
+- Vue 3 最小大厅、房间状态、WebSocket 生命周期和服务器事件列表。
 
 ## 技术方向
 
 | 部分 | 计划技术 |
 | --- | --- |
-| 前端 | Vue 3、TypeScript、Vite（未实现） |
-| 后端 | Python、FastAPI、WebSocket（最小事件通道已实现） |
+| 前端 | Vue 3、TypeScript、Vite（最小入口已实现） |
+| 后端 | Python、FastAPI、WebSocket、DeepSeek 适配器 |
 | 数据 | SQLite |
 | 模型 | DeepSeek OpenAI 兼容接口 |
 | 策略训练 | 共享表格型 Q-learning |
@@ -50,19 +53,30 @@ wolfarena/
   README.md           项目说明
 ```
 
-## 启动 Web API
+## 启动完整页面
+
+先构建前端：
+
+```powershell
+Set-Location frontend
+npm install
+npm run build
+Set-Location ..
+```
+
+构建完成后，FastAPI 会直接托管 `frontend/dist`。再启动服务：
 
 在项目根目录打开 PowerShell：
 
 ```powershell
-python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python -m uvicorn backend.api:app --reload
+python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
 ```
 
 服务启动后访问：
 
+- 页面入口：`http://127.0.0.1:8000/`
 - 健康检查：`GET http://127.0.0.1:8000/health`
 - 接口文档：`http://127.0.0.1:8000/docs`
 - 创建房间：`POST /api/rooms`
@@ -95,6 +109,31 @@ WebSocket URL 只包含房间号。连接后的第一条消息必须完成认证
 状态变化会发送经过 `get_visible_events` 过滤的 `event`，随后发送新的
 `phase`。Token 和观战密码不得放入 URL 查询参数或公开日志。
 
+开发模式下也可以进入 `frontend` 执行 `npm run dev`，Vite 会把 API 和
+WebSocket 代理到 `127.0.0.1:8000`。
+
+## DeepSeek 配置与兜底
+
+复制 `.env.example` 为 `.env`，在本机填写：
+
+```text
+DEEPSEEK_API_KEY=你的私有密钥
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_TIMEOUT_SECONDS=8
+```
+
+`.env` 已被 Git 忽略。模型没有配置或调用失败时，服务器会使用本地
+`start_night` 兜底并记录 `AI_FALLBACK_USED`。页面请求：
+
+```text
+POST /api/rooms/{room_id}/ai-action
+X-Player-Token: 玩家凭证
+```
+
+模型只生成候选，服务端验证合法动作和合法目标后才调用规则引擎。日志不会
+打印请求头、Token 或 API Key。
+
 ## 运行测试
 
 在项目根目录运行：
@@ -103,13 +142,20 @@ WebSocket URL 只包含房间号。连接后的第一条消息必须完成认证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **136 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **147 个测试**全部通过，并输出 `OK`。
+
+服务运行时，可执行前端 DOM 冒烟测试：
+
+```powershell
+Set-Location frontend
+npm run smoke:client
+```
 
 ## 当前未完成
 
 - 除 `start_night` 外的完整游戏动作接口和中文错误码文案。
-- Vue 前端、移动端页面和真实倒计时。
-- DeepSeek、RAG 与 Function Calling 集成。
+- 更多阶段的 Vue 操作面板和真实倒计时。
+- RAG 与 Function Calling 的完整策略闭环。
 - 训练场、策略版本切换、200局批量模拟和指标导出。
 - 在线部署和公网联调。
 
