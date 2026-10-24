@@ -2,7 +2,7 @@
 
 WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项目，目标是把九人狼人杀、可解释的 AI Agent 行为和可复现的策略训练放在同一个 Web 平台中。
 
-当前仓库已完成服务端九人局规则引擎，可从首夜推进到天亮、发言、自爆、投票、放逐、夜间或白天猎人开枪和最终胜负。当前还不能从浏览器直接游玩：FastAPI/WebSocket、前端、真实计时器、DeepSeek、RAG 和训练场仍在后续阶段实现。
+当前仓库已完成服务端九人局规则引擎和最小 FastAPI 房间入口。规则引擎可从首夜推进到天亮、发言、自爆、投票、放逐、夜间或白天猎人开枪和最终胜负。浏览器房间页面、WebSocket、真实计时器、DeepSeek、RAG 和训练场仍在后续阶段实现。
 
 ## 当前完成内容
 
@@ -21,13 +21,14 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - 自爆窗口和遗言/公开发言30秒规则的确定性服务端入口。
 - 基于存活狼人和好人数量判断最小胜负结果。
 - 自动化测试覆盖角色数量、真人/AI 标记、可复现随机分配、事件记录和阶段切换。
+- FastAPI 健康检查、内存房间创建、加入、玩家凭证和身份过滤。
 
 ## 技术方向
 
 | 部分 | 计划技术 |
 | --- | --- |
-| 前端 | Vue 3、TypeScript、Vite |
-| 后端 | Python、FastAPI、WebSocket |
+| 前端 | Vue 3、TypeScript、Vite（未实现） |
+| 后端 | Python、FastAPI（最小入口已实现）、WebSocket（未实现） |
 | 数据 | SQLite |
 | 模型 | DeepSeek OpenAI 兼容接口 |
 | 策略训练 | 共享表格型 Q-learning |
@@ -36,7 +37,7 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 
 ```text
 wolfarena/
-  backend/            后端游戏引擎
+  backend/            游戏引擎、FastAPI 路由和内存房间
   frontend/           Vue 前端
   docs/               规则、决策与比赛材料记录
   training_runs/      本地训练输出，不直接提交原始结果
@@ -46,6 +47,28 @@ wolfarena/
   README.md           项目说明
 ```
 
+## 启动 Web API
+
+在项目根目录打开 PowerShell：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn backend.api:app --reload
+```
+
+服务启动后访问：
+
+- 健康检查：`GET http://127.0.0.1:8000/health`
+- 接口文档：`http://127.0.0.1:8000/docs`
+- 创建房间：`POST /api/rooms`
+- 加入房间：`POST /api/rooms/{room_id}/join`
+- 读取当前玩家视角：`GET /api/rooms/{room_id}`
+
+读取房间时必须把创建或加入时返回的 `player_token` 放入
+`X-Player-Token` 请求头。房间数据当前保存在进程内存中，服务重启后清空。
+
 ## 运行测试
 
 在项目根目录运行：
@@ -54,11 +77,11 @@ wolfarena/
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **108 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **122 个测试**全部通过，并输出 `OK`。
 
 ## 当前未完成
 
-- FastAPI 路由、WebSocket、房间和联机服务。
+- WebSocket 阶段广播、断线重连、观战密码和真实联机服务。
 - Vue 前端、移动端页面和真实倒计时。
 - DeepSeek、RAG 与 Function Calling 集成。
 - 训练场、策略版本切换、200局批量模拟和指标导出。
