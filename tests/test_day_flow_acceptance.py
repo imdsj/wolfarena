@@ -14,6 +14,7 @@ from unittest import TestCase
 from backend.game_engine import (
     LAST_WORDS_TIMEOUT_SECONDS,
     PUBLIC_SPEECH_TIMEOUT_SECONDS,
+    SPECTATOR_VIEW,
     EventType,
     Phase,
     Role,
@@ -21,6 +22,7 @@ from backend.game_engine import (
     Visibility,
     check_winner,
     close_self_destruct_window,
+    get_visible_events,
     resolve_vote,
     self_destruct,
     submit_day_hunter_shot,
@@ -139,6 +141,66 @@ class SelfDestructWindowTests(TestCase):
 
         close_self_destruct_window(state, now=110.0)
         self.assertEqual(state.day, 2)
+
+
+class VoteVisibilityTests(TestCase):
+    """变更 3：投票期间不公开票型，结束后 VOTE_RESULT 一次性公开；未投票视为弃权。"""
+
+    def test_vote_cast_is_hidden_from_players_until_vote_ends(self) -> None:
+        state = make_vote_day()
+        voters = [p for p in state.players if p.is_alive]
+        submit_vote(state, voters[0].player_id, voters[1].player_id)
+
+        player_view = get_visible_events(state, voters[2].player_id)
+        self.assertEqual(
+            sum(1 for e in player_view if e.event_type is EventType.VOTE_CAST),
+            0,
+        )
+
+        spectator_view = get_visible_events(state, SPECTATOR_VIEW)
+        self.assertEqual(
+            sum(1 for e in spectator_view if e.event_type is EventType.VOTE_CAST),
+            1,
+        )
+
+    def test_vote_result_is_public_and_lists_every_living_player(self) -> None:
+        state = make_vote_day()
+        living = sorted(
+            (p for p in state.players if p.is_alive), key=lambda p: p.seat
+        )
+        target = living[-1]
+        for voter in living[:3]:
+            submit_vote(state, voter.player_id, target.player_id)
+        resolve_vote(state)
+
+        result = next(
+            e for e in state.events if e.event_type is EventType.VOTE_RESULT
+        )
+        self.assertIs(result.visibility, Visibility.PUBLIC)
+        self.assertEqual(set(result.data["votes"]), {p.player_id for p in living})
+        self.assertEqual(result.data["tally"], {target.player_id: 3})
+        self.assertEqual(result.data["banished_id"], target.player_id)
+        # 未投票者在结果里记为弃权
+        for voter in living[3:]:
+            self.assertIsNone(result.data["votes"][voter.player_id])
+
+    def test_uncast_votes_do_not_count_toward_tally(self) -> None:
+        state = make_vote_day()
+        living = sorted(
+            (p for p in state.players if p.is_alive), key=lambda p: p.seat
+        )
+        submit_vote(state, living[0].player_id, living[1].player_id)
+        resolve_vote(state)
+
+        result = next(
+            e for e in state.events if e.event_type is EventType.VOTE_RESULT
+        )
+        self.assertEqual(result.data["tally"], {living[1].player_id: 1})
+        self.assertEqual(result.data["banished_id"], living[1].player_id)
+        self.assertEqual(
+            sum(1 for v in result.data["votes"].values() if v is None),
+            len(living) - 1,
+        )
 
 
 class HunterShotWinnerCheckTests(TestCase):
