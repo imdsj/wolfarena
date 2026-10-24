@@ -2,15 +2,15 @@
 
 日期：2026-10-23
 
-基线提交：`bfca3e8`（`feat: separate vote closing and banishment last words`）
+基线提交：`e53ca10`（`fix: close feedback gaps in timers and role visibility`）
 
 对应规则：`docs/01_game_rules_v1.md`
 
-用途：记录**自动化单元测试还没覆盖、或功能尚未实现**的验收用例。已有 106 项 `unittest` 覆盖的部分只在此做状态索引。
+用途：记录**自动化单元测试还没覆盖、或功能尚未实现**的验收用例。已有 108 项 `unittest` 覆盖的部分只在此做状态索引。
 
 ## 1. 已有自动化测试覆盖的规则
 
-当前测试套件共有 106 项，执行 `python -m unittest discover -s tests -v` 即可复现。
+当前测试套件共有 108 项，执行 `python -m unittest discover -s tests -v` 即可复现。
 
 | 已覆盖内容 | 规则编号 |
 | --- | --- |
