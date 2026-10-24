@@ -2,7 +2,7 @@
 
 日期：2026-10-24
 
-功能提交：`4137ad1`（`feat: separate vote closing and banishment last words`）
+功能提交：`bfca3e8`（`feat: separate vote closing and banishment last words`）
 
 Python：3.14.7
 
@@ -16,7 +16,7 @@ python -m unittest discover -s tests -v
 
 ```text
 ----------------------------------------------------------------------
-Ran 98 tests in 0.013s
+Ran 106 tests in 0.016s
 
 OK
 ```
