@@ -12,7 +12,9 @@ from backend.game_engine import (
     Role,
     Team,
     Visibility,
+    begin_banishment_last_words,
     check_winner,
+    close_vote,
     resolve_vote,
     self_destruct,
     submit_day_hunter_shot,
@@ -27,20 +29,20 @@ from tests.test_day_engine import (
 
 
 class LastWordsBoundaryTests(TestCase):
-    """规则表第 7 章：遗言最多 30 个汉字。"""
+    """规则表第 7 章：遗言最多 100 个汉字。"""
 
-    def test_exactly_thirty_characters_is_allowed(self) -> None:
+    def test_exactly_one_hundred_characters_is_allowed(self) -> None:
         state = make_day(day=1, death_ids=["p4"])
 
-        submit_last_words(state, "p4", "字" * 30)
+        submit_last_words(state, "p4", "字" * 100)
 
         self.assertEqual(state.day_result.last_words_done, ["p4"])
 
-    def test_thirty_one_characters_is_rejected(self) -> None:
+    def test_one_hundred_one_characters_is_rejected(self) -> None:
         state = make_day(day=1, death_ids=["p4"])
 
         with self.assertRaises(ValueError):
-            submit_last_words(state, "p4", "字" * 31)
+            submit_last_words(state, "p4", "字" * 101)
 
         self.assertNotIn("p4", state.day_result.last_words_done)
 
@@ -97,7 +99,9 @@ class HunterShotWinnerCheckTests(TestCase):
             submit_vote(state, player.player_id, hunter.player_id)
         for player in living[5:]:
             submit_vote(state, player.player_id, None)
+        close_vote(state)
         resolve_vote(state)
+        begin_banishment_last_words(state)
 
         self.assertEqual(state.phase, Phase.DAY_LAST_WORDS)
         submit_last_words(state, hunter.player_id, "带走最后一只狼")
