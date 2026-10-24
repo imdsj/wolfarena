@@ -65,7 +65,9 @@ class EventType(str, Enum):
     HUNTER_SHOT = "HUNTER_SHOT"
     SELF_DESTRUCTED = "SELF_DESTRUCTED"
     VOTE_CAST = "VOTE_CAST"
+    VOTE_CLOSED = "VOTE_CLOSED"
     VOTE_RESULT = "VOTE_RESULT"
+    BANISHMENT_LAST_WORDS_STARTED = "BANISHMENT_LAST_WORDS_STARTED"
     PUBLIC_SPEECH = "PUBLIC_SPEECH"
     PUBLIC_SPEECH_TIMEOUT = "PUBLIC_SPEECH_TIMEOUT"
     LAST_WORDS = "LAST_WORDS"
@@ -180,7 +182,10 @@ class DayResult:
     self_destruct_ids: list[str] = field(default_factory=list)
     self_destruct_deadline: float | None = None
     votes: dict[str, str | None] = field(default_factory=dict)
+    votes_closed: bool = False
+    vote_resolved: bool = False
     banished_id: str | None = None
+    banishment_pending: bool = False
     day_hunter_can_shoot: bool = False
     day_hunter_target_id: str | None = None
     death_causes: dict[str, list[str]] = field(default_factory=dict)
@@ -1177,6 +1182,8 @@ def submit_vote(
             raise ValueError("投票目标必须存活")
 
     day_result = _day_result_or_error(state)
+    if day_result.votes_closed:
+        raise ValueError("投票已经截止，不能继续改票")
     day_result.votes[actor.player_id] = target_id
     append_event(
         state,
@@ -1189,13 +1196,34 @@ def submit_vote(
     return state
 
 
+def close_vote(state: GameState) -> GameState:
+    """Close the ballot and lock every player's final vote."""
+
+    if state.phase is not Phase.VOTE:
+        raise ValueError(f"当前阶段不能截止投票：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if day_result.votes_closed:
+        raise ValueError("投票已经截止")
+
+    day_result.votes_closed = True
+    append_event(
+        state,
+        EventType.VOTE_CLOSED,
+        visibility=Visibility.PUBLIC,
+        data={"submitted_votes": len(day_result.votes)},
+    )
+    return state
+
+
 def resolve_vote(state: GameState) -> GameState:
     """Resolve one vote without a tie-break round."""
 
     if state.phase is not Phase.VOTE:
         raise ValueError(f"当前阶段不能结算投票：{state.phase.value}")
     day_result = _day_result_or_error(state)
-    if day_result.resolved:
+    if not day_result.votes_closed:
+        raise ValueError("投票尚未截止")
+    if day_result.vote_resolved:
         raise ValueError("本日投票已经结算")
 
     living_player_ids = _living_speech_order(state)
@@ -1219,6 +1247,7 @@ def resolve_vote(state: GameState) -> GameState:
         else ("tie" if len(leaders) > 1 else "all_abstain")
     )
     day_result.votes = final_votes
+    day_result.vote_resolved = True
     append_event(
         state,
         EventType.VOTE_RESULT,
@@ -1240,6 +1269,7 @@ def resolve_vote(state: GameState) -> GameState:
     banished = get_player(state, leaders[0])
     banished.is_alive = False
     day_result.banished_id = banished.player_id
+    day_result.banishment_pending = True
     day_result.death_causes[banished.player_id] = ["banished"]
     append_event(
         state,
@@ -1249,13 +1279,35 @@ def resolve_vote(state: GameState) -> GameState:
         data={"causes": ["banished"]},
     )
 
+    return state
+
+
+def begin_banishment_last_words(state: GameState) -> GameState:
+    """Open last words for the player banished by the resolved vote."""
+
+    if state.phase is not Phase.VOTE:
+        raise ValueError(f"当前阶段不能开始放逐遗言：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if not day_result.vote_resolved:
+        raise ValueError("投票尚未结算")
+    if not day_result.banishment_pending or day_result.banished_id is None:
+        raise ValueError("当前没有等待遗言的被放逐玩家")
+
+    banished = get_player(state, day_result.banished_id)
     if banished.role is Role.HUNTER:
         day_result.day_hunter_can_shoot = True
         day_result.after_last_words_phase = Phase.DAY_HUNTER_SHOT
     else:
         day_result.after_last_words_phase = None
     day_result.last_words_queue = [banished.player_id]
+    day_result.banishment_pending = False
     state.phase = Phase.DAY_LAST_WORDS
+    append_event(
+        state,
+        EventType.BANISHMENT_LAST_WORDS_STARTED,
+        actor_id=banished.player_id,
+        visibility=Visibility.PUBLIC,
+    )
     return state
 
 

@@ -11,8 +11,10 @@ from backend.game_engine import (
     SPECTATOR_VIEW,
     Team,
     Visibility,
+    begin_banishment_last_words,
     begin_day,
     check_winner,
+    close_vote,
     close_self_destruct_window,
     create_game,
     get_player,
@@ -395,6 +397,7 @@ class VoteTests(TestCase):
             all(event.visibility is Visibility.GOD for event in vote_events)
         )
 
+        close_vote(state)
         resolve_vote(state)
         vote_result = next(
             event
@@ -406,14 +409,63 @@ class VoteTests(TestCase):
             second_target.player_id,
         )
 
+    def test_close_vote_locks_ballot_and_emits_public_event(self) -> None:
+        state = make_vote_day()
+        voter = player_with_role(state, Role.VILLAGER)
+        target = player_with_role(state, Role.SEER)
+        other_target = player_with_role(state, Role.WEREWOLF)
+        submit_vote(state, voter.player_id, target.player_id)
+
+        close_vote(state)
+
+        with self.assertRaises(ValueError):
+            close_vote(state)
+        with self.assertRaises(ValueError):
+            submit_vote(state, voter.player_id, other_target.player_id)
+        self.assertEqual(state.day_result.votes[voter.player_id], target.player_id)
+        close_event = next(
+            event
+            for event in get_visible_events(state, voter)
+            if event.event_type is EventType.VOTE_CLOSED
+        )
+        self.assertEqual(close_event.data["submitted_votes"], 1)
+
+    def test_resolve_and_banishment_require_separate_steps(self) -> None:
+        state = make_vote_day()
+        target = player_with_role(state, Role.SEER)
+        living = [player for player in state.players if player.is_alive]
+        for player in living[:5]:
+            submit_vote(state, player.player_id, target.player_id)
+
+        with self.assertRaises(ValueError):
+            resolve_vote(state)
+        close_vote(state)
+        resolve_vote(state)
+
+        self.assertIs(state.phase, Phase.VOTE)
+        self.assertTrue(state.day_result.banishment_pending)
+        with self.assertRaises(ValueError):
+            resolve_vote(state)
+        begin_banishment_last_words(state)
+        self.assertEqual(state.phase, Phase.DAY_LAST_WORDS)
+        started_event = next(
+            event
+            for event in state.events
+            if event.event_type is EventType.BANISHMENT_LAST_WORDS_STARTED
+        )
+        self.assertEqual(started_event.actor_id, target.player_id)
+
     def test_zero_votes_and_ties_eliminate_nobody(self) -> None:
         zero_state = make_vote_day()
         for player in zero_state.players:
             if player.is_alive:
                 submit_vote(zero_state, player.player_id, None)
+        close_vote(zero_state)
         resolve_vote(zero_state)
         self.assertEqual(zero_state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
         self.assertTrue(all(player.is_alive for player in zero_state.players))
+        with self.assertRaises(ValueError):
+            resolve_vote(zero_state)
 
         tie_state = make_vote_day()
         living = [player for player in tie_state.players if player.is_alive]
@@ -424,9 +476,12 @@ class VoteTests(TestCase):
                 living[index % 2].player_id,
             )
         submit_vote(tie_state, living[-1].player_id, None)
+        close_vote(tie_state)
         resolve_vote(tie_state)
         self.assertEqual(tie_state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
         self.assertTrue(all(player.is_alive for player in tie_state.players))
+        with self.assertRaises(ValueError):
+            resolve_vote(tie_state)
 
     def test_dead_voter_or_dead_target_is_rejected(self) -> None:
         state = make_vote_day()
@@ -451,9 +506,13 @@ class VoteTests(TestCase):
         for player in living[5:]:
             submit_vote(state, player.player_id, None)
 
+        close_vote(state)
         resolve_vote(state)
 
         self.assertFalse(target.is_alive)
+        self.assertIs(state.phase, Phase.VOTE)
+        self.assertTrue(state.day_result.banishment_pending)
+        begin_banishment_last_words(state)
         self.assertEqual(state.phase, Phase.DAY_LAST_WORDS)
         self.assertEqual(state.day_result.last_words_queue, [target.player_id])
         submit_last_words(state, target.player_id, "被放逐遗言")
@@ -470,7 +529,9 @@ class DayHunterTests(TestCase):
             submit_vote(state, player.player_id, hunter.player_id)
         for player in living[5:]:
             submit_vote(state, player.player_id, None)
+        close_vote(state)
         resolve_vote(state)
+        begin_banishment_last_words(state)
         return state, hunter
 
     def test_banished_hunter_speaks_then_shoots_and_target_speaks(self) -> None:

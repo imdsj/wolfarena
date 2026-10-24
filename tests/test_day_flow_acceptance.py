@@ -20,8 +20,10 @@ from backend.game_engine import (
     Role,
     Team,
     Visibility,
+    begin_banishment_last_words,
     check_winner,
     close_self_destruct_window,
+    close_vote,
     get_visible_events,
     resolve_vote,
     self_destruct,
@@ -171,6 +173,7 @@ class VoteVisibilityTests(TestCase):
         target = living[-1]
         for voter in living[:3]:
             submit_vote(state, voter.player_id, target.player_id)
+        close_vote(state)
         resolve_vote(state)
 
         result = next(
@@ -190,6 +193,7 @@ class VoteVisibilityTests(TestCase):
             (p for p in state.players if p.is_alive), key=lambda p: p.seat
         )
         submit_vote(state, living[0].player_id, living[1].player_id)
+        close_vote(state)
         resolve_vote(state)
 
         result = next(
@@ -223,7 +227,9 @@ class HunterShotWinnerCheckTests(TestCase):
             submit_vote(state, player.player_id, hunter.player_id)
         for player in living[5:]:
             submit_vote(state, player.player_id, None)
+        close_vote(state)
         resolve_vote(state)
+        begin_banishment_last_words(state)
 
         self.assertEqual(state.phase, Phase.DAY_LAST_WORDS)
         submit_last_words(state, hunter.player_id, "带走最后一只狼")
