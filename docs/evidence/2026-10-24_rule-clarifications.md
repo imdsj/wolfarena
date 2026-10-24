@@ -4,6 +4,8 @@
 
 功能提交：`dc2a30a`（`fix: align vote, hunter, and last-word visibility rules`）
 
+固定超时补充提交：`806bec3`（`fix: enforce fixed public speech timeout`）
+
 这是需要同步给全体开发成员的新口径。
 
 ## 1. 自爆窗口
