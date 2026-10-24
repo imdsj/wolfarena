@@ -39,19 +39,24 @@ Ran 87 tests in 0.010s  OK       ← 拉取后基线
 
 未实现故记为阻塞：完整 Web 接口、房间与观战密码（属 10 月 25 日范围）。
 
-## 3. 新增验收测试（5 条）
+## 3. 新增验收测试（10 条）
 
-文件：`tests/test_day_flow_acceptance.py`
+文件：`tests/test_day_flow_acceptance.py`　｜　规则变更后已同步更新
 
 | 测试 | 对应规则 | 验证内容 |
 | --- | --- | --- |
-| `test_exactly_thirty_characters_is_allowed` | 规则表第 7 章 | 遗言正好 30 字被接受（**上限已改为 100 汉字，待代码落地后改为 100/101**） |
-| `test_thirty_one_characters_is_rejected` | 规则表第 7 章 | 31 字被拒绝且不进入已完成队列（**同上，改为 101 字**） |
-| `test_vote_is_rejected_while_self_destruct_window_is_open` | DESTRUCT-003 | 自爆窗口内投票被拒绝 |
-| `test_second_self_destruct_after_deadline_is_rejected` | DESTRUCT-004 | 超过 110.0 秒再自爆被拒绝 |
-| `test_hunter_shot_killing_last_wolf_gives_target_last_words_then_ends` | VOTE-008、WIN-001 | 猎人打死最后一狼后，被带走者先留遗言，再进入 `END` 并写入 `WINNER_DECIDED` |
+| `test_exactly_hundred_han_characters_is_allowed` | 规则表第 7 章 | 遗言正好 100 个汉字被接受 |
+| `test_hundred_and_one_han_characters_is_rejected` | 规则表第 7 章 | 101 个汉字被拒绝且不进入已完成队列 |
+| `test_punctuation_digits_and_emoji_are_not_counted` | 2026-10-24 变更 | 100 汉字 + 80 标点 + 10 数字 + 3 表情仍被接受，证明计数排除非汉字 |
+| `test_punctuation_only_is_allowed` | 2026-10-24 变更 | 300 个纯标点被接受（汉字数为 0） |
+| `test_timeout_constants_are_thirty_seconds` | 补充规则第 5 条 | 发言与遗言超时均为 30 秒 |
+| `test_speech_timer_is_armed_after_last_words_timeout` | 补充规则第 5 条 | 遗言超时进入公共发言时，发言截止时间被正确设定为 `now + 30` |
+| `test_vote_is_rejected_while_window_is_open` | DESTRUCT-003 | 自爆窗口内投票被拒绝 |
+| `test_self_destruct_at_exact_deadline_is_rejected` | DESTRUCT-004 | `now=110.0` 恰好等于截止时间时自爆被拒绝 |
+| `test_window_closes_at_deadline` | DESTRUCT-004 | `now=109.9` 拒绝关闭、`now=110.0` 允许关闭 |
+| `test_hunter_shot_killing_last_wolf_gives_target_last_words_then_ends` | VOTE-008、WIN-001 | 猎人打死最后一狼后，被带走者先留遗言，再进入 `END` 并公开 `WINNER_DECIDED` |
 
-全部 5 条通过，未修改任何业务代码。
+全部 10 条通过，未修改任何业务代码。全量测试 `101 passed`。
 
 ## 4. 三视角可见性证据
 
@@ -99,22 +104,21 @@ Ran 87 tests in 0.010s  OK       ← 拉取后基线
 
 建议：在 `controlled_game` 的 docstring 里注明「覆写角色后事件表不同步，勿用于可见性测试」，或改为覆写后重建 `ROLE_ASSIGNED` 事件。
 
-### 5.2 自爆窗口在 110.0 秒处存在边界歧义（规则已明确，待代码对齐）
+### 5.2 自爆窗口边界（已修复）
 
-实测结果：
+处理过程：2026-10-24 上午发现 `now=110.0` 时自爆与关闭窗口同时合法；同日下午订书机确认规则「到达 10 秒边界立即关闭」，并在 `3a68459`（`feat: add deterministic self-destruct and last-word timers`）中实现。
+
+复核结果：
 
 ```text
-窗口截止 110.0
-now=109.9 第二狼自爆 → 允许
-now=110.0 第二狼自爆 → 允许
-now=110.1 第二狼自爆 → 被拒绝：自爆窗口已经关闭
+self_destruct(state, wolf, now=110.0)                 → ValueError: 自爆窗口已经关闭
+close_self_destruct_window(state, now=109.9)         → ValueError: 自爆窗口尚未结束
+close_self_destruct_window(state, now=110.0)         → 成功，进入第 2 天
 ```
 
-而既有测试 `test_other_wolves_can_continue_until_window_closes` 中，`close_self_destruct_window(now=110.0)` 也能成功关闭窗口。
+`self_destruct` 使用 `now >= deadline` 拒绝，`close_self_destruct_window` 使用 `now < deadline` 拒绝，两者在 110.0 处不再重叠。**问题关闭**，已在测试中固化为成对断言。
 
-也就是说，在 `now=110.0` 这一时刻，**自爆与关闭窗口同时合法**，最终行为取决于调用顺序。
-
-**2026-10-24 更新**：订书机已确认规则——自爆窗口到达 10 秒边界**立即关闭**，`now >= deadline` 时自爆应被拒绝。本文记录的问题得到规则层面的确认，代码对齐后需新增 `now=110.0` 自爆被拒的断言。变更影响与执行顺序见 `docs/evidence/2026-10-24_rule-change-impact.md`。
+补充架构说明：10 秒计时由**服务层**负责，引擎只接收传入的 `now`。因此「服务层是否按时调用 `close_self_destruct_window`」无法由引擎测试证明，需在 10 月 25 日联机验收中用真人触发自爆验证。
 
 ### 5.3 死亡玩家的自我身份事件也消失了（待确认）
 

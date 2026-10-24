@@ -1,23 +1,32 @@
-"""Hurry 白天流程验收补充测试（2026-10-24）。
+"""Hurry 白天流程验收补充测试。
 
-只覆盖订书机既有 18 项白天测试未涉及的边界，不改动业务规则。
+只覆盖订书机既有白天测试未涉及的边界，不改动业务规则。
 每条用例在 docstring 中标注对应规则编号。
+
+2026-10-24 规则变更后更新：
+- 遗言上限 30 → 100 个汉字，标点、数字、表情不计入
+- 自爆窗口到达 10 秒边界立即关闭
+- 公开发言与遗言各 30 秒超时
 """
 
 from unittest import TestCase
 
 from backend.game_engine import (
+    LAST_WORDS_TIMEOUT_SECONDS,
+    PUBLIC_SPEECH_TIMEOUT_SECONDS,
     EventType,
     Phase,
     Role,
     Team,
     Visibility,
     check_winner,
+    close_self_destruct_window,
     resolve_vote,
     self_destruct,
     submit_day_hunter_shot,
     submit_last_words,
     submit_vote,
+    timeout_last_words,
 )
 from tests.test_day_engine import (
     make_day,
@@ -26,29 +35,71 @@ from tests.test_day_engine import (
 )
 
 
-class LastWordsBoundaryTests(TestCase):
-    """规则表第 7 章：遗言最多 30 个汉字。"""
+class LastWordsLengthTests(TestCase):
+    """规则表第 7 章：每条遗言最多 100 个汉字，标点、数字、表情不计入。"""
 
-    def test_exactly_thirty_characters_is_allowed(self) -> None:
+    def test_exactly_hundred_han_characters_is_allowed(self) -> None:
         state = make_day(day=1, death_ids=["p4"])
 
-        submit_last_words(state, "p4", "字" * 30)
+        submit_last_words(state, "p4", "字" * 100)
 
-        self.assertEqual(state.day_result.last_words_done, ["p4"])
+        self.assertIn("p4", state.day_result.last_words_done)
 
-    def test_thirty_one_characters_is_rejected(self) -> None:
+    def test_hundred_and_one_han_characters_is_rejected(self) -> None:
         state = make_day(day=1, death_ids=["p4"])
 
         with self.assertRaises(ValueError):
-            submit_last_words(state, "p4", "字" * 31)
+            submit_last_words(state, "p4", "字" * 101)
 
         self.assertNotIn("p4", state.day_result.last_words_done)
 
+    def test_punctuation_digits_and_emoji_are_not_counted(self) -> None:
+        state = make_day(day=1, death_ids=["p4"])
+        content = "字" * 100 + "，。！？" * 20 + "1234567890" + "🙂🙂🙂"
 
-class SelfDestructVoteLockoutTests(TestCase):
-    """DESTRUCT-003：自爆立即取消当天投票。DESTRUCT-004：窗口最多 10 秒。"""
+        submit_last_words(state, "p4", content)
 
-    def test_vote_is_rejected_while_self_destruct_window_is_open(self) -> None:
+        self.assertIn("p4", state.day_result.last_words_done)
+
+    def test_punctuation_only_is_allowed(self) -> None:
+        state = make_day(day=1, death_ids=["p4"])
+
+        submit_last_words(state, "p4", "，" * 300)
+
+        self.assertIn("p4", state.day_result.last_words_done)
+
+
+class LastWordsTimeoutTests(TestCase):
+    """补充规则第 5 条：每名玩家遗言固定 30 秒，完成或超时后自动推进。"""
+
+    def test_timeout_constants_are_thirty_seconds(self) -> None:
+        self.assertEqual(LAST_WORDS_TIMEOUT_SECONDS, 30.0)
+        self.assertEqual(PUBLIC_SPEECH_TIMEOUT_SECONDS, 30.0)
+
+    def test_speech_timer_is_armed_after_last_words_timeout(self) -> None:
+        """遗言超时推进到公共发言时，必须同时设定 30 秒发言截止时间。
+
+        订书机既有测试已覆盖遗言队列推进与阶段切换，本条只补「交接计时器」
+        这一处：若此处漏设，首个发言者会没有倒计时，出现无限等待。
+        """
+
+        state = make_day(day=1, death_ids=["p4"], now=100.0)
+        self.assertEqual(state.day_result.last_words_deadline, 130.0)
+
+        timeout_last_words(state, 130.0)
+
+        self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
+        self.assertIsNotNone(state.day_result.speech_deadline)
+        self.assertEqual(
+            state.day_result.speech_deadline,
+            130.0 + PUBLIC_SPEECH_TIMEOUT_SECONDS,
+        )
+
+
+class SelfDestructWindowTests(TestCase):
+    """DESTRUCT-003：自爆取消投票。DESTRUCT-004：窗口最多 10 秒，边界立即关闭。"""
+
+    def test_vote_is_rejected_while_window_is_open(self) -> None:
         state = make_day(day=1)
         wolf = player_with_role(state, Role.WEREWOLF)
         voter = next(
@@ -63,7 +114,7 @@ class SelfDestructVoteLockoutTests(TestCase):
         with self.assertRaises(ValueError):
             submit_vote(state, voter.player_id, None)
 
-    def test_second_self_destruct_after_deadline_is_rejected(self) -> None:
+    def test_self_destruct_at_exact_deadline_is_rejected(self) -> None:
         state = make_day(day=1)
         wolves = sorted(
             (player for player in state.players if player.role is Role.WEREWOLF),
@@ -73,8 +124,21 @@ class SelfDestructVoteLockoutTests(TestCase):
         self_destruct(state, wolves[0].player_id, now=100.0)
         self.assertEqual(state.day_result.self_destruct_deadline, 110.0)
 
+        # 边界立即关闭：110.0 不能再自爆
         with self.assertRaises(ValueError):
-            self_destruct(state, wolves[1].player_id, now=110.1)
+            self_destruct(state, wolves[1].player_id, now=110.0)
+
+    def test_window_closes_at_deadline(self) -> None:
+        state = make_day(day=1)
+        wolf = player_with_role(state, Role.WEREWOLF)
+
+        self_destruct(state, wolf.player_id, now=100.0)
+
+        with self.assertRaises(ValueError):
+            close_self_destruct_window(state, now=109.9)
+
+        close_self_destruct_window(state, now=110.0)
+        self.assertEqual(state.day, 2)
 
 
 class HunterShotWinnerCheckTests(TestCase):
