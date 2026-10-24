@@ -2,7 +2,7 @@
 
 日期：2026-10-23
 
-基线提交：`dc2a30a`（`fix: align vote, hunter, and last-word visibility rules`）
+基线提交：`806bec3`（`fix: enforce fixed public speech timeout`）
 
 对应规则：`docs/01_game_rules_v1.md`
 
