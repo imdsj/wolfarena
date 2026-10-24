@@ -42,6 +42,7 @@ from .game_engine import (
     submit_seer_check,
     submit_vote,
     submit_witch_action,
+    timeout_public_speech,
 )
 
 __all__ = [
@@ -84,4 +85,5 @@ __all__ = [
     "submit_seer_check",
     "submit_vote",
     "submit_witch_action",
+    "timeout_public_speech",
 ]

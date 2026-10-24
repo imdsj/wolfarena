@@ -66,6 +66,7 @@ class EventType(str, Enum):
     SELF_DESTRUCTED = "SELF_DESTRUCTED"
     VOTE_CAST = "VOTE_CAST"
     PUBLIC_SPEECH = "PUBLIC_SPEECH"
+    PUBLIC_SPEECH_TIMEOUT = "PUBLIC_SPEECH_TIMEOUT"
     LAST_WORDS = "LAST_WORDS"
     WINNER_DECIDED = "WINNER_DECIDED"
     NIGHT_STARTED = "NIGHT_STARTED"
@@ -168,6 +169,8 @@ class DayResult:
     last_words_done: list[str] = field(default_factory=list)
     speech_order: list[str] = field(default_factory=list)
     next_speaker_index: int = 0
+    speech_timeout_seconds: float = 30.0
+    speech_deadline: float | None = None
     self_destruct_ids: list[str] = field(default_factory=list)
     self_destruct_deadline: float | None = None
     votes: dict[str, str | None] = field(default_factory=dict)
@@ -839,7 +842,51 @@ def _finish_day(state: GameState, reason: str) -> GameState:
     return state
 
 
-def begin_day(state: GameState) -> GameState:
+def _next_living_speaker_index(
+    state: GameState,
+    start_index: int,
+) -> int:
+    day_result = _day_result_or_error(state)
+    index = start_index
+    while (
+        index < len(day_result.speech_order)
+        and not get_player(
+            state,
+            day_result.speech_order[index],
+        ).is_alive
+    ):
+        index += 1
+    return index
+
+
+def _arm_public_speech_timer(
+    state: GameState,
+    now: float | None,
+) -> None:
+    day_result = _day_result_or_error(state)
+    day_result.next_speaker_index = _next_living_speaker_index(
+        state,
+        day_result.next_speaker_index,
+    )
+
+    if day_result.next_speaker_index >= len(day_result.speech_order):
+        day_result.speech_deadline = None
+        state.phase = Phase.VOTE
+        return
+
+    day_result.speech_deadline = (
+        None
+        if now is None
+        else now + day_result.speech_timeout_seconds
+    )
+
+
+def begin_day(
+    state: GameState,
+    *,
+    now: float | None = None,
+    speech_timeout_seconds: float = 30.0,
+) -> GameState:
     """Create the public day context from the completed night."""
 
     if state.phase is not Phase.DAY_ANNOUNCEMENT:
@@ -852,7 +899,13 @@ def begin_day(state: GameState) -> GameState:
         if state.night_result is not None
         else []
     )
-    day_result = DayResult(announced_death_ids=announced_death_ids)
+    if speech_timeout_seconds <= 0:
+        raise ValueError("公开发言超时必须大于0秒")
+    day_result = DayResult(
+        announced_death_ids=announced_death_ids,
+        speech_timeout_seconds=float(speech_timeout_seconds),
+    )
+    day_result.speech_order = _living_speech_order(state)
     state.day_result = day_result
 
     if state.day == 1 and announced_death_ids:
@@ -861,8 +914,8 @@ def begin_day(state: GameState) -> GameState:
         state.phase = Phase.DAY_LAST_WORDS
         return state
 
-    day_result.speech_order = _living_speech_order(state)
     state.phase = Phase.DAY_DISCUSSION
+    _arm_public_speech_timer(state, now)
     return state
 
 
@@ -870,6 +923,8 @@ def submit_last_words(
     state: GameState,
     actor_id: str,
     content: str,
+    *,
+    now: float | None = None,
 ) -> GameState:
     """Record one queued player's last words."""
 
@@ -907,6 +962,8 @@ def submit_last_words(
     if next_phase is None:
         return _finish_day(state, "day_last_words_complete")
     state.phase = next_phase
+    if next_phase is Phase.DAY_DISCUSSION:
+        _arm_public_speech_timer(state, now)
     return state
 
 
@@ -914,6 +971,8 @@ def record_public_speech(
     state: GameState,
     actor_id: str,
     content: str,
+    *,
+    now: float | None = None,
 ) -> GameState:
     """Record one public speech in seat order."""
 
@@ -926,20 +985,14 @@ def record_public_speech(
         raise ValueError("公开发言内容不能为空")
 
     day_result = _day_result_or_error(state)
-    while (
-        day_result.next_speaker_index < len(day_result.speech_order)
-        and not get_player(
-            state,
-            day_result.speech_order[day_result.next_speaker_index],
-        ).is_alive
-    ):
-        day_result.next_speaker_index += 1
+    current_index = _next_living_speaker_index(
+        state,
+        day_result.next_speaker_index,
+    )
+    if current_index >= len(day_result.speech_order):
+        raise ValueError("当前没有等待中的发言者")
 
-    if day_result.next_speaker_index >= len(day_result.speech_order):
-        state.phase = Phase.VOTE
-        return state
-
-    expected_id = day_result.speech_order[day_result.next_speaker_index]
+    expected_id = day_result.speech_order[current_index]
     if actor.player_id != expected_id:
         raise ValueError("公开发言必须按照存活玩家座次进行")
 
@@ -950,9 +1003,38 @@ def record_public_speech(
         visibility=Visibility.PUBLIC,
         data={"content": content.strip()},
     )
-    day_result.next_speaker_index += 1
+    day_result.next_speaker_index = current_index + 1
+    _arm_public_speech_timer(state, now)
+    return state
+
+
+def timeout_public_speech(state: GameState, now: float) -> GameState:
+    """Skip the current speaker after the server-side deadline expires."""
+
+    if state.phase is not Phase.DAY_DISCUSSION:
+        raise ValueError(f"当前阶段没有公开发言：{state.phase.value}")
+    day_result = _day_result_or_error(state)
+    if day_result.speech_deadline is None:
+        raise ValueError("当前发言没有可校验的截止时间")
+    if now < day_result.speech_deadline:
+        raise ValueError("公开发言尚未超时")
     if day_result.next_speaker_index >= len(day_result.speech_order):
-        state.phase = Phase.VOTE
+        raise ValueError("当前没有等待中的发言者")
+
+    actor_id = day_result.speech_order[day_result.next_speaker_index]
+    actor = get_player(state, actor_id)
+    if not actor.is_alive:
+        raise ValueError("当前发言者不是存活玩家")
+
+    append_event(
+        state,
+        EventType.PUBLIC_SPEECH_TIMEOUT,
+        actor_id=actor_id,
+        visibility=Visibility.PUBLIC,
+        data={"deadline": day_result.speech_deadline},
+    )
+    day_result.next_speaker_index += 1
+    _arm_public_speech_timer(state, now)
     return state
 
 

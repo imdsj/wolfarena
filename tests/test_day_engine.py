@@ -30,6 +30,7 @@ from backend.game_engine import (
     submit_seer_check,
     submit_vote,
     submit_witch_action,
+    timeout_public_speech,
 )
 
 
@@ -81,6 +82,7 @@ def make_day(
     *,
     day: int = 1,
     death_ids: list[str] | None = None,
+    now: float | None = None,
 ) -> GameState:
     state = controlled_game(seed=320 + day)
     state.day = day
@@ -88,7 +90,7 @@ def make_day(
     state.night_result = NightResult(death_ids=list(death_ids or []))
     for player_id in death_ids or []:
         get_player(state, player_id).is_alive = False
-    begin_day(state)
+    begin_day(state, now=now)
     return state
 
 
@@ -191,9 +193,16 @@ class PublicSpeechTests(TestCase):
     def test_public_speech_is_seat_ordered_and_reaches_vote(self) -> None:
         state = make_day(day=1)
         order = list(state.day_result.speech_order)
+        before_phase = state.phase
+        before_index = state.day_result.next_speaker_index
+        before_event_count = len(state.events)
 
         with self.assertRaises(ValueError):
             record_public_speech(state, order[1], "抢麦")
+
+        self.assertIs(state.phase, before_phase)
+        self.assertEqual(state.day_result.next_speaker_index, before_index)
+        self.assertEqual(len(state.events), before_event_count)
 
         for player_id in order:
             record_public_speech(state, player_id, f"发言-{player_id}")
@@ -208,6 +217,32 @@ class PublicSpeechTests(TestCase):
             [event.actor_id for event in speech_events],
             order,
         )
+
+    def test_timeout_advances_each_speaker_and_reaches_vote(self) -> None:
+        state = make_day(day=1, now=100.0)
+        self.assertEqual(state.day_result.speech_deadline, 130.0)
+
+        phase_before = state.phase
+        index_before = state.day_result.next_speaker_index
+        event_count_before = len(state.events)
+        with self.assertRaises(ValueError):
+            timeout_public_speech(state, 129.9)
+        self.assertIs(state.phase, phase_before)
+        self.assertEqual(state.day_result.next_speaker_index, index_before)
+        self.assertEqual(len(state.events), event_count_before)
+
+        while state.phase is Phase.DAY_DISCUSSION:
+            deadline = state.day_result.speech_deadline
+            self.assertIsNotNone(deadline)
+            timeout_public_speech(state, deadline)
+
+        self.assertEqual(state.phase, Phase.VOTE)
+        timeout_events = [
+            event
+            for event in state.events
+            if event.event_type is EventType.PUBLIC_SPEECH_TIMEOUT
+        ]
+        self.assertEqual(len(timeout_events), 9)
 
 
 class SelfDestructTests(TestCase):
