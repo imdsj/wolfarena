@@ -2,7 +2,7 @@
 
 日期：2026-10-25
 
-代码提交：`85bdb3c`
+代码提交：`f11afaf`
 
 ## 输出文件
 
@@ -58,8 +58,8 @@ seed：1000 至 1199
 失败动作：0
 行动合法率：1.0
 平均步数：43.595
-平均单局耗时：12.60683 ms
-批次总耗时：2547.641 ms
+平均单局耗时：12.37813 ms
+批次总耗时：2499.507 ms
 好人胜：168，胜率 0.84
 狼人胜：32，胜率 0.16
 ```
@@ -96,11 +96,26 @@ seed `1033` 分别输出到 `repeat-a` 和 `repeat-b`：
 
 ```text
 actions.jsonl 逐字段一致：是
+actions.jsonl SHA-256：B080CC0578AD388114D12FDBF513E98CA29E5B36376E1E25F7CDD1A67D4DFBF1
+replay_sha256：0418f9dd06c8053a0bc9dc0ff8e31498434ae84a43de2463d72611e08dcd8c56
 终局摘要一致：是
 动作数：74
 终局：END
 胜者：good
 天数：4
+```
+
+独立指标命令：
+
+```powershell
+python -m backend.metrics --run training_runs/l0-200
+```
+
+结果：
+
+```text
+matches_summary：true
+differences：[]
 ```
 
 ## 边界
