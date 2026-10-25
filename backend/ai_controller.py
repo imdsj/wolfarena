@@ -80,6 +80,7 @@ class AIController:
                     room.state,
                     policy=room.ai_policy,
                     now=now,
+                    auto_close_vote=True,
                 )
                 if step is None:
                     reason = "human_turn"

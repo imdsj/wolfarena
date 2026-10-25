@@ -119,6 +119,52 @@ def _roles_by_player(state: GameState) -> dict[str, str]:
     }
 
 
+def _replay_sha256(
+    *,
+    roles: dict[str, str],
+    winner: str | None,
+    terminal_phase: str,
+    action_steps: int,
+    day: int,
+    actions: Sequence[dict[str, Any]],
+) -> str:
+    canonical = json.dumps(
+        {
+            "roles": roles,
+            "winner": winner,
+            "terminal_phase": terminal_phase,
+            "actions": [
+                {
+                    key: action.get(key)
+                    for key in (
+                        "step",
+                        "day",
+                        "phase",
+                        "actor_id",
+                        "actor_role",
+                        "is_system",
+                        "legal_actions",
+                        "action",
+                        "target_id",
+                        "choice",
+                        "content",
+                        "ok",
+                        "phase_after",
+                        "event_seq_after",
+                    )
+                }
+                for action in actions
+            ],
+            "action_steps": action_steps,
+            "day": day,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _base_action_record(
     *,
     game_id: str,
@@ -285,18 +331,28 @@ def simulate_game(
         else:
             current_time += 1.0
 
+    winner = _winner_value(state) if state.phase is Phase.END else None
+    roles = _roles_by_player(state)
     summary = {
         "game_id": game_id,
         "seed": seed,
         "policy": policy.strategy_id,
         "status": status,
         "terminal_phase": state.phase.value,
-        "winner": _winner_value(state) if state.phase is Phase.END else None,
+        "winner": winner,
         "action_steps": step,
         "steps": step,
         "day": state.day,
         "days": state.day,
-        "roles": _roles_by_player(state),
+        "roles": roles,
+        "replay_sha256": _replay_sha256(
+            roles=roles,
+            winner=winner,
+            terminal_phase=state.phase.value,
+            action_steps=step,
+            day=state.day,
+            actions=actions,
+        ),
         "alive_player_ids": [
             player.player_id for player in state.players if player.is_alive
         ],

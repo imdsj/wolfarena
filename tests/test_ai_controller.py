@@ -8,7 +8,13 @@ from unittest.mock import patch
 from backend.ai_controller import AIController
 from backend.actions import available_actions_for_state
 from backend.ai_growth import L0Policy
-from backend.game_engine import DayResult, EventType, NightResult, Phase, Role
+from backend.game_engine import (
+    DayResult,
+    EventType,
+    NightResult,
+    Phase,
+    Role,
+)
 from backend.rooms import InMemoryRoomRepository
 from backend.schemas import ActionRequest
 from tests.test_game_engine import controlled_game
@@ -38,6 +44,33 @@ def start_with_ai(repository: InMemoryRoomRepository, seed: int = 1):
 
 
 class AIControllerTests(TestCase):
+    def test_all_votes_present_auto_closes_and_resolves(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = create_seeded_room(repository)
+        session = repository.authenticate_player(
+            created.room_id,
+            created.player_token,
+        )
+        room = repository._rooms[created.room_id]
+        living = [
+            player for player in room.state.players if player.is_alive
+        ]
+        with room.lock:
+            room.state.day = 1
+            room.state.phase = Phase.VOTE
+            room.state.day_result = DayResult(
+                votes={player.player_id: None for player in living}
+            )
+
+        result = repository.advance_ai(created.room_id, now=100.0)
+        snapshot = repository.snapshot_for_access(room, session.access)
+        event_types = {event.event_type for event in room.state.events}
+
+        self.assertEqual(result.stopped_reason, "human_turn")
+        self.assertIn(EventType.VOTE_CLOSED, event_types)
+        self.assertIn(EventType.VOTE_RESULT, event_types)
+        self.assertNotEqual(snapshot.phase, "VOTE")
+
     def test_ai_advances_to_an_interactive_or_timed_boundary(self) -> None:
         repository = InMemoryRoomRepository()
         created, session, _mutation = start_with_ai(repository)

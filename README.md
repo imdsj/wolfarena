@@ -169,7 +169,7 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **190 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **193 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 
@@ -205,6 +205,14 @@ summary.json    完成率、合法率、动作频率、阵营胜率、平均步�
 manifest.json   commit、命令、Python 版本和输出文件 SHA-256
 run.json        批次配置与兼容性运行摘要
 ```
+
+从原始 JSONL 独立复算指标：
+
+```powershell
+python -m backend.metrics --run training_runs/l0-200
+```
+
+结果写入该目录的 `recomputed-summary.json`，并比较它与 `summary.json` 是否一致。
 
 模拟器复用现有 `create_game`、`AIController`、`available_actions_for_state` 和
 `execute_engine_action`，不复制规则。每局同时受最大动作步数和最大天数限制；
