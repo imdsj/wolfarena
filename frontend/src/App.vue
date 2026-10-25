@@ -225,6 +225,7 @@ function handleServerMessage(message: unknown): void {
   if (message.type === "snapshot" && isRecord(message.room)) {
     room.value = message.room as unknown as RoomSnapshot;
     mergeEvents(message.room.visible_events as GameEvent[]);
+    actionNotice.value = "";
     busy.value = false;
     restoring.value = false;
     persistSession();
