@@ -441,7 +441,7 @@ class ReconnectAndActionTests(WebSocketTestBase):
             first_snapshot["room"]["viewer"]["seat"],
             second_snapshot["room"]["viewer"]["seat"],
         )
-        self.assertEqual(phase["phase"], "NIGHT_WOLF_DISCUSSION_R1")
+        self.assertEqual(phase["phase"], "DAY_DISCUSSION")
         self.assertEqual(second_snapshot["room"]["day"], 1)
 
     def test_action_outside_phase_returns_error_without_mutation(self) -> None:
