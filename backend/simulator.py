@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import hashlib
 import json
 from pathlib import Path
+import platform
+import shlex
+import subprocess
 import sys
 from time import perf_counter
 from typing import Any, Sequence
@@ -40,6 +45,8 @@ class SimulationConfig:
     max_action_steps: int = 600
     max_days: int = 20
     allow_self_destruct: bool = True
+    command: str | None = None
+    code_commit: str | None = None
 
     def __post_init__(self) -> None:
         if self.games <= 0:
@@ -139,13 +146,17 @@ def _base_action_record(
         "event_seq_before": state.events[-1].event_seq if state.events else -1,
         "actor_id": None if plan.is_system else actor.player_id,
         "actor_role": actor.role.value,
+        "actor": "system" if plan.is_system else actor.player_id,
+        "role": "system" if plan.is_system else actor.role.value,
         "is_system": plan.is_system,
         "legal_actions": [view.action for view in views],
         "action": plan.request.action,
         "target_id": plan.request.target_id,
+        "target": plan.request.target_id,
         "choice": plan.request.choice,
         "content": plan.request.content,
         "succeeded": False,
+        "ok": False,
         "error": None,
         "simulated_time": now,
     }
@@ -249,6 +260,7 @@ def simulate_game(
             break
 
         record["succeeded"] = True
+        record["ok"] = True
         record["event_seq_after"] = (
             state.events[-1].event_seq if state.events else -1
         )
@@ -281,7 +293,9 @@ def simulate_game(
         "terminal_phase": state.phase.value,
         "winner": _winner_value(state) if state.phase is Phase.END else None,
         "action_steps": step,
+        "steps": step,
         "day": state.day,
+        "days": state.day,
         "roles": _roles_by_player(state),
         "alive_player_ids": [
             player.player_id for player in state.players if player.is_alive
@@ -290,6 +304,140 @@ def simulate_game(
         "duration_ms": round((perf_counter() - started_at) * 1000, 3),
     }
     return summary, actions
+
+
+def compute_metrics(
+    games: Sequence[dict[str, Any]],
+    actions: Sequence[dict[str, Any]],
+    *,
+    policy: str,
+    seed_start: int,
+    seed_end: int,
+) -> dict[str, Any]:
+    """Compute reproducible metrics from exported game and action rows."""
+
+    total_games = len(games)
+    completed_games = [
+        game
+        for game in games
+        if game["status"] == "completed"
+        and game["terminal_phase"] == "END"
+    ]
+    valid_games = [
+        game
+        for game in completed_games
+        if game["winner"] in {"good", "wolf"}
+    ]
+    successful_actions = sum(bool(action["ok"]) for action in actions)
+    submitted_actions = len(actions)
+    action_counts = Counter(
+        action["action"] for action in actions if action["ok"]
+    )
+    winner_counts = Counter(game["winner"] for game in valid_games)
+    errors = Counter(
+        game["error"]["type"]
+        for game in games
+        if game["status"] != "completed" and game["error"] is not None
+    )
+    valid_count = len(valid_games)
+    completed_durations = [
+        game["duration_ms"] for game in completed_games
+    ]
+    completed_steps = [game["steps"] for game in completed_games]
+
+    return {
+        "policy": policy,
+        "seed_start": seed_start,
+        "seed_end": seed_end,
+        "total_games": total_games,
+        "completed_games": len(completed_games),
+        "valid_completed_games": valid_count,
+        "failed_games": total_games - len(completed_games),
+        "completion_rate": (
+            len(completed_games) / total_games if total_games else None
+        ),
+        "actions_submitted": submitted_actions,
+        "actions_succeeded": successful_actions,
+        "actions_failed": submitted_actions - successful_actions,
+        "action_legal_rate": (
+            successful_actions / submitted_actions
+            if submitted_actions
+            else None
+        ),
+        "action_counts": dict(sorted(action_counts.items())),
+        "action_frequency_per_game": {
+            action: count / total_games
+            for action, count in sorted(action_counts.items())
+        }
+        if total_games
+        else {},
+        "faction_win_counts": {
+            "good": winner_counts["good"],
+            "wolf": winner_counts["wolf"],
+        },
+        "faction_win_rates": {
+            "good": (
+                winner_counts["good"] / valid_count if valid_count else None
+            ),
+            "wolf": (
+                winner_counts["wolf"] / valid_count if valid_count else None
+            ),
+        },
+        "average_steps": (
+            sum(completed_steps) / len(completed_steps)
+            if completed_steps
+            else None
+        ),
+        "average_duration_ms": (
+            sum(completed_durations) / len(completed_durations)
+            if completed_durations
+            else None
+        ),
+        "total_duration_ms": sum(completed_durations),
+        "errors_by_type": dict(sorted(errors.items())),
+    }
+
+
+def _roles_rows(games: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for game in games:
+        for player_id, role in game["roles"].items():
+            rows.append(
+                {
+                    "game_id": game["game_id"],
+                    "seed": game["seed"],
+                    "player_id": player_id,
+                    "seat": int(player_id[1:]),
+                    "role": role,
+                }
+            )
+    return rows
+
+
+def _resolve_code_commit(explicit: str | None) -> str:
+    if explicit:
+        return explicit
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent.parent,
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    value = result.stdout.strip()
+    return value or "unknown"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def run_simulation(config: SimulationConfig) -> dict[str, Any]:
@@ -316,6 +464,29 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
 
     completed = sum(game["status"] == "completed" for game in games)
     failed = len(games) - completed
+    metrics = compute_metrics(
+        games,
+        actions,
+        policy=config.policy,
+        seed_start=config.seed_start,
+        seed_end=config.seed_start + config.games - 1,
+    )
+    code_commit = _resolve_code_commit(config.code_commit)
+    command = config.command or " ".join(
+        [
+            "python",
+            "-m",
+            "backend.simulator",
+            "--games",
+            str(config.games),
+            "--seed-start",
+            str(config.seed_start),
+            "--policy",
+            config.policy,
+            "--out",
+            str(out),
+        ]
+    )
     run_summary = {
         "run_id": (
             f"{config.policy}-{config.seed_start}-"
@@ -332,6 +503,8 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
             "max_days": config.max_days,
             "allow_self_destruct": config.allow_self_destruct,
             "output_directory": str(out.resolve()),
+            "code_commit": code_commit,
+            "command": command,
         },
         "summary": {
             "games_completed": completed,
@@ -341,6 +514,7 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
         "failed_game_ids": [
             game["game_id"] for game in games if game["status"] != "completed"
         ],
+        "metrics": metrics,
     }
 
     (out / "run.json").write_text(
@@ -349,6 +523,56 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
     )
     _write_jsonl(out / "games.jsonl", games)
     _write_jsonl(out / "actions.jsonl", actions)
+    roles = _roles_rows(games)
+    (out / "roles.json").write_text(
+        json.dumps(roles, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    summary = {
+        "run_id": run_summary["run_id"],
+        "generated_at": run_summary["finished_at"],
+        "code_commit": code_commit,
+        "command": command,
+        "policy": config.policy,
+        "policy_version": games[0]["policy"] if games else None,
+        "python_version": platform.python_version(),
+        **metrics,
+    }
+    (out / "summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    hashed_files = (
+        "run.json",
+        "games.jsonl",
+        "actions.jsonl",
+        "roles.json",
+        "summary.json",
+    )
+    manifest = {
+        "schema_version": 1,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "code_commit": code_commit,
+        "command": command,
+        "python_version": platform.python_version(),
+        "policy": config.policy,
+        "policy_version": games[0]["policy"] if games else None,
+        "seed_start": config.seed_start,
+        "seed_end": config.seed_start + config.games - 1,
+        "hash_algorithm": "sha256",
+        "files": {
+            name: {
+                "sha256": _sha256(out / name),
+                "bytes": (out / name).stat().st_size,
+            }
+            for name in hashed_files
+        },
+    }
+    (out / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return run_summary
 
 
@@ -391,11 +615,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="禁止策略主动选择可选自爆动作",
     )
+    parser.add_argument(
+        "--commit",
+        default=None,
+        help="写入 manifest 的代码提交；默认尝试读取 git HEAD",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    command = "python -m backend.simulator " + shlex.join(raw_argv)
     config = SimulationConfig(
         games=args.games,
         seed_start=args.seed_start,
@@ -404,6 +635,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_action_steps=args.max_steps,
         max_days=args.max_days,
         allow_self_destruct=not args.no_self_destruct,
+        command=command,
+        code_commit=args.commit,
     )
     try:
         summary = run_simulation(config)

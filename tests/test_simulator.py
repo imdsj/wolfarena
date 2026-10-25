@@ -7,7 +7,12 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
-from backend.simulator import SimulationConfig, run_simulation, simulate_game
+from backend.simulator import (
+    SimulationConfig,
+    compute_metrics,
+    run_simulation,
+    simulate_game,
+)
 
 
 class SimulatorGameTests(TestCase):
@@ -173,6 +178,9 @@ class SimulatorOutputTests(TestCase):
         self.assertTrue((output / "run.json").is_file())
         self.assertTrue((output / "games.jsonl").is_file())
         self.assertTrue((output / "actions.jsonl").is_file())
+        self.assertTrue((output / "roles.json").is_file())
+        self.assertTrue((output / "summary.json").is_file())
+        self.assertTrue((output / "manifest.json").is_file())
 
         games = [
             json.loads(line)
@@ -186,10 +194,37 @@ class SimulatorOutputTests(TestCase):
                 encoding="utf-8"
             ).splitlines()
         ]
+        roles = json.loads((output / "roles.json").read_text(encoding="utf-8"))
+        summary = json.loads(
+            (output / "summary.json").read_text(encoding="utf-8")
+        )
+        manifest = json.loads(
+            (output / "manifest.json").read_text(encoding="utf-8")
+        )
 
         self.assertEqual(len(games), 2)
+        self.assertEqual(len(roles), 18)
         self.assertEqual(len(actions), run_summary["summary"]["action_steps"])
+        self.assertEqual(summary["completion_rate"], 1.0)
+        self.assertEqual(summary["action_legal_rate"], 1.0)
+        self.assertEqual(
+            summary["faction_win_counts"]["good"]
+            + summary["faction_win_counts"]["wolf"],
+            2,
+        )
+        self.assertEqual(manifest["hash_algorithm"], "sha256")
+        self.assertEqual(
+            set(manifest["files"]),
+            {
+                "run.json",
+                "games.jsonl",
+                "actions.jsonl",
+                "roles.json",
+                "summary.json",
+            },
+        )
         self.assertTrue(all(game["status"] == "completed" for game in games))
+        self.assertTrue(all("days" in game and "steps" in game for game in games))
         for record in actions:
             self.assertEqual(
                 {
@@ -200,14 +235,68 @@ class SimulatorOutputTests(TestCase):
                     "day",
                     "phase",
                     "actor_id",
+                    "actor",
+                    "role",
                     "actor_role",
                     "legal_actions",
                     "action",
+                    "target",
+                    "ok",
                     "succeeded",
                 }
                 - record.keys(),
                 set(),
             )
+
+    def test_metrics_keep_failed_games_out_of_win_rate_denominator(self) -> None:
+        games = [
+            {
+                "status": "completed",
+                "terminal_phase": "END",
+                "winner": "good",
+                "error": None,
+                "duration_ms": 10.0,
+                "steps": 10,
+            },
+            {
+                "status": "completed",
+                "terminal_phase": "END",
+                "winner": "wolf",
+                "error": None,
+                "duration_ms": 20.0,
+                "steps": 20,
+            },
+            {
+                "status": "error",
+                "terminal_phase": "VOTE",
+                "winner": None,
+                "error": {"type": "max_days"},
+                "duration_ms": 30.0,
+                "steps": 30,
+            },
+        ]
+        actions = [
+            {"action": "vote", "ok": True},
+            {"action": "vote", "ok": True},
+            {"action": "wolf_kill", "ok": False},
+        ]
+
+        metrics = compute_metrics(
+            games,
+            actions,
+            policy="l0",
+            seed_start=1,
+            seed_end=3,
+        )
+
+        self.assertEqual(metrics["completion_rate"], 2 / 3)
+        self.assertEqual(metrics["action_legal_rate"], 2 / 3)
+        self.assertEqual(
+            metrics["faction_win_rates"],
+            {"good": 0.5, "wolf": 0.5},
+        )
+        self.assertEqual(metrics["errors_by_type"], {"max_days": 1})
+        self.assertEqual(metrics["action_frequency_per_game"]["vote"], 2 / 3)
 
     def test_unknown_policy_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
