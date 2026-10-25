@@ -20,7 +20,7 @@ class HealthResponse(ApiModel):
 
 
 class CreateRoomRequest(ApiModel):
-    seed: int = Field(strict=True)
+    seed: int | None = Field(default=None, strict=True)
     human_count: int = Field(default=1, strict=True, ge=1, le=3)
     max_humans: int = Field(default=3, strict=True, ge=1, le=3)
     nickname: str = Field(min_length=1, max_length=32)

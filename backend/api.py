@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from json import JSONDecodeError
 from pathlib import Path
+from secrets import randbits
 from typing import Any
 
 from fastapi import (
@@ -135,7 +136,7 @@ def create_app(
     def create_room(payload: CreateRoomRequest) -> CreatedRoomResponse:
         try:
             return room_repository.create_room(
-                seed=payload.seed,
+                seed=payload.seed if payload.seed is not None else randbits(63),
                 human_count=payload.human_count,
                 max_humans=payload.max_humans,
                 nickname=payload.nickname,

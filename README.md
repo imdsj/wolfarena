@@ -34,6 +34,7 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - `AIController` 复用房间级 L0 策略，自动执行 AI 角色动作和无人工选择的系统结算。
 - AI 每轮最多推进 300 步，动作失败会回滚核心状态并记录 `AI_ACTION_FAILED`。
 - 相同 seed 和相同动作序列产生相同 AI 事件序列。
+- 浏览器不再用 `Date.now()` 生成房间 seed；实时房由服务端生成，固定 seed 仅由脚本或训练入口显式传入。
 
 ## 技术方向
 
@@ -153,7 +154,7 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **160 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **161 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 

@@ -71,7 +71,6 @@ async function createRoom(nickname: string): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        seed: Date.now(),
         human_count: 1,
         max_humans: 3,
         nickname,
