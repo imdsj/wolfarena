@@ -6,6 +6,8 @@
 
 代码提交：`067b7c2`
 
+浏览器 seed 收口提交：`a71380c`
+
 ## 1. 设计
 
 新增 `backend/ai_controller.py`：
