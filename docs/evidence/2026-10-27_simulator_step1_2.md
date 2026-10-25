@@ -173,7 +173,7 @@ witch_kill_target_id
 ## 测试与构建
 
 ```text
-Python：189 tests OK
+Python：190 tests OK
 前端：TypeScript 检查通过
 前端静态构建：通过
 健康检查：wolfarena-api 0.5.0
@@ -181,11 +181,12 @@ Python：189 tests OK
 
 ## 当前边界
 
-步骤 1 和步骤 2 已完成。
+步骤 1 和步骤 2 已完成。后续步骤 3、4 也已实现，详见
+`docs/evidence/2026-10-27_simulator_step3_4.md`。
 
-尚未实现：
+仍未实现：
 
-- 指标计算脚本和浏览器指标面板。
+- 指标页面和实时胜率面板。
 - 训练版策略及策略版本切换。
 - 固定 seed 新手版/训练版对比。
 - 模型卡。
