@@ -24,12 +24,14 @@ from .game_engine import (
     GameState,
     Phase,
     Player,
+    Role,
     SPECTATOR_VIEW,
     Visibility,
     append_event,
     close_self_destruct_window,
     create_game,
     get_player,
+    get_witch_kill_target,
     get_visible_events,
     timeout_last_words,
     timeout_public_speech,
@@ -606,6 +608,8 @@ class InMemoryRoomRepository:
             )
             viewer = self._event_viewer(room, access)
             visible_events = get_visible_events(room.state, viewer)
+            witch_kill_target_visible = False
+            witch_kill_target_id: str | None = None
             if access.kind == "spectator":
                 viewer_identity = ViewerIdentity(
                     kind="spectator",
@@ -618,6 +622,17 @@ class InMemoryRoomRepository:
                 )
             else:
                 player = self._access_player(room, access)
+                if (
+                    player.role is Role.WITCH
+                    and player.is_alive
+                    and room.state.phase is Phase.NIGHT_WITCH_ACTION
+                    and room.state.antidote_available
+                ):
+                    witch_kill_target_visible = True
+                    witch_kill_target_id = get_witch_kill_target(
+                        room.state,
+                        player.player_id,
+                    )
                 viewer_identity = ViewerIdentity(
                     kind="player",
                     player_id=player.player_id,
@@ -636,6 +651,8 @@ class InMemoryRoomRepository:
                 deadline_at=deadline_at,
                 deadline_kind=deadline_kind,
                 remaining_ms=remaining_ms,
+                witch_kill_target_visible=witch_kill_target_visible,
+                witch_kill_target_id=witch_kill_target_id,
                 human_count=room.human_count,
                 max_humans=room.max_humans,
                 viewer=viewer_identity,

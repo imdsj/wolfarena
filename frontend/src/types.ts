@@ -62,6 +62,8 @@ export interface RoomSnapshot {
   deadline_at: number | null;
   deadline_kind: DeadlineKind | null;
   remaining_ms: number | null;
+  witch_kill_target_visible: boolean;
+  witch_kill_target_id: string | null;
   human_count: number;
   max_humans: number;
   viewer: ViewerIdentity;

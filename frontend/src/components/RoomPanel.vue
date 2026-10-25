@@ -88,6 +88,21 @@ const visibleDeathCauses = computed(() => {
   }
   return causes;
 });
+const witchKillTarget = computed(() => {
+  if (!props.room.witch_kill_target_visible) {
+    return null;
+  }
+  if (!props.room.witch_kill_target_id) {
+    return "狼人今晚空刀，没有刀口";
+  }
+  const player = props.room.players.find(
+    (candidate) =>
+      candidate.player_id === props.room.witch_kill_target_id,
+  );
+  return player
+    ? `今晚刀口：${player.seat}号 ${player.name}`
+    : `今晚刀口：${props.room.witch_kill_target_id}`;
+});
 const canStartNight = computed(
   () =>
     !isSpectator.value &&
@@ -242,6 +257,15 @@ async function copyRoomId(): Promise<void> {
       <span>本局观战密码</span>
       <code>{{ spectatorPassword }}</code>
     </div>
+
+    <section
+      v-if="witchKillTarget"
+      class="private-info-panel"
+      data-testid="witch-kill-target"
+    >
+      <span>女巫夜间信息</span>
+      <strong>{{ witchKillTarget }}</strong>
+    </section>
 
     <section class="panel roster-panel" data-testid="player-roster">
       <div class="section-heading">

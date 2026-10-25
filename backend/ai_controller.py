@@ -17,6 +17,7 @@ from .game_engine import (
     Role,
     Visibility,
     append_event,
+    get_player,
 )
 from .schemas import ActionRequest, ActionView
 
@@ -38,7 +39,7 @@ class AIControllerResult:
 
 
 @dataclass(frozen=True, slots=True)
-class _ControllerStep:
+class AIControllerStep:
     actor: Player | None
     request: ActionRequest
     is_system: bool = False
@@ -75,7 +76,7 @@ class AIController:
                 if room.state.phase is Phase.END:
                     reason = "no_action"
                     break
-                step = self._next_step(
+                step = self.plan_next_step(
                     room.state,
                     policy=room.ai_policy,
                     now=now,
@@ -136,16 +137,46 @@ class AIController:
                 current_event_seq=room.last_event_seq,
             )
 
-    def _next_step(
+    def plan_next_step(
         self,
         state: GameState,
         *,
         policy,
         now: float | None,
-    ) -> _ControllerStep | None:
+        skip_optional_self_destruct: bool = True,
+        auto_close_vote: bool = False,
+        auto_start_game: bool = False,
+    ) -> AIControllerStep | None:
+        if auto_start_game and state.phase is Phase.INIT:
+            return AIControllerStep(
+                actor=get_player(state, self._host_id(state)),
+                request=ActionRequest(action="start_night"),
+            )
+
         system_action = self._system_action(state, now=now)
         if system_action is not None:
-            return _ControllerStep(actor=None, request=system_action, is_system=True)
+            return AIControllerStep(
+                actor=None,
+                request=system_action,
+                is_system=True,
+            )
+
+        if (
+            auto_close_vote
+            and state.phase is Phase.VOTE
+            and state.day_result is not None
+            and not state.day_result.votes_closed
+            and all(
+                player.player_id in state.day_result.votes
+                for player in state.players
+                if player.is_alive
+            )
+        ):
+            return AIControllerStep(
+                actor=None,
+                request=ActionRequest(action="close_vote"),
+                is_system=True,
+            )
 
         actor = self._next_role_actor(state)
         if actor is None or actor.is_human:
@@ -157,13 +188,16 @@ class AIController:
             host_player_id=self._host_id(state),
             now=now,
         )
-        # L0 must finish the normal turn instead of selecting an optional
-        # self-destruct and stalling the room for a 10-second window.
-        non_stalling_views = tuple(
-            view for view in action_views if view.action != "self_destruct"
-        )
-        if non_stalling_views:
-            action_views = non_stalling_views
+        if skip_optional_self_destruct:
+            # Interactive L0 must finish the normal turn instead of selecting
+            # an optional self-destruct and stalling the room for 10 seconds.
+            non_stalling_views = tuple(
+                view
+                for view in action_views
+                if view.action != "self_destruct"
+            )
+            if non_stalling_views:
+                action_views = non_stalling_views
         if not action_views:
             return None
         action = policy.choose_action(
@@ -171,7 +205,7 @@ class AIController:
         )
         view = next(view for view in action_views if view.action == action)
         request = self._build_request(state, actor, view, policy=policy)
-        return _ControllerStep(actor=actor, request=request)
+        return AIControllerStep(actor=actor, request=request)
 
     @staticmethod
     def _system_action(

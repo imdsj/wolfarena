@@ -51,7 +51,7 @@ from .schemas import (
 )
 
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 WS_CLOSE_AUTH_REQUIRED = 4400
 WS_CLOSE_INVALID_TOKEN = 4401

@@ -98,6 +98,8 @@ class RoomSnapshot(ApiModel):
     deadline_at: float | None = Field(default=None, ge=0)
     deadline_kind: Literal["last_words", "speech", "self_destruct"] | None = None
     remaining_ms: int | None = Field(default=None, ge=0)
+    witch_kill_target_visible: bool = False
+    witch_kill_target_id: str | None = None
     human_count: int
     max_humans: int
     viewer: ViewerIdentity

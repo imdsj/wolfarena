@@ -46,6 +46,8 @@ const baseRoom = {
   deadline_at: null,
   deadline_kind: null,
   remaining_ms: null,
+  witch_kill_target_visible: false,
+  witch_kill_target_id: null,
   human_count: 2,
   max_humans: 3,
   players,
@@ -129,6 +131,31 @@ const deadSpectatorBanner = Boolean(
 deadPlayer.app.unmount();
 deadPlayer.host.remove();
 
+const witchPlayer = mountRoom({
+  ...baseRoom,
+  viewer: {
+    kind: "player",
+    player_id: "p1",
+    seat: 1,
+    name: "浏览器玩家",
+    role: "witch",
+    is_alive: true,
+    is_host: true,
+  },
+  witch_kill_target_visible: true,
+  witch_kill_target_id: "p2",
+  available_actions: [],
+});
+await delay(0);
+const witchTargetVisible = Boolean(
+  document.querySelector('[data-testid="witch-kill-target"]'),
+);
+const witchTargetNamed = (document.querySelector(
+  '[data-testid="witch-kill-target"]',
+)?.textContent ?? "").includes("2号");
+witchPlayer.app.unmount();
+witchPlayer.host.remove();
+
 const voteHost = document.createElement("div");
 document.body.append(voteHost);
 const voteApp = createApp(ActionForm, {
@@ -186,6 +213,8 @@ const result = {
   deadTargetHidden,
   aliveTargetShown,
   textareaPresent,
+  witchTargetVisible,
+  witchTargetNamed,
 };
 
 if (
@@ -197,7 +226,9 @@ if (
   result.deadSpectatorBanner ||
   !result.deadTargetHidden ||
   !result.aliveTargetShown ||
-  !result.textareaPresent
+  !result.textareaPresent ||
+  !result.witchTargetVisible ||
+  !result.witchTargetNamed
 ) {
   throw new Error(`视角 UI 验收失败：${JSON.stringify(result)}`);
 }
