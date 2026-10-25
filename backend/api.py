@@ -205,7 +205,7 @@ def create_app(
             raise _error(401, "INVALID_PLAYER_TOKEN", str(error)) from error
 
         try:
-            mutation = room_repository.execute_action(
+            mutation = room_repository.execute_action_and_advance_ai(
                 session.access,
                 payload,
             )
@@ -300,7 +300,7 @@ def create_app(
             content=candidate.content,
         )
         try:
-            mutation = room_repository.execute_action(
+            mutation = room_repository.execute_action_and_advance_ai(
                 session.access,
                 action_request,
             )
@@ -467,7 +467,7 @@ def create_app(
                         if key != "type"
                     }
                     action_request = ActionRequest.model_validate(action_payload)
-                    mutation = room_repository.execute_action(
+                    mutation = room_repository.execute_action_and_advance_ai(
                         session.access,
                         action_request,
                     )

@@ -114,17 +114,20 @@ buttonByText("AI 推荐并执行").click();
 const fallbackNotice = await waitFor(".ai-notice");
 const deadline = Date.now() + 5000;
 let eventText = "";
+let phaseAfterAction = "";
 while (Date.now() < deadline) {
   eventText = document.querySelector(".event-list")?.textContent ?? "";
-  if (eventText.includes("NIGHT_STARTED")) {
+  phaseAfterAction =
+    document.querySelector(".room-header h1")?.textContent?.trim() ?? "";
+  if (
+    eventText.includes("NIGHT_STARTED") &&
+    phaseAfterAction !== "等待开始"
+  ) {
     break;
   }
   await delay(50);
 }
 
-const phaseAfterAction = document
-  .querySelector(".room-header h1")
-  ?.textContent?.trim();
 const connectionText = document
   .querySelector(".connection-status")
   ?.textContent?.trim();

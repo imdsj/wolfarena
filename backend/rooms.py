@@ -13,6 +13,8 @@ from .actions import (
     available_actions_for_state,
     execute_engine_action,
 )
+from .ai_controller import AIController, AIControllerResult
+from .ai_growth import L0Policy
 from .game_engine import (
     Event,
     EventType,
@@ -125,6 +127,10 @@ class Room:
     tokens_by_player: dict[str, str] = field(default_factory=dict)
     player_by_token: dict[str, str] = field(default_factory=dict)
     lock: RLock = field(default_factory=RLock, repr=False)
+    ai_policy: L0Policy = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.ai_policy = L0Policy(seed=self.state.seed)
 
     @property
     def human_count(self) -> int:
@@ -185,6 +191,7 @@ class InMemoryRoomRepository:
     def __init__(self) -> None:
         self._rooms: dict[str, Room] = {}
         self._registry_lock = RLock()
+        self.ai_controller = AIController(self)
 
     def create_room(
         self,
@@ -374,6 +381,31 @@ class InMemoryRoomRepository:
                 previous_event_seq=previous_event_seq,
                 current_event_seq=room.last_event_seq,
             )
+
+    def execute_action_and_advance_ai(
+        self,
+        access: ViewerAccess,
+        request: ActionRequest,
+        *,
+        now: float | None = None,
+    ) -> RoomMutation:
+        room = self._get_room(access.room_id)
+        with room.lock:
+            mutation = self.execute_action(access, request, now=now)
+            controller_result = self.advance_ai(access.room_id, now=now)
+            return RoomMutation(
+                room=mutation.room,
+                previous_event_seq=mutation.previous_event_seq,
+                current_event_seq=controller_result.current_event_seq,
+            )
+
+    def advance_ai(
+        self,
+        room_id: str,
+        *,
+        now: float | None = None,
+    ) -> AIControllerResult:
+        return self.ai_controller.advance(room_id, now=now)
 
     def start_night(
         self,

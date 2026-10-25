@@ -360,6 +360,7 @@ class PhaseAndEventModelTests(TestCase):
             "ROLE_ASSIGNED",
             "AI_FALLBACK_USED",
             "AI_ACTION_REJECTED",
+            "AI_ACTION_FAILED",
             "WOLF_CAPTAIN_ELECTED",
             "WOLF_SPEECH",
             "WOLF_KILL_SELECTED",
