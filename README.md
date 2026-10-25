@@ -198,9 +198,12 @@ python -m backend.simulator `
 输出：
 
 ```text
-run.json        批次配置、耗时和完成/失败统计
-games.jsonl     每局 seed、角色、胜者、结束阶段和错误
-actions.jsonl   每步阶段、行动者、合法动作、选择、目标、文本和真实结果
+games.jsonl     每局 seed、胜者、天数、步数、角色和错误
+actions.jsonl   每步阶段、行动者、角色、合法动作、目标、文本和 ok
+roles.json      每局每个座位与角色的扁平记录
+summary.json    完成率、合法率、动作频率、阵营胜率、平均步数和耗时
+manifest.json   commit、命令、Python 版本和输出文件 SHA-256
+run.json        批次配置与兼容性运行摘要
 ```
 
 模拟器复用现有 `create_game`、`AIController`、`available_actions_for_state` 和
