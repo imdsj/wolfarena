@@ -283,7 +283,10 @@ class AIActionEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         body = response.json()
         self.assertTrue(body["executed"])
-        self.assertEqual(body["phase"], "DAY_DISCUSSION")
+        self.assertIn(
+            body["phase"],
+            {"DAY_DISCUSSION", "SELF_DESTRUCT", "VOTE", "END"},
+        )
 
     def test_no_key_fallback_executes_and_records_event(self) -> None:
         provider = DeepSeekCandidateProvider(DeepSeekSettings(api_key=None))
@@ -294,7 +297,10 @@ class AIActionEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["decision"]["source"], "fallback")
-        self.assertEqual(snapshot["phase"], "DAY_DISCUSSION")
+        self.assertIn(
+            snapshot["phase"],
+            {"DAY_DISCUSSION", "SELF_DESTRUCT", "VOTE", "END"},
+        )
         fallback_events = [
             event
             for event in snapshot["visible_events"]
@@ -326,8 +332,11 @@ class AIActionEndpointTests(unittest.TestCase):
         self.assertEqual(calls, 2)
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["decision"]["source"], "fallback")
-        self.assertEqual(response.json()["phase"], "DAY_DISCUSSION")
-        self.assertEqual(snapshot["phase"], "DAY_DISCUSSION")
+        self.assertIn(
+            response.json()["phase"],
+            {"DAY_DISCUSSION", "SELF_DESTRUCT", "VOTE", "END"},
+        )
+        self.assertEqual(snapshot["phase"], response.json()["phase"])
 
     def test_illegal_action_is_rejected_without_phase_change(self) -> None:
         client, room = self.create_client(

@@ -223,6 +223,7 @@ class GameState:
     poison_available: bool = True
     phase: Phase = Phase.INIT
     day: int = 0
+    day_speech_starter_id: str | None = None
     night_result: NightResult | None = None
     day_result: DayResult | None = None
     events: list[Event] = field(default_factory=list)
@@ -840,6 +841,38 @@ def _living_speech_order(state: GameState) -> list[str]:
     ]
 
 
+def _public_speech_order(
+    state: GameState,
+    announced_death_ids: Sequence[str],
+) -> list[str]:
+    """Build one cyclic speaking round from the confirmed daytime rule."""
+
+    living_players = [
+        player
+        for player in sorted(state.players, key=lambda item: item.seat)
+        if player.is_alive
+    ]
+    if not living_players:
+        return []
+
+    if announced_death_ids:
+        highest_dead_seat = max(
+            get_player(state, player_id).seat
+            for player_id in announced_death_ids
+        )
+        start_seat = highest_dead_seat % len(state.players) + 1
+    elif state.day_speech_starter_id is not None:
+        start_seat = get_player(state, state.day_speech_starter_id).seat
+    else:
+        start_seat = 1
+
+    cyclic_players = sorted(
+        living_players,
+        key=lambda player: (player.seat - start_seat) % len(state.players),
+    )
+    return [player.player_id for player in cyclic_players]
+
+
 def _finish_day(state: GameState, reason: str) -> GameState:
     day_result = _day_result_or_error(state)
     day_result.resolved = True
@@ -917,7 +950,12 @@ def begin_day(
         announced_death_ids=announced_death_ids,
         speech_timeout_seconds=PUBLIC_SPEECH_TIMEOUT_SECONDS,
     )
-    day_result.speech_order = _living_speech_order(state)
+    day_result.speech_order = _public_speech_order(
+        state,
+        announced_death_ids,
+    )
+    if day_result.speech_order:
+        state.day_speech_starter_id = day_result.speech_order[0]
     state.day_result = day_result
 
     if state.day == 1 and announced_death_ids:

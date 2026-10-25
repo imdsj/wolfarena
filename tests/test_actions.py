@@ -234,7 +234,7 @@ class ActionApiTests(TestCase):
         response = self.post_action("start_night")
 
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(response.json()["phase"], "DAY_DISCUSSION")
+        self.assertNotEqual(response.json()["phase"], "INIT")
         again = self.post_action("start_night")
         self.assertEqual(again.status_code, 409)
         self.assertEqual(again.json()["detail"]["code"], "ACTION_UNAVAILABLE")

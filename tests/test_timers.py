@@ -17,7 +17,6 @@ from backend.game_engine import (
     self_destruct,
 )
 from backend.rooms import InMemoryRoomRepository
-from backend.schemas import ActionRequest
 from backend.timers import RoomTimerService
 
 
@@ -45,13 +44,16 @@ def create_room(repository: InMemoryRoomRepository):
 class RoomTimerTests(IsolatedAsyncioTestCase):
     async def test_public_speech_timeout_advances_once(self) -> None:
         repository = InMemoryRoomRepository()
-        created, session = create_room(repository)
-        repository.execute_action_and_advance_ai(
-            session.access,
-            ActionRequest(action="start_night"),
-            now=100.0,
-        )
+        created, _session = create_room(repository)
         room = repository._rooms[created.room_id]
+        with room.lock:
+            room.state.day = 1
+            room.state.phase = Phase.DAY_DISCUSSION
+            room.state.day_result = DayResult(
+                speech_order=["p1"],
+                next_speaker_index=0,
+                speech_deadline=130.0,
+            )
         deadline = room.state.day_result.speech_deadline
         self.assertIsNotNone(deadline)
         events_before = len(room.state.events)

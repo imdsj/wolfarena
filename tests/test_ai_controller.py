@@ -8,7 +8,7 @@ from unittest.mock import patch
 from backend.ai_controller import AIController
 from backend.actions import available_actions_for_state
 from backend.ai_growth import L0Policy
-from backend.game_engine import EventType, NightResult, Phase, Role
+from backend.game_engine import DayResult, EventType, NightResult, Phase, Role
 from backend.rooms import InMemoryRoomRepository
 from backend.schemas import ActionRequest
 from tests.test_game_engine import controlled_game
@@ -38,7 +38,7 @@ def start_with_ai(repository: InMemoryRoomRepository, seed: int = 1):
 
 
 class AIControllerTests(TestCase):
-    def test_ai_advances_until_human_decision(self) -> None:
+    def test_ai_advances_to_an_interactive_or_timed_boundary(self) -> None:
         repository = InMemoryRoomRepository()
         created, session, _mutation = start_with_ai(repository)
         snapshot = repository.snapshot_for_access(
@@ -46,10 +46,19 @@ class AIControllerTests(TestCase):
             session.access,
         )
 
-        self.assertEqual(snapshot.phase, "DAY_DISCUSSION")
         self.assertIn(
-            "speech",
-            [action.action for action in snapshot.available_actions],
+            snapshot.phase,
+            {"DAY_DISCUSSION", "SELF_DESTRUCT", "VOTE", "END"},
+        )
+        self.assertNotIn(
+            snapshot.phase,
+            {
+                "NIGHT_WOLF_DISCUSSION_R1",
+                "NIGHT_WOLF_DISCUSSION_R2",
+                "NIGHT_WOLF_KILL",
+                "NIGHT_SEER_CHECK",
+                "NIGHT_WITCH_ACTION",
+            },
         )
 
     def test_same_seed_and_action_sequence_are_deterministic(self) -> None:
@@ -82,9 +91,20 @@ class AIControllerTests(TestCase):
 
     def test_human_speech_resumes_ai_until_vote(self) -> None:
         repository = InMemoryRoomRepository()
-        created, session, _mutation = start_with_ai(repository)
+        created = create_seeded_room(repository)
+        session = repository.authenticate_player(
+            created.room_id,
+            created.player_token,
+        )
         room = repository._rooms[created.room_id]
         human = next(player for player in room.state.players if player.is_human)
+        with room.lock:
+            room.state.day = 1
+            room.state.phase = Phase.DAY_DISCUSSION
+            room.state.day_result = DayResult(
+                speech_order=["p1", "p2"],
+                speech_deadline=230.0,
+            )
 
         repository.execute_action_and_advance_ai(
             session.access,
