@@ -235,6 +235,53 @@ h2 {
   background: #b64436;
 }
 
+.phase-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid #9eb3a2;
+  border-radius: 11px;
+  background: #f5f9f4;
+}
+
+.phase-countdown .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.phase-countdown strong {
+  font-size: 17px;
+}
+
+.countdown-value {
+  color: #274b31;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.countdown-value span {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.countdown-value small {
+  margin-left: 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.phase-countdown-urgent {
+  border-color: #c17d6f;
+  background: #fff4f1;
+}
+
+.phase-countdown-urgent .countdown-value {
+  color: #8d3227;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -412,6 +459,14 @@ h2 {
 
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phase-countdown {
+    align-items: flex-start;
+  }
+
+  .countdown-value span {
+    font-size: 22px;
   }
 
   .panel {

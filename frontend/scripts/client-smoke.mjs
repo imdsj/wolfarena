@@ -37,6 +37,11 @@ Object.assign(globalThis, {
   },
 });
 
+const { createApp } = await import("vue");
+const { default: PhaseCountdown } = await import(
+  "../dist/src/components/PhaseCountdown.js"
+);
+
 await import(pathToFileURL(path.join(frontendDirectory, "dist", "src", "main.js")));
 
 async function waitFor(selector, timeoutMs = 5000) {
@@ -132,6 +137,32 @@ const connectionText = document
   .querySelector(".connection-status")
   ?.textContent?.trim();
 
+const countdownHost = document.createElement("div");
+document.body.append(countdownHost);
+const countdownTime = Date.now() / 1000;
+const countdownApp = createApp(PhaseCountdown, {
+  deadlineKind: "speech",
+  remainingMs: 2500,
+  serverTime: countdownTime,
+  deadlineAt: countdownTime + 2.5,
+});
+countdownApp.mount(countdownHost);
+const countdownElement = await waitFor(".phase-countdown");
+const initialCountdown = Number(
+  countdownElement.querySelector(".countdown-value span")?.textContent,
+);
+await delay(250);
+const laterCountdown = Number(
+  countdownElement.querySelector(".countdown-value span")?.textContent,
+);
+const countdownLabel = countdownElement.textContent?.trim();
+if (!countdownLabel?.includes("公开发言倒计时")) {
+  throw new Error("倒计时没有显示正确阶段");
+}
+if (!(laterCountdown < initialCountdown)) {
+  throw new Error("倒计时数值没有随时间递减");
+}
+
 console.log(
   JSON.stringify(
     {
@@ -148,12 +179,15 @@ console.log(
       connectionText,
       hasFallbackEvent: eventText.includes("AI_FALLBACK_USED"),
       hasNightStartedEvent: eventText.includes("NIGHT_STARTED"),
+      countdownLabel,
+      countdownDecreased: laterCountdown < initialCountdown,
     },
     null,
     2,
   ),
 );
 
+countdownApp.unmount();
 window.close();
 await delay(100);
 process.exit(0);

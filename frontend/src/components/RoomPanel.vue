@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import ActionForm from "./ActionForm.vue";
 import ConnectionStatus from "./ConnectionStatus.vue";
+import PhaseCountdown from "./PhaseCountdown.vue";
 
 const props = defineProps<{
   room: RoomSnapshot;
@@ -108,6 +109,18 @@ async function copyRoomId(): Promise<void> {
     <ConnectionStatus
       :state="connectionState"
       @reconnect="emit('reconnect')"
+    />
+
+    <PhaseCountdown
+      v-if="
+        room.deadline_kind !== null &&
+        room.deadline_at !== null &&
+        room.remaining_ms !== null
+      "
+      :deadline-kind="room.deadline_kind"
+      :remaining-ms="room.remaining_ms"
+      :server-time="room.server_time"
+      :deadline-at="room.deadline_at"
     />
 
     <div class="metric-grid">

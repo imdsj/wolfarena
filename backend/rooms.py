@@ -5,8 +5,10 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
 import logging
+from math import ceil
 from secrets import compare_digest, token_urlsafe
 from threading import RLock
+from time import time
 from typing import Literal
 
 from .actions import (
@@ -461,27 +463,36 @@ class InMemoryRoomRepository:
         state: GameState,
         now: float,
     ) -> str | None:
+        active_deadline = InMemoryRoomRepository._active_deadline(state)
+        if active_deadline is None:
+            return None
+        deadline_kind, deadline_at = active_deadline
+        return deadline_kind if now >= deadline_at else None
+
+    @staticmethod
+    def _active_deadline(
+        state: GameState,
+    ) -> tuple[str, float] | None:
+        """Return the one server deadline that currently governs the phase."""
+
         day_result = state.day_result
         if day_result is None:
             return None
         if (
             state.phase is Phase.DAY_LAST_WORDS
             and day_result.last_words_deadline is not None
-            and now >= day_result.last_words_deadline
         ):
-            return "last_words"
+            return ("last_words", day_result.last_words_deadline)
         if (
             state.phase is Phase.DAY_DISCUSSION
             and day_result.speech_deadline is not None
-            and now >= day_result.speech_deadline
         ):
-            return "speech"
+            return ("speech", day_result.speech_deadline)
         if (
             state.phase is Phase.SELF_DESTRUCT
             and day_result.self_destruct_deadline is not None
-            and now >= day_result.self_destruct_deadline
         ):
-            return "self_destruct"
+            return ("self_destruct", day_result.self_destruct_deadline)
         return None
 
     def start_night(
@@ -576,8 +587,23 @@ class InMemoryRoomRepository:
         self,
         room: Room,
         access: ViewerAccess,
+        *,
+        now: float | None = None,
     ) -> RoomSnapshot:
         with room.lock:
+            server_time = time() if now is None else now
+            active_deadline = self._active_deadline(room.state)
+            deadline_kind = (
+                active_deadline[0] if active_deadline is not None else None
+            )
+            deadline_at = (
+                active_deadline[1] if active_deadline is not None else None
+            )
+            remaining_ms = (
+                max(0, ceil((deadline_at - server_time) * 1000))
+                if deadline_at is not None
+                else None
+            )
             viewer = self._event_viewer(room, access)
             visible_events = get_visible_events(room.state, viewer)
             if access.kind == "spectator":
@@ -606,6 +632,10 @@ class InMemoryRoomRepository:
                 room_id=room.room_id,
                 phase=room.state.phase.value,
                 day=room.state.day,
+                server_time=server_time,
+                deadline_at=deadline_at,
+                deadline_kind=deadline_kind,
+                remaining_ms=remaining_ms,
                 human_count=room.human_count,
                 max_humans=room.max_humans,
                 viewer=viewer_identity,

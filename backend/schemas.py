@@ -94,6 +94,10 @@ class RoomSnapshot(ApiModel):
     room_id: str
     phase: str
     day: int
+    server_time: float = Field(ge=0)
+    deadline_at: float | None = Field(default=None, ge=0)
+    deadline_kind: Literal["last_words", "speech", "self_destruct"] | None = None
+    remaining_ms: int | None = Field(default=None, ge=0)
     human_count: int
     max_humans: int
     viewer: ViewerIdentity
