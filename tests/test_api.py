@@ -23,7 +23,7 @@ class ApiHealthTests(unittest.TestCase):
             {
                 "status": "ok",
                 "service": "wolfarena-api",
-                "version": "0.3.0",
+                "version": "0.5.0",
             },
         )
         lowered = response.text.lower()
@@ -78,6 +78,19 @@ class RoomCreationTests(unittest.TestCase):
             first["room"]["viewer"]["role"],
             second["room"]["viewer"]["role"],
         )
+
+    def test_live_room_may_use_server_generated_seed(self) -> None:
+        response = self.client.post(
+            "/api/rooms",
+            json={
+                "human_count": 1,
+                "max_humans": 3,
+                "nickname": "服务端随机房主",
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(response.json()["room"]["phase"], "INIT")
 
     def test_create_room_rejects_invalid_human_limits(self) -> None:
         for value in (0, 4):

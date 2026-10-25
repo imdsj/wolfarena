@@ -6,6 +6,8 @@
 
 代码提交：`067b7c2`
 
+浏览器 seed 收口提交：`a71380c`
+
 ## 1. 设计
 
 新增 `backend/ai_controller.py`：
@@ -64,7 +66,7 @@
 全量结果：
 
 ```text
-Ran 160 tests
+Ran 166 tests
 OK
 ```
 
@@ -95,3 +97,17 @@ hasNightStartedEvent: true
 - 未实现服务层 10 秒/30 秒定时器。
 - 因此 AI 在自爆窗口或真人超时时不会按真实时间自动推进。
 - 浏览器刷新后的凭证恢复仍未实现。
+- 浏览器实时建房不再传 `Date.now()`；seed 由服务端生成，固定 seed 只用于显式脚本或训练。
+
+## 7. 女巫用药目标修复
+
+联合测试中发现 AI 女巫可能选择 `antidote` 或 `poison`，同时目标被随机为
+`null`，导致规则引擎拒绝并停在 `NIGHT_WITCH_ACTION`。
+
+修复后：
+
+- 选择 `none`：目标必须为空。
+- 选择 `antidote` 或 `poison`：必须从服务器合法存活目标中选一个。
+- 新增 199 个 seed 的回归测试，验证所有药物选择都符合目标约束。
+- 修复后真实 `seed=1` 房间自动进入 `DAY_DISCUSSION`，可见
+  `AI_ACTION_FAILED` 数量为 0，可执行动作为 `speech`。

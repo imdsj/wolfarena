@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WolfArena UI state 390-lobby</title>
+    <style>:root {
+  color: #1b201d;
+  background: #eceee9;
+  font-family:
+    "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, #fffbe9 0, transparent 35%),
+    linear-gradient(145deg, #eceee9, #dfe5df);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.app-shell {
+  width: 1040px;
+  max-width: calc(100% - 32px);
+  width: min(1040px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.panel {
+  padding: 24px;
+  border: 1px solid #c7cec7;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 36px rgba(35, 52, 39, 0.08);
+}
+
+.lobby-panel {
+  width: min(560px, 100%);
+  margin: 8vh auto 0;
+}
+
+.lobby-section {
+  display: grid;
+  gap: 4px;
+  padding-top: 22px;
+  border-top: 1px solid #d8ded8;
+}
+
+.lobby-section:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.lobby-section h2 {
+  margin-bottom: 4px;
+}
+
+.spectator-entry {
+  margin-top: 24px;
+}
+
+.lobby-note {
+  margin-bottom: 0;
+  color: #5f6961;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  margin-bottom: 10px;
+  color: #59665b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 14px;
+  font-size: clamp(28px, 5vw, 46px);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 19px;
+}
+
+.lede,
+.muted {
+  color: #5f6961;
+  line-height: 1.65;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid #aeb9b0;
+  border-radius: 9px;
+  background: #fbfcfa;
+  outline: none;
+}
+
+.field input:focus {
+  border-color: #325b3c;
+  box-shadow: 0 0 0 3px rgba(50, 91, 60, 0.12);
+}
+
+.primary-button,
+.secondary-button,
+.text-button {
+  border: 0;
+  border-radius: 9px;
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 46px;
+  padding: 0 18px;
+  font-weight: 700;
+}
+
+.primary-button {
+  width: 100%;
+  color: #fff;
+  background: #274b31;
+}
+
+.secondary-button {
+  color: #274b31;
+  border: 1px solid #9eb3a2;
+  background: #f5f9f4;
+}
+
+.text-button {
+  padding: 4px 0;
+  color: #315f3a;
+  background: transparent;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 8px;
+  color: #778179;
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  height: 1px;
+  flex: 1;
+  background: #d6ddd6;
+  content: "";
+}
+
+.room-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.room-header,
+.section-heading,
+.connection-status,
+.credential-row,
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.room-header h1 {
+  margin-bottom: 0;
+  font-size: clamp(26px, 5vw, 42px);
+}
+
+.room-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.room-code {
+  text-transform: none;
+}
+
+.room-code code {
+  color: #2a332b;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.copy-room-id {
+  font-size: 12px;
+}
+
+.connection-status {
+  justify-content: flex-start;
+  width: fit-content;
+  padding: 8px 12px;
+  border: 1px solid #c7cec7;
+  border-radius: 999px;
+  background: #f9fbf8;
+  font-size: 13px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8b958d;
+}
+
+.connection-status[data-state="connected"] .status-dot {
+  background: #2d8a4b;
+}
+
+.connection-status[data-state="connecting"]
+  .status-dot,
+.connection-status[data-state="authenticating"]
+  .status-dot {
+  background: #c28a24;
+}
+
+.connection-status[data-state="disconnected"]
+  .status-dot,
+.connection-status[data-state="error"]
+  .status-dot {
+  background: #b64436;
+}
+
+.view-mode-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 13px 16px;
+  border: 1px solid #b8c7ba;
+  border-radius: 10px;
+  background: #f4f8f3;
+  line-height: 1.55;
+}
+
+.view-mode-banner strong {
+  flex: 0 0 auto;
+}
+
+.spectator-banner {
+  border-color: #8da9c4;
+  background: #eff5fa;
+}
+
+.dead-banner {
+  border-color: #cda99f;
+  background: #faf2ef;
+}
+
+.phase-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid #9eb3a2;
+  border-radius: 11px;
+  background: #f5f9f4;
+}
+
+.phase-countdown .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.phase-countdown strong {
+  font-size: 17px;
+}
+
+.countdown-value {
+  color: #274b31;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.countdown-value span {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.countdown-value small {
+  margin-left: 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.phase-countdown-urgent {
+  border-color: #c17d6f;
+  background: #fff4f1;
+}
+
+.phase-countdown-urgent .countdown-value {
+  color: #8d3227;
+}
+
+.metric-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  flex: 1 1 20%;
+  padding: 16px;
+  border: 1px solid #cbd2cb;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.metric span {
+  display: block;
+  margin-bottom: 7px;
+  color: #69746b;
+  font-size: 12px;
+}
+
+.metric strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.credential-row {
+  padding: 12px 0;
+  font-size: 14px;
+}
+
+.credential-row code,
+.event-row code {
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #eef2ed;
+  overflow-wrap: anywhere;
+}
+
+.private-info-panel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #8da9c4;
+  border-radius: 10px;
+  background: #eff5fa;
+}
+
+.private-info-panel span {
+  color: #526b83;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.private-info-panel strong {
+  text-align: right;
+}
+
+.roster-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.roster-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.roster-player {
+  flex: 1 1 29%;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #d2dad3;
+  border-radius: 9px;
+  background: #fafcf9;
+}
+
+.roster-player[data-alive="false"] {
+  background: #f2f0ed;
+  color: #626a64;
+}
+
+.roster-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.roster-heading > span,
+.roster-heading small {
+  color: #707b72;
+  font-size: 12px;
+}
+
+.roster-heading strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roster-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #536057;
+  font-size: 12px;
+}
+
+.action-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.action-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.action-row .primary-button,
+.action-row .secondary-button {
+  width: auto;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.action-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 15px;
+  border: 1px solid #d3dad3;
+  border-radius: 10px;
+  background: #f8faf7;
+}
+
+.action-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.action-card-heading code {
+  color: #657068;
+  font-size: 12px;
+}
+
+.compact-field {
+  display: grid;
+  gap: 6px;
+  color: #59655c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.compact-field select,
+.compact-field textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #b7c1b9;
+  border-radius: 7px;
+  color: #202820;
+  background: #fff;
+  font: inherit;
+  resize: vertical;
+}
+
+.action-grid > .secondary-button {
+  align-self: start;
+}
+
+.ai-notice {
+  margin-bottom: 0;
+  padding: 12px 14px;
+  border-left: 3px solid #b68b3d;
+  background: #fbf5e5;
+  color: #5c4a24;
+}
+
+.action-notice {
+  margin-bottom: 0;
+  padding: 11px 14px;
+  border-left: 3px solid #4f8a5e;
+  background: #edf6ef;
+  color: #2e5838;
+}
+
+.event-list {
+  display: grid;
+  gap: 0;
+  max-height: 440px;
+  margin: 18px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.event-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e4e8e3;
+}
+
+.event-index {
+  color: #7b857d;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-row strong {
+  font-size: 13px;
+}
+
+.event-row p {
+  margin: 5px 0;
+  color: #636e65;
+  font-size: 13px;
+}
+
+.event-row code {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.result-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.result-panel .section-heading strong {
+  color: #274b31;
+  font-size: 20px;
+}
+
+.result-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.result-player {
+  flex: 1 1 29%;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid #d1d9d2;
+  border-radius: 9px;
+  background: #f9fbf8;
+}
+
+.result-player[data-alive="false"] {
+  background: #f4f2ef;
+}
+
+.result-player > span {
+  color: #69746b;
+  font-size: 12px;
+}
+
+.result-player dl {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+}
+
+.result-player dl div {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+}
+
+.result-player dt {
+  color: #717c73;
+  font-size: 12px;
+}
+
+.result-player dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.error-banner {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  max-width: min(460px, calc(100vw - 40px));
+  margin: 0;
+  padding: 13px 16px;
+  border-radius: 9px;
+  color: #fff;
+  background: #7e3028;
+  box-shadow: 0 10px 28px rgba(65, 26, 20, 0.22);
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    width: calc(100% - 20px);
+    width: min(100% - 20px, 1040px);
+    padding: 20px 0;
+  }
+
+  .lobby-panel {
+    margin-top: 2vh;
+  }
+
+  .metric-grid {
+    display: flex;
+    flex-wrap: wrap;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .roster-grid {
+    display: flex;
+    flex-wrap: wrap;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric,
+  .roster-player,
+  .result-player {
+    flex-basis: 45%;
+  }
+
+  .phase-countdown {
+    align-items: flex-start;
+  }
+
+  .countdown-value span {
+    font-size: 22px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .room-header {
+    align-items: flex-start;
+  }
+
+  .view-mode-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .private-info-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .private-info-panel strong {
+    text-align: left;
+  }
+
+  .action-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .action-row .primary-button,
+  .action-row .secondary-button {
+    width: 100%;
+  }
+}
+</style>
+    <style>body { min-height: 844px; overflow-x: hidden; }</style>
+  </head>
+  <body><main class="app-shell"><section class="panel lobby-panel"><div class="eyebrow">WolfArena / 九人局入口</div><h1>先进入房间，再观察真实事件流</h1><p class="lede"> 页面只显示服务器已经返回的状态。连接断开时会明确标记，不会保留虚假的“在线”。 </p><section class="lobby-section"><h2>玩家入口</h2><label class="field"><span>你的昵称</span><input maxlength="32" autocomplete="off" placeholder="例如：订书机"></label><button class="primary-button" type="button" disabled=""> 创建房间 </button><div class="divider"><span>或者加入已有房间</span></div><label class="field"><span>房间号</span><input maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="粘贴房主发来的房间号"></label><button class="secondary-button" type="button" disabled=""> 加入房间 </button></section><section class="lobby-section spectator-entry"><h2>观战入口</h2><p class="lobby-note"> 观战者通过 WebSocket 认证后进入上帝视角，不能提交玩家动作。 </p><label class="field"><span>观战密码</span><input type="password" maxlength="64" autocomplete="off" placeholder="输入房主提供的本局密码"></label><button class="secondary-button" type="button" disabled=""> 进入观战 </button></section></section><!--v-if--></main></body>
+</html>

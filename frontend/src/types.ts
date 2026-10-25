@@ -6,6 +6,8 @@ export type ConnectionState =
   | "disconnected"
   | "error";
 
+export type DeadlineKind = "last_words" | "speech" | "self_destruct";
+
 export interface ViewerIdentity {
   kind: "player" | "spectator";
   player_id: string | null;
@@ -56,6 +58,12 @@ export interface RoomSnapshot {
   room_id: string;
   phase: string;
   day: number;
+  server_time: number;
+  deadline_at: number | null;
+  deadline_kind: DeadlineKind | null;
+  remaining_ms: number | null;
+  witch_kill_target_visible: boolean;
+  witch_kill_target_id: string | null;
   human_count: number;
   max_humans: number;
   viewer: ViewerIdentity;

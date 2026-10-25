@@ -23,14 +23,61 @@ const form = reactive({
   choice: "",
 });
 
+const aliveTargetIds = computed(() => {
+  const aliveIds = new Set(
+    props.players
+      .filter((player) => player.is_alive)
+      .map((player) => player.player_id),
+  );
+  return props.action.target_ids.filter((playerId) => aliveIds.has(playerId));
+});
+
+const showTargetPicker = computed(() => {
+  if (props.action.action !== "witch_action") {
+    return (
+      aliveTargetIds.value.length > 0 &&
+      (props.action.requires_target || props.action.allow_no_target)
+    );
+  }
+  return (
+    aliveTargetIds.value.length > 0 &&
+    (form.choice === "antidote" || form.choice === "poison")
+  );
+});
+
+const needsSelectedTarget = computed(() => {
+  if (props.action.action !== "witch_action") {
+    return props.action.requires_target;
+  }
+  return form.choice === "antidote" || form.choice === "poison";
+});
+
 watch(
   () => props.action,
   (action) => {
-    form.targetId = action.requires_target ? action.target_ids[0] ?? "" : "";
+    form.targetId = action.requires_target
+      ? aliveTargetIds.value[0] ?? ""
+      : action.allow_no_target
+        ? "__none__"
+        : aliveTargetIds.value[0] ?? "";
     form.content = "";
     form.choice = action.choices[0] ?? "";
   },
   { immediate: true },
+);
+
+watch(
+  () => form.choice,
+  (choice) => {
+    if (
+      props.action.action === "witch_action" &&
+      (choice === "none" || choice === "")
+    ) {
+      form.targetId = "__none__";
+    } else if (form.targetId === "__none__") {
+      form.targetId = aliveTargetIds.value[0] ?? "";
+    }
+  },
 );
 
 const playersById = computed(
@@ -85,14 +132,17 @@ function submit(): void {
       </select>
     </label>
 
-    <label v-if="action.target_ids.length" class="compact-field">
+    <label
+      v-if="showTargetPicker"
+      class="compact-field"
+    >
       <span>目标</span>
       <select v-model="form.targetId">
         <option v-if="action.allow_no_target" value="__none__">
           {{ noTargetLabel }}
         </option>
         <option
-          v-for="targetId in action.target_ids"
+          v-for="targetId in aliveTargetIds"
           :key="targetId"
           :value="targetId"
         >
@@ -114,13 +164,17 @@ function submit(): void {
     <button
       class="primary-button"
       type="submit"
+      :data-busy="busy"
+      :data-target="form.targetId"
+      :data-choice="form.choice"
       :disabled="
         busy ||
         (action.requires_content && !form.content.trim()) ||
-        (action.requires_target && (!form.targetId || form.targetId === '__none__'))
+        (needsSelectedTarget &&
+          (!form.targetId || form.targetId === '__none__'))
       "
     >
-      执行
+      提交{{ action.label }}
     </button>
   </form>
 </template>

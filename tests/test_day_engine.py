@@ -225,6 +225,52 @@ class DayAnnouncementAndLastWordsTests(TestCase):
 
 
 class PublicSpeechTests(TestCase):
+    def test_speech_starts_after_highest_dead_seat(self) -> None:
+        cases = [
+            (["p2"], "p3"),
+            (["p2", "p4"], "p5"),
+            (["p2", "p4", "p6"], "p7"),
+        ]
+
+        for death_ids, expected_first in cases:
+            with self.subTest(death_ids=death_ids):
+                state = make_day(day=1, death_ids=death_ids)
+                self.assertEqual(
+                    state.day_result.speech_order[0],
+                    expected_first,
+                )
+                self.assertEqual(
+                    set(state.day_result.speech_order),
+                    {
+                        player.player_id
+                        for player in state.players
+                        if player.is_alive
+                    },
+                )
+
+    def test_speech_order_wraps_after_ninth_seat(self) -> None:
+        state = make_day(day=1, death_ids=["p9"])
+
+        self.assertEqual(state.day_result.speech_order[0], "p1")
+        self.assertEqual(state.day_result.speech_order[-1], "p8")
+
+    def test_peaceful_first_day_starts_at_first_seat(self) -> None:
+        state = make_day(day=1)
+
+        self.assertEqual(state.day_result.speech_order[0], "p1")
+
+    def test_peaceful_next_day_reuses_previous_first_speaker(self) -> None:
+        state = make_day(day=1, death_ids=["p2"])
+        self.assertEqual(state.day_result.speech_order[0], "p3")
+        state.day_result.resolved = True
+        state.day = 2
+        state.phase = Phase.DAY_ANNOUNCEMENT
+        state.night_result = NightResult()
+
+        begin_day(state)
+
+        self.assertEqual(state.day_result.speech_order[0], "p3")
+
     def test_public_speech_is_seat_ordered_and_reaches_vote(self) -> None:
         state = make_day(day=1)
         order = list(state.day_result.speech_order)

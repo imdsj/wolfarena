@@ -1,7 +1,7 @@
 {
   "name": "wolfarena-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,9 @@
     "build:static": "node scripts/build-static.mjs",
     "build:vite": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
     "smoke:client": "node scripts/client-smoke.mjs",
+    "smoke:acceptance": "node scripts/acceptance-smoke.mjs",
+    "smoke:sync": "node scripts/sync-smoke.mjs",
+    "smoke:viewer": "node scripts/viewer-smoke.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

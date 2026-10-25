@@ -17,6 +17,7 @@ dist/
 .vite/
 *.tsbuildinfo
 frontend/%USERPROFILE%/
+.tmp-*/
 
 # 数据库
 *.db

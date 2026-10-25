@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+import logging
+from math import ceil
 from secrets import compare_digest, token_urlsafe
 from threading import RLock
+from time import time
 from typing import Literal
 
 from .actions import (
@@ -21,12 +24,17 @@ from .game_engine import (
     GameState,
     Phase,
     Player,
+    Role,
     SPECTATOR_VIEW,
     Visibility,
     append_event,
+    close_self_destruct_window,
     create_game,
     get_player,
+    get_witch_kill_target,
     get_visible_events,
+    timeout_last_words,
+    timeout_public_speech,
 )
 from .schemas import (
     ActionRequest,
@@ -37,6 +45,8 @@ from .schemas import (
     RoomSnapshot,
     ViewerIdentity,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RoomNotFoundError(LookupError):
@@ -407,6 +417,86 @@ class InMemoryRoomRepository:
     ) -> AIControllerResult:
         return self.ai_controller.advance(room_id, now=now)
 
+    def process_expired_deadlines(
+        self,
+        now: float,
+    ) -> tuple[RoomMutation, ...]:
+        with self._registry_lock:
+            room_ids = tuple(self._rooms)
+
+        mutations: list[RoomMutation] = []
+        for room_id in room_ids:
+            room = self._get_room(room_id)
+            with room.lock:
+                timeout_kind = self._expired_timeout_kind(room.state, now)
+                if timeout_kind is None:
+                    continue
+                previous_event_seq = room.last_event_seq
+                state_before = deepcopy(room.state)
+                try:
+                    if timeout_kind == "last_words":
+                        timeout_last_words(room.state, now)
+                    elif timeout_kind == "speech":
+                        timeout_public_speech(room.state, now)
+                    else:
+                        close_self_destruct_window(room.state, now=now)
+                except Exception:
+                    room.state = state_before
+                    logger.exception(
+                        "Room timer action failed for %s at %s",
+                        room_id,
+                        now,
+                    )
+                    continue
+
+                self.advance_ai(room_id, now=now)
+                if room.last_event_seq > previous_event_seq:
+                    mutations.append(
+                        RoomMutation(
+                            room=room,
+                            previous_event_seq=previous_event_seq,
+                            current_event_seq=room.last_event_seq,
+                        )
+                    )
+        return tuple(mutations)
+
+    @staticmethod
+    def _expired_timeout_kind(
+        state: GameState,
+        now: float,
+    ) -> str | None:
+        active_deadline = InMemoryRoomRepository._active_deadline(state)
+        if active_deadline is None:
+            return None
+        deadline_kind, deadline_at = active_deadline
+        return deadline_kind if now >= deadline_at else None
+
+    @staticmethod
+    def _active_deadline(
+        state: GameState,
+    ) -> tuple[str, float] | None:
+        """Return the one server deadline that currently governs the phase."""
+
+        day_result = state.day_result
+        if day_result is None:
+            return None
+        if (
+            state.phase is Phase.DAY_LAST_WORDS
+            and day_result.last_words_deadline is not None
+        ):
+            return ("last_words", day_result.last_words_deadline)
+        if (
+            state.phase is Phase.DAY_DISCUSSION
+            and day_result.speech_deadline is not None
+        ):
+            return ("speech", day_result.speech_deadline)
+        if (
+            state.phase is Phase.SELF_DESTRUCT
+            and day_result.self_destruct_deadline is not None
+        ):
+            return ("self_destruct", day_result.self_destruct_deadline)
+        return None
+
     def start_night(
         self,
         access: ViewerAccess,
@@ -499,10 +589,27 @@ class InMemoryRoomRepository:
         self,
         room: Room,
         access: ViewerAccess,
+        *,
+        now: float | None = None,
     ) -> RoomSnapshot:
         with room.lock:
+            server_time = time() if now is None else now
+            active_deadline = self._active_deadline(room.state)
+            deadline_kind = (
+                active_deadline[0] if active_deadline is not None else None
+            )
+            deadline_at = (
+                active_deadline[1] if active_deadline is not None else None
+            )
+            remaining_ms = (
+                max(0, ceil((deadline_at - server_time) * 1000))
+                if deadline_at is not None
+                else None
+            )
             viewer = self._event_viewer(room, access)
             visible_events = get_visible_events(room.state, viewer)
+            witch_kill_target_visible = False
+            witch_kill_target_id: str | None = None
             if access.kind == "spectator":
                 viewer_identity = ViewerIdentity(
                     kind="spectator",
@@ -515,6 +622,17 @@ class InMemoryRoomRepository:
                 )
             else:
                 player = self._access_player(room, access)
+                if (
+                    player.role is Role.WITCH
+                    and player.is_alive
+                    and room.state.phase is Phase.NIGHT_WITCH_ACTION
+                    and room.state.antidote_available
+                ):
+                    witch_kill_target_visible = True
+                    witch_kill_target_id = get_witch_kill_target(
+                        room.state,
+                        player.player_id,
+                    )
                 viewer_identity = ViewerIdentity(
                     kind="player",
                     player_id=player.player_id,
@@ -529,6 +647,12 @@ class InMemoryRoomRepository:
                 room_id=room.room_id,
                 phase=room.state.phase.value,
                 day=room.state.day,
+                server_time=server_time,
+                deadline_at=deadline_at,
+                deadline_kind=deadline_kind,
+                remaining_ms=remaining_ms,
+                witch_kill_target_visible=witch_kill_target_visible,
+                witch_kill_target_id=witch_kill_target_id,
                 human_count=room.human_count,
                 max_humans=room.max_humans,
                 viewer=viewer_identity,
@@ -554,6 +678,7 @@ class InMemoryRoomRepository:
                         room.state,
                         viewer,
                         host_player_id=room.host_player_id,
+                        now=server_time,
                     )
                 ),
             )

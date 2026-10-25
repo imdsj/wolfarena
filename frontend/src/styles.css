@@ -35,6 +35,8 @@ button:disabled {
 }
 
 .app-shell {
+  width: 1040px;
+  max-width: calc(100% - 32px);
   width: min(1040px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0;
@@ -51,6 +53,33 @@ button:disabled {
 .lobby-panel {
   width: min(560px, 100%);
   margin: 8vh auto 0;
+}
+
+.lobby-section {
+  display: grid;
+  gap: 4px;
+  padding-top: 22px;
+  border-top: 1px solid #d8ded8;
+}
+
+.lobby-section:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.lobby-section h2 {
+  margin-bottom: 4px;
+}
+
+.spectator-entry {
+  margin-top: 24px;
+}
+
+.lobby-note {
+  margin-bottom: 0;
+  color: #5f6961;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .eyebrow {
@@ -159,6 +188,9 @@ h2 {
 }
 
 .room-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   display: grid;
   gap: 16px;
 }
@@ -235,13 +267,89 @@ h2 {
   background: #b64436;
 }
 
+.view-mode-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 13px 16px;
+  border: 1px solid #b8c7ba;
+  border-radius: 10px;
+  background: #f4f8f3;
+  line-height: 1.55;
+}
+
+.view-mode-banner strong {
+  flex: 0 0 auto;
+}
+
+.spectator-banner {
+  border-color: #8da9c4;
+  background: #eff5fa;
+}
+
+.dead-banner {
+  border-color: #cda99f;
+  background: #faf2ef;
+}
+
+.phase-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid #9eb3a2;
+  border-radius: 11px;
+  background: #f5f9f4;
+}
+
+.phase-countdown .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.phase-countdown strong {
+  font-size: 17px;
+}
+
+.countdown-value {
+  color: #274b31;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.countdown-value span {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.countdown-value small {
+  margin-left: 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.phase-countdown-urgent {
+  border-color: #c17d6f;
+  background: #fff4f1;
+}
+
+.phase-countdown-urgent .countdown-value {
+  color: #8d3227;
+}
+
 .metric-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
 .metric {
+  flex: 1 1 20%;
   padding: 16px;
   border: 1px solid #cbd2cb;
   border-radius: 11px;
@@ -271,6 +379,86 @@ h2 {
   border-radius: 5px;
   background: #eef2ed;
   overflow-wrap: anywhere;
+}
+
+.private-info-panel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #8da9c4;
+  border-radius: 10px;
+  background: #eff5fa;
+}
+
+.private-info-panel span {
+  color: #526b83;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.private-info-panel strong {
+  text-align: right;
+}
+
+.roster-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.roster-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.roster-player {
+  flex: 1 1 29%;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #d2dad3;
+  border-radius: 9px;
+  background: #fafcf9;
+}
+
+.roster-player[data-alive="false"] {
+  background: #f2f0ed;
+  color: #626a64;
+}
+
+.roster-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.roster-heading > span,
+.roster-heading small {
+  color: #707b72;
+  font-size: 12px;
+}
+
+.roster-heading strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roster-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #536057;
+  font-size: 12px;
 }
 
 .action-panel {
@@ -348,6 +536,14 @@ h2 {
   color: #5c4a24;
 }
 
+.action-notice {
+  margin-bottom: 0;
+  padding: 11px 14px;
+  border-left: 3px solid #4f8a5e;
+  background: #edf6ef;
+  color: #2e5838;
+}
+
 .event-list {
   display: grid;
   gap: 0;
@@ -385,6 +581,71 @@ h2 {
   display: block;
   font-size: 12px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.result-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.result-panel .section-heading strong {
+  color: #274b31;
+  font-size: 20px;
+}
+
+.result-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.result-player {
+  flex: 1 1 29%;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid #d1d9d2;
+  border-radius: 9px;
+  background: #f9fbf8;
+}
+
+.result-player[data-alive="false"] {
+  background: #f4f2ef;
+}
+
+.result-player > span {
+  color: #69746b;
+  font-size: 12px;
+}
+
+.result-player dl {
+  display: grid;
+  gap: 4px;
+  margin: 4px 0 0;
+}
+
+.result-player dl div {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+}
+
+.result-player dt {
+  color: #717c73;
+  font-size: 12px;
+}
+
+.result-player dd {
+  margin: 0;
+  font-size: 13px;
 }
 
 .error-banner {
@@ -402,6 +663,7 @@ h2 {
 
 @media (max-width: 720px) {
   .app-shell {
+    width: calc(100% - 20px);
     width: min(100% - 20px, 1040px);
     padding: 20px 0;
   }
@@ -411,7 +673,29 @@ h2 {
   }
 
   .metric-grid {
+    display: flex;
+    flex-wrap: wrap;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .roster-grid {
+    display: flex;
+    flex-wrap: wrap;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric,
+  .roster-player,
+  .result-player {
+    flex-basis: 45%;
+  }
+
+  .phase-countdown {
+    align-items: flex-start;
+  }
+
+  .countdown-value span {
+    font-size: 22px;
   }
 
   .panel {
@@ -420,6 +704,22 @@ h2 {
 
   .room-header {
     align-items: flex-start;
+  }
+
+  .view-mode-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .private-info-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .private-info-panel strong {
+    text-align: left;
   }
 
   .action-row {

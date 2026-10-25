@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from pathlib import Path
+from secrets import randbits
 from typing import Any
 
 from fastapi import (
@@ -37,6 +39,7 @@ from .rooms import (
     RoomNotFoundError,
     RoomPermissionError,
 )
+from .timers import RoomTimerService
 from .schemas import (
     ActionRequest,
     CreateRoomRequest,
@@ -48,7 +51,7 @@ from .schemas import (
 )
 
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.5.0"
 
 WS_CLOSE_AUTH_REQUIRED = 4400
 WS_CLOSE_INVALID_TOKEN = 4401
@@ -107,14 +110,27 @@ def create_app(
     repository: InMemoryRoomRepository | None = None,
     ai_provider: CandidateProvider | None = None,
 ) -> FastAPI:
+    room_repository = repository or InMemoryRoomRepository()
+    realtime = RealtimeHub(room_repository)
+    timer_service = RoomTimerService(room_repository, realtime)
+
+    @asynccontextmanager
+    async def lifespan(_application: FastAPI):
+        timer_service.start()
+        try:
+            yield
+        finally:
+            await timer_service.stop()
+
     application = FastAPI(
         title="WolfArena API",
         version=APP_VERSION,
         description="WolfArena 九人局最小 Web 入口",
+        lifespan=lifespan,
     )
-    room_repository = repository or InMemoryRoomRepository()
     application.state.rooms = room_repository
-    application.state.realtime = RealtimeHub(room_repository)
+    application.state.realtime = realtime
+    application.state.timer_service = timer_service
     application.state.ai_provider = ai_provider or DeepSeekCandidateProvider(
         DeepSeekSettings.from_environment()
     )
@@ -135,7 +151,7 @@ def create_app(
     def create_room(payload: CreateRoomRequest) -> CreatedRoomResponse:
         try:
             return room_repository.create_room(
-                seed=payload.seed,
+                seed=payload.seed if payload.seed is not None else randbits(63),
                 human_count=payload.human_count,
                 max_humans=payload.max_humans,
                 nickname=payload.nickname,

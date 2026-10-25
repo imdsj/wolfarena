@@ -2,7 +2,13 @@
 
 WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项目，目标是把九人狼人杀、可解释的 AI Agent 行为和可复现的策略训练放在同一个 Web 平台中。
 
-当前仓库已完成服务端九人局规则引擎、FastAPI 房间入口、按玩家视角过滤的 WebSocket、受控 DeepSeek 候选适配器、统一动作路由、Vue 动态动作面板和 AI 自动回合。页面可以创建或加入房间，按服务器返回的合法动作参与昼夜流程，AI 会自动行动到下一次真人决策。真实计时器、RAG 和训练场仍在后续阶段实现。
+新 AI 或团队成员接手时，先阅读
+`docs/14_AI完整交接说明书_2026-10-25.md`。
+
+需要按原有附件说明继续交接时，直接使用：
+`docs/handoff/2026-10-25/00_开始新对话请复制这段.md`。
+
+当前仓库已完成服务端九人局规则引擎、FastAPI 房间入口、按玩家视角过滤的 WebSocket、受控 DeepSeek 候选适配器、统一动作路由、Vue 动态动作面板、AI 自动回合、服务端截止时间计时器、浏览器倒计时、观战密码入口、刷新恢复、死亡玩家视角和赛后身份揭示。页面可以创建或加入房间，按服务器返回的合法动作参与昼夜流程，AI 会自动行动到下一次真人决策。L0 全 AI 对局模拟器和结构化日志已经接入，RAG 和训练版策略仍待后续实现。
 
 ## 当前完成内容
 
@@ -34,6 +40,16 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - `AIController` 复用房间级 L0 策略，自动执行 AI 角色动作和无人工选择的系统结算。
 - AI 每轮最多推进 300 步，动作失败会回滚核心状态并记录 `AI_ACTION_FAILED`。
 - 相同 seed 和相同动作序列产生相同 AI 事件序列。
+- 浏览器不再用 `Date.now()` 生成房间 seed；实时房由服务端生成，固定 seed 仅由脚本或训练入口显式传入。
+- 后台 `RoomTimerService` 每 0.1 秒扫描遗言、发言和自爆截止时间，并立即广播变化。
+- 房间快照公开服务端时间、活动截止时间、截止类型和剩余毫秒；Vue 只做本地递减显示，归零后等待服务端推进。
+- 大厅支持观战密码入口，观战者通过 WebSocket 认证并使用只读上帝视角。
+- 玩家会话和观战会话保存在浏览器本地，刷新后重新认证并恢复到当前阶段。
+- 九人席位按服务端可见事件显示身份；死亡玩家不会被自动转换为观战者。
+- 动作表单只提供存活目标，文本动作使用输入框，服务器拒绝原因显示在页面中。
+- 赛后面板显示胜方、九名玩家身份和当前视角可见的死因。
+- 解药未消耗时，女巫快照返回当夜准确刀口；空刀显示为没有刀口，解药耗尽后不再返回。
+- `backend.simulator` 可运行固定 seed 的 AI-only 对局，输出每局与每动作 JSONL。
 
 ## 技术方向
 
@@ -153,22 +169,63 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **160 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **193 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 
 ```powershell
 Set-Location frontend
 npm run smoke:client
+npm run smoke:sync
+npm run smoke:viewer
+npm run smoke:acceptance
 ```
+
+`smoke:acceptance` 会驱动一名真人从 `INIT` 到 `END`，验证刷新恢复、错误
+观战密码、只读观战和 390×844 DOM 状态，并把可重新打开的状态快照写到
+`docs/evidence/browser-2026-10-26/`。
+
+## L0 全 AI 模拟器
+
+```powershell
+python -m backend.simulator `
+  --games 10 `
+  --seed-start 1000 `
+  --policy l0 `
+  --out training_runs/smoke-l0
+```
+
+输出：
+
+```text
+games.jsonl     每局 seed、胜者、天数、步数、角色和错误
+actions.jsonl   每步阶段、行动者、角色、合法动作、目标、文本和 ok
+roles.json      每局每个座位与角色的扁平记录
+summary.json    完成率、合法率、动作频率、阵营胜率、平均步数和耗时
+manifest.json   commit、命令、Python 版本和输出文件 SHA-256
+run.json        批次配置与兼容性运行摘要
+```
+
+从原始 JSONL 独立复算指标：
+
+```powershell
+python -m backend.metrics --run training_runs/l0-200
+```
+
+结果写入该目录的 `recomputed-summary.json`，并比较它与 `summary.json` 是否一致。
+
+模拟器复用现有 `create_game`、`AIController`、`available_actions_for_state` 和
+`execute_engine_action`，不复制规则。每局同时受最大动作步数和最大天数限制；
+无合法动作、动作异常或状态未推进都会终止当前局并写入错误。
 
 ## 当前未完成
 
-- 服务层 10 秒/30 秒自动推进。
-- 刷新后的玩家凭证恢复和完整观战/死亡视角页面。
 - RAG 与 Function Calling 的完整策略闭环。
-- 训练场、策略版本切换、200局批量模拟和指标导出。
+- 训练版策略、策略版本切换和指标面板。
+- 对局日志的可视化指标页面；当前 JSONL 已可供后续脚本复算。
 - 在线部署和公网联调。
+- 真实 Chrome 双窗口录屏和 390px 最终截图仍需在允许启动浏览器进程的桌面环境
+  复核；`happy-dom` 不能替代真实布局。
 
 完整白天与夜间引擎说明分别位于 `docs/10_day_engine.md` 和 `docs/08_night_engine.md`。
 
