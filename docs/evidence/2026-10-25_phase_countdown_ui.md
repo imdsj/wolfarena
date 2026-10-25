@@ -4,6 +4,8 @@
 
 代码提交：`631a475`
 
+交接文档提交：`88381eb`
+
 ## 实现范围
 
 `RoomSnapshot` 增加四个服务端字段：
@@ -51,6 +53,19 @@ Vue 新增 `PhaseCountdown.vue`。组件以快照剩余毫秒为锚点，使用�
 ```
 
 服务端启动时仅为本地冒烟会话清空 `DEEPSEEK_API_KEY`，未读取或输出真实密钥。
+
+## 提交与远端核对
+
+```text
+代码提交：631a475 feat: show server-authoritative phase countdown
+文档提交：88381eb docs: record countdown evidence and next P0
+远端 main：88381ebf6e48839b11f36555a78ba9d0cb24f631
+标签：v0.9.12.2-countdown-ui
+```
+
+本次沙箱不能写入 E 盘仓库的 `.git`。提交与推送通过临时 Git 元数据完成，使用
+远端 URL 临时传入已缓存凭证，未写入文件或输出凭证。远端 `refs/heads/main` 和
+标签已用带认证的 `git ls-remote` 复核。
 
 ## 验收边界
 
