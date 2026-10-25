@@ -86,7 +86,18 @@ document.head.append(stylesheet);
 
 async function saveDomSnapshot(name) {
   await mkdir(evidenceDirectory, { recursive: true });
-  const shell = document.querySelector(".app-shell")?.outerHTML ?? "";
+  const shellElement = document.querySelector(".app-shell")?.cloneNode(true);
+  if (shellElement) {
+    for (const element of shellElement.querySelectorAll(
+      ".credential-row code",
+    )) {
+      element.textContent = "[REDACTED]";
+    }
+    for (const input of shellElement.querySelectorAll("input")) {
+      input.removeAttribute("value");
+    }
+  }
+  const shell = shellElement?.outerHTML ?? "";
   const html = `<!doctype html>
 <html lang="zh-CN">
   <head>
