@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from pathlib import Path
 from secrets import randbits
@@ -38,6 +39,7 @@ from .rooms import (
     RoomNotFoundError,
     RoomPermissionError,
 )
+from .timers import RoomTimerService
 from .schemas import (
     ActionRequest,
     CreateRoomRequest,
@@ -108,14 +110,27 @@ def create_app(
     repository: InMemoryRoomRepository | None = None,
     ai_provider: CandidateProvider | None = None,
 ) -> FastAPI:
+    room_repository = repository or InMemoryRoomRepository()
+    realtime = RealtimeHub(room_repository)
+    timer_service = RoomTimerService(room_repository, realtime)
+
+    @asynccontextmanager
+    async def lifespan(_application: FastAPI):
+        timer_service.start()
+        try:
+            yield
+        finally:
+            await timer_service.stop()
+
     application = FastAPI(
         title="WolfArena API",
         version=APP_VERSION,
         description="WolfArena 九人局最小 Web 入口",
+        lifespan=lifespan,
     )
-    room_repository = repository or InMemoryRoomRepository()
     application.state.rooms = room_repository
-    application.state.realtime = RealtimeHub(room_repository)
+    application.state.realtime = realtime
+    application.state.timer_service = timer_service
     application.state.ai_provider = ai_provider or DeepSeekCandidateProvider(
         DeepSeekSettings.from_environment()
     )

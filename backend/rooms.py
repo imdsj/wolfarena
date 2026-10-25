@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
+import logging
 from secrets import compare_digest, token_urlsafe
 from threading import RLock
 from typing import Literal
@@ -24,9 +25,12 @@ from .game_engine import (
     SPECTATOR_VIEW,
     Visibility,
     append_event,
+    close_self_destruct_window,
     create_game,
     get_player,
     get_visible_events,
+    timeout_last_words,
+    timeout_public_speech,
 )
 from .schemas import (
     ActionRequest,
@@ -37,6 +41,8 @@ from .schemas import (
     RoomSnapshot,
     ViewerIdentity,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RoomNotFoundError(LookupError):
@@ -406,6 +412,77 @@ class InMemoryRoomRepository:
         now: float | None = None,
     ) -> AIControllerResult:
         return self.ai_controller.advance(room_id, now=now)
+
+    def process_expired_deadlines(
+        self,
+        now: float,
+    ) -> tuple[RoomMutation, ...]:
+        with self._registry_lock:
+            room_ids = tuple(self._rooms)
+
+        mutations: list[RoomMutation] = []
+        for room_id in room_ids:
+            room = self._get_room(room_id)
+            with room.lock:
+                timeout_kind = self._expired_timeout_kind(room.state, now)
+                if timeout_kind is None:
+                    continue
+                previous_event_seq = room.last_event_seq
+                state_before = deepcopy(room.state)
+                try:
+                    if timeout_kind == "last_words":
+                        timeout_last_words(room.state, now)
+                    elif timeout_kind == "speech":
+                        timeout_public_speech(room.state, now)
+                    else:
+                        close_self_destruct_window(room.state, now=now)
+                except Exception:
+                    room.state = state_before
+                    logger.exception(
+                        "Room timer action failed for %s at %s",
+                        room_id,
+                        now,
+                    )
+                    continue
+
+                self.advance_ai(room_id, now=now)
+                if room.last_event_seq > previous_event_seq:
+                    mutations.append(
+                        RoomMutation(
+                            room=room,
+                            previous_event_seq=previous_event_seq,
+                            current_event_seq=room.last_event_seq,
+                        )
+                    )
+        return tuple(mutations)
+
+    @staticmethod
+    def _expired_timeout_kind(
+        state: GameState,
+        now: float,
+    ) -> str | None:
+        day_result = state.day_result
+        if day_result is None:
+            return None
+        if (
+            state.phase is Phase.DAY_LAST_WORDS
+            and day_result.last_words_deadline is not None
+            and now >= day_result.last_words_deadline
+        ):
+            return "last_words"
+        if (
+            state.phase is Phase.DAY_DISCUSSION
+            and day_result.speech_deadline is not None
+            and now >= day_result.speech_deadline
+        ):
+            return "speech"
+        if (
+            state.phase is Phase.SELF_DESTRUCT
+            and day_result.self_destruct_deadline is not None
+            and now >= day_result.self_destruct_deadline
+        ):
+            return "self_destruct"
+        return None
 
     def start_night(
         self,
