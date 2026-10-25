@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from secrets import compare_digest, token_urlsafe
 from threading import RLock
 from typing import Literal
 
+from .actions import (
+    ActionUnavailableError,
+    available_actions_for_state,
+    execute_engine_action,
+)
 from .game_engine import (
     Event,
     EventType,
@@ -19,9 +25,9 @@ from .game_engine import (
     create_game,
     get_player,
     get_visible_events,
-    start_night as advance_to_night,
 )
 from .schemas import (
+    ActionRequest,
     CreatedRoomResponse,
     JoinedRoomResponse,
     PublicEvent,
@@ -319,18 +325,54 @@ class InMemoryRoomRepository:
             if access.kind != "player" or access.player_id is None:
                 raise RoomPermissionError("观战者不能调用 AI 行动")
             player = self._access_player(room, access)
-            legal_actions: tuple[str, ...] = ()
-            if (
-                player.player_id == room.host_player_id
-                and room.state.phase is Phase.INIT
-            ):
-                legal_actions = ("start_night",)
+            snapshot = self.snapshot_for_access(room, access)
+            legal_actions = tuple(
+                action.action for action in snapshot.available_actions
+            )
+            valid_target_ids = tuple(
+                dict.fromkeys(
+                    target_id
+                    for action in snapshot.available_actions
+                    for target_id in action.target_ids
+                )
+            )
             return AIActionContext(
                 room=room,
                 access=access,
-                snapshot=self.snapshot_for_access(room, access),
+                snapshot=snapshot,
                 legal_actions=legal_actions,
-                valid_target_ids=(),
+                valid_target_ids=valid_target_ids,
+            )
+
+    def execute_action(
+        self,
+        access: ViewerAccess,
+        request: ActionRequest,
+        *,
+        now: float | None = None,
+    ) -> RoomMutation:
+        room = self._get_room(access.room_id)
+        with room.lock:
+            if access.kind != "player":
+                raise RoomPermissionError("观战者不能执行游戏动作")
+            player = self._access_player(room, access)
+            state_before = deepcopy(room.state)
+            previous_event_seq = room.last_event_seq
+            try:
+                execute_engine_action(
+                    room.state,
+                    player,
+                    request,
+                    host_player_id=room.host_player_id,
+                    now=now,
+                )
+            except Exception:
+                room.state = state_before
+                raise
+            return RoomMutation(
+                room=room,
+                previous_event_seq=previous_event_seq,
+                current_event_seq=room.last_event_seq,
             )
 
     def start_night(
@@ -339,22 +381,15 @@ class InMemoryRoomRepository:
         *,
         captain_id: str | None = None,
     ) -> RoomMutation:
-        room = self._get_room(access.room_id)
-        with room.lock:
-            if access.kind != "player" or access.player_id != room.host_player_id:
-                raise RoomPermissionError("只有房主可以开始游戏")
-            if room.state.phase is not Phase.INIT:
-                raise OutOfPhaseError(
-                    f"当前阶段不能开始夜晚：{room.state.phase.value}"
-                )
-
-            previous_event_seq = room.last_event_seq
-            advance_to_night(room.state, captain_id)
-            return RoomMutation(
-                room=room,
-                previous_event_seq=previous_event_seq,
-                current_event_seq=room.last_event_seq,
+        if captain_id is not None:
+            raise ValueError("统一动作路由暂不支持手动指定狼队长")
+        try:
+            return self.execute_action(
+                access,
+                ActionRequest(action="start_night"),
             )
+        except ActionUnavailableError as error:
+            raise OutOfPhaseError(str(error)) from error
 
     def record_ai_fallback(
         self,
@@ -482,6 +517,13 @@ class InMemoryRoomRepository:
                     self.serialize_event(event)
                     for event in visible_events
                 ],
+                available_actions=list(
+                    available_actions_for_state(
+                        room.state,
+                        viewer,
+                        host_player_id=room.host_player_id,
+                    )
+                ),
             )
 
     @staticmethod

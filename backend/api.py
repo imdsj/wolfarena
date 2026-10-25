@@ -16,7 +16,9 @@ from fastapi import (
     status,
 )
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 
+from .actions import ActionUnavailableError, ActionValidationError
 from .ai_provider import (
     AIActionResponse,
     CandidateProvider,
@@ -31,12 +33,12 @@ from .rooms import (
     InvalidSpectatorPasswordError,
     InvalidPlayerTokenError,
     JoinClosedError,
-    OutOfPhaseError,
     RoomFullError,
     RoomNotFoundError,
     RoomPermissionError,
 )
 from .schemas import (
+    ActionRequest,
     CreateRoomRequest,
     CreatedRoomResponse,
     HealthResponse,
@@ -187,6 +189,42 @@ def create_app(
             ) from error
 
     @application.post(
+        "/api/rooms/{room_id}/actions",
+        response_model=RoomSnapshot,
+    )
+    async def execute_room_action(
+        room_id: str,
+        payload: ActionRequest,
+        player_token: str | None = Header(default=None, alias="X-Player-Token"),
+    ) -> RoomSnapshot:
+        try:
+            session = room_repository.authenticate_player(room_id, player_token)
+        except RoomNotFoundError as error:
+            raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
+        except InvalidPlayerTokenError as error:
+            raise _error(401, "INVALID_PLAYER_TOKEN", str(error)) from error
+
+        try:
+            mutation = room_repository.execute_action(
+                session.access,
+                payload,
+            )
+        except ActionUnavailableError as error:
+            raise _error(409, "ACTION_UNAVAILABLE", str(error)) from error
+        except ActionValidationError as error:
+            raise _error(422, "ACTION_INVALID", str(error)) from error
+        except RoomPermissionError as error:
+            raise _error(403, "ACTION_FORBIDDEN", str(error)) from error
+        except ValueError as error:
+            raise _error(409, "ACTION_REJECTED", str(error)) from error
+
+        await application.state.realtime.broadcast_mutation(mutation)
+        return room_repository.snapshot_for_access(
+            mutation.room,
+            session.access,
+        )
+
+    @application.post(
         "/api/rooms/{room_id}/ai-action",
         response_model=AIActionResponse,
     )
@@ -256,12 +294,24 @@ def create_app(
             )
             await application.state.realtime.broadcast_mutation(fallback)
 
+        action_request = ActionRequest(
+            action=candidate.action,
+            target_id=candidate.target_id,
+            content=candidate.content,
+        )
         try:
-            mutation = room_repository.start_night(session.access)
+            mutation = room_repository.execute_action(
+                session.access,
+                action_request,
+            )
+        except ActionValidationError as error:
+            raise _error(422, "AI_ACTION_INVALID", str(error)) from error
+        except ActionUnavailableError as error:
+            raise _error(409, "OUT_OF_PHASE", str(error)) from error
         except RoomPermissionError as error:
             raise _error(403, "ACTION_FORBIDDEN", str(error)) from error
-        except OutOfPhaseError as error:
-            raise _error(409, "OUT_OF_PHASE", str(error)) from error
+        except ValueError as error:
+            raise _error(409, "ACTION_REJECTED", str(error)) from error
 
         await application.state.realtime.broadcast_mutation(mutation)
         return AIActionResponse(
@@ -410,20 +460,37 @@ def create_app(
                     )
                     continue
 
-                action = payload.get("action")
-                if action != "start_night":
+                try:
+                    action_payload = {
+                        key: value
+                        for key, value in payload.items()
+                        if key != "type"
+                    }
+                    action_request = ActionRequest.model_validate(action_payload)
+                    mutation = room_repository.execute_action(
+                        session.access,
+                        action_request,
+                    )
+                except ValidationError as error:
                     await application.state.realtime.send(
                         connection,
                         {
                             "type": "error",
-                            "code": "UNSUPPORTED_ACTION",
-                            "message": "当前只实现 start_night 动作",
+                            "code": "ACTION_INVALID",
+                            "message": "动作请求字段校验失败",
                         },
                     )
                     continue
-
-                try:
-                    mutation = room_repository.start_night(session.access)
+                except ActionValidationError as error:
+                    await application.state.realtime.send(
+                        connection,
+                        {
+                            "type": "error",
+                            "code": "ACTION_INVALID",
+                            "message": str(error),
+                        },
+                    )
+                    continue
                 except RoomPermissionError as error:
                     await application.state.realtime.send(
                         connection,
@@ -434,12 +501,22 @@ def create_app(
                         },
                     )
                     continue
-                except OutOfPhaseError as error:
+                except ActionUnavailableError as error:
                     await application.state.realtime.send(
                         connection,
                         {
                             "type": "error",
-                            "code": "OUT_OF_PHASE",
+                            "code": "ACTION_UNAVAILABLE",
+                            "message": str(error),
+                        },
+                    )
+                    continue
+                except ValueError as error:
+                    await application.state.realtime.send(
+                        connection,
+                        {
+                            "type": "error",
+                            "code": "ACTION_REJECTED",
                             "message": str(error),
                         },
                     )
@@ -449,7 +526,7 @@ def create_app(
                     connection,
                     {
                         "type": "action_result",
-                        "action": "start_night",
+                        "action": action_request.action,
                         "ok": True,
                         "phase": mutation.room.state.phase.value,
                         "event_seq": mutation.current_event_seq,

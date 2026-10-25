@@ -460,7 +460,7 @@ class ReconnectAndActionTests(WebSocketTestBase):
             error = websocket.receive_json()
 
         self.assertEqual(error["type"], "error")
-        self.assertEqual(error["code"], "OUT_OF_PHASE")
+        self.assertEqual(error["code"], "ACTION_UNAVAILABLE")
 
     def test_spectator_cannot_control_game(self) -> None:
         room = self.create_room()

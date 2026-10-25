@@ -35,6 +35,23 @@ export interface GameEvent {
   data: Record<string, unknown>;
 }
 
+export interface AvailableAction {
+  action: string;
+  label: string;
+  target_ids: string[];
+  choices: string[];
+  requires_content: boolean;
+  requires_target: boolean;
+  allow_no_target: boolean;
+}
+
+export interface ActionSubmission {
+  action: string;
+  target_id: string | null;
+  content: string | null;
+  choice: string | null;
+}
+
 export interface RoomSnapshot {
   room_id: string;
   phase: string;
@@ -44,6 +61,7 @@ export interface RoomSnapshot {
   viewer: ViewerIdentity;
   players: PublicPlayer[];
   visible_events: GameEvent[];
+  available_actions: AvailableAction[];
 }
 
 export interface RoomSessionResponse {

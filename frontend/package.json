@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
+    "build": "vue-tsc --noEmit -p tsconfig.app.json && node scripts/build-static.mjs",
     "build:static": "node scripts/build-static.mjs",
+    "build:vite": "vue-tsc --noEmit -p tsconfig.app.json && vite build",
     "smoke:client": "node scripts/client-smoke.mjs",
     "preview": "vite preview"
   },

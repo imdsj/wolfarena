@@ -2,7 +2,7 @@
 
 WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项目，目标是把九人狼人杀、可解释的 AI Agent 行为和可复现的策略训练放在同一个 Web 平台中。
 
-当前仓库已完成服务端九人局规则引擎、最小 FastAPI 房间入口、按玩家视角过滤的 WebSocket 通道、受控 DeepSeek 候选适配器和最小 Vue 页面。页面可以创建或加入房间、观察阶段和事件，并由房主开始首夜或请求 AI 推荐。完整游戏动作、真实计时器、RAG 和训练场仍在后续阶段实现。
+当前仓库已完成服务端九人局规则引擎、FastAPI 房间入口、按玩家视角过滤的 WebSocket、受控 DeepSeek 候选适配器、统一动作路由和 Vue 动态动作面板。页面可以创建或加入房间，并按服务器返回的合法动作参与昼夜流程。AI 自动回合、真实计时器、RAG 和训练场仍在后续阶段实现。
 
 ## 当前完成内容
 
@@ -28,6 +28,9 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - DeepSeek JSON 候选、Pydantic 校验、一次格式修复和无 Key/超时兜底。
 - 非法 AI 动作或目标不会进入规则引擎，并记录拒绝原因。
 - Vue 3 最小大厅、房间状态、WebSocket 生命周期和服务器事件列表。
+- 严格 `ActionRequest`、统一 `execute_room_action` 入口和引擎失败回滚。
+- 按阶段、角色、座次和存活状态生成 `available_actions` 与合法目标。
+- Vue 根据服务器动作目录动态渲染目标、选项、文本和提交按钮。
 
 ## 技术方向
 
@@ -82,6 +85,7 @@ python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
 - 创建房间：`POST /api/rooms`
 - 加入房间：`POST /api/rooms/{room_id}/join`
 - 读取当前玩家视角：`GET /api/rooms/{room_id}`
+- 执行游戏动作：`POST /api/rooms/{room_id}/actions`
 - WebSocket：`/ws/rooms/{room_id}`
 
 读取房间时必须把创建或加入时返回的 `player_token` 放入
@@ -102,15 +106,16 @@ WebSocket URL 只包含房间号。连接后的第一条消息必须完成认证
 {"type":"authenticate","spectator_password":"本局观战密码"}
 ```
 
-认证成功后依次收到 `authenticated`、`snapshot` 和 `phase`。当前只实现了
-`start_night` 动作：
+认证成功后依次收到 `authenticated`、`snapshot` 和 `phase`。`snapshot.room`
+中的 `available_actions` 是当前凭证可以执行的动作和合法目标。动作通过统一
+入口执行，例如：
 
 ```json
-{"type":"action","action":"start_night"}
+{"type":"action","action":"vote","target_id":"p2","content":null,"choice":null}
 ```
 
 状态变化会发送经过 `get_visible_events` 过滤的 `event`，随后发送新的
-`phase`。Token 和观战密码不得放入 URL 查询参数或公开日志。
+`phase` 和最新 `snapshot`。Token 和观战密码不得放入 URL 查询参数或公开日志。
 
 开发模式下也可以进入 `frontend` 执行 `npm run dev`，Vite 会把 API 和
 WebSocket 代理到 `127.0.0.1:8000`。
@@ -145,7 +150,7 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **148 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **155 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 
@@ -156,8 +161,8 @@ npm run smoke:client
 
 ## 当前未完成
 
-- 除 `start_night` 外的完整游戏动作接口和中文错误码文案。
-- 更多阶段的 Vue 操作面板和真实倒计时。
+- AI 自动回合和服务层 10 秒/30 秒自动推进。
+- 刷新后的玩家凭证恢复和完整观战/死亡视角页面。
 - RAG 与 Function Calling 的完整策略闭环。
 - 训练场、策略版本切换、200局批量模拟和指标导出。
 - 在线部署和公网联调。

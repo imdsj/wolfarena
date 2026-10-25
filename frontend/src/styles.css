@@ -288,6 +288,58 @@ h2 {
   width: auto;
 }
 
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.action-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 15px;
+  border: 1px solid #d3dad3;
+  border-radius: 10px;
+  background: #f8faf7;
+}
+
+.action-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.action-card-heading code {
+  color: #657068;
+  font-size: 12px;
+}
+
+.compact-field {
+  display: grid;
+  gap: 6px;
+  color: #59655c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.compact-field select,
+.compact-field textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #b7c1b9;
+  border-radius: 7px;
+  color: #202820;
+  background: #fff;
+  font: inherit;
+  resize: vertical;
+}
+
+.action-grid > .secondary-button {
+  align-self: start;
+}
+
 .ai-notice {
   margin-bottom: 0;
   padding: 12px 14px;

@@ -73,6 +73,23 @@ class PublicEvent(ApiModel):
     data: dict[str, Any]
 
 
+class ActionView(ApiModel):
+    action: str
+    label: str
+    target_ids: list[str] = Field(default_factory=list)
+    choices: list[str] = Field(default_factory=list)
+    requires_content: bool = False
+    requires_target: bool = False
+    allow_no_target: bool = False
+
+
+class ActionRequest(ApiModel):
+    action: str = Field(min_length=1, max_length=64)
+    target_id: str | None = Field(default=None, max_length=64)
+    content: str | None = Field(default=None, max_length=500)
+    choice: str | None = Field(default=None, max_length=32)
+
+
 class RoomSnapshot(ApiModel):
     room_id: str
     phase: str
@@ -82,6 +99,7 @@ class RoomSnapshot(ApiModel):
     viewer: ViewerIdentity
     players: list[PublicPlayer]
     visible_events: list[PublicEvent]
+    available_actions: list[ActionView] = Field(default_factory=list)
 
 
 class CreatedRoomResponse(ApiModel):

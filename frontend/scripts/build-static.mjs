@@ -120,6 +120,7 @@ await mkdir(outputDirectory, { recursive: true });
 
 await compileTypescriptModule("main.ts", { dropCss: true });
 await compileVueComponent("App.vue");
+await compileVueComponent(path.join("components", "ActionForm.vue"));
 await compileVueComponent(path.join("components", "ConnectionStatus.vue"));
 await compileVueComponent(path.join("components", "LobbyPanel.vue"));
 await compileVueComponent(path.join("components", "RoomPanel.vue"));

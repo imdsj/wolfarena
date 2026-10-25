@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
-import type { GameEvent, RoomSnapshot } from "../types";
+import type {
+  ActionSubmission,
+  GameEvent,
+  RoomSnapshot,
+} from "../types";
+import ActionForm from "./ActionForm.vue";
 import ConnectionStatus from "./ConnectionStatus.vue";
 
 const props = defineProps<{
@@ -20,7 +25,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  action: [action: "start_night"];
+  action: [action: ActionSubmission];
   aiAction: [];
   reconnect: [];
   leave: [];
@@ -37,6 +42,13 @@ const canStartNight = computed(
     props.room.viewer.is_host &&
     props.room.phase === "INIT" &&
     props.connectionState === "connected",
+);
+const canUseAiStart = computed(
+  () =>
+    canStartNight.value &&
+    props.room.available_actions.some(
+      (action) => action.action === "start_night",
+    ),
 );
 
 const phaseLabels: Record<string, string> = {
@@ -128,26 +140,27 @@ async function copyRoomId(): Promise<void> {
         <span>{{ room.viewer.is_host ? "房主" : "等待房主" }}</span>
       </div>
 
-      <div v-if="room.phase === 'INIT'" class="action-row">
+      <div v-if="room.available_actions.length" class="action-grid">
+        <ActionForm
+          v-for="availableAction in room.available_actions"
+          :key="availableAction.action"
+          :action="availableAction"
+          :players="room.players"
+          :busy="busy"
+          @submit="emit('action', $event)"
+        />
         <button
-          class="primary-button"
-          type="button"
-          :disabled="busy || !canStartNight"
-          @click="emit('action', 'start_night')"
-        >
-          开始首夜
-        </button>
-        <button
+          v-if="canUseAiStart"
           class="secondary-button"
           type="button"
-          :disabled="busy || !canStartNight"
+          :disabled="busy"
           @click="emit('aiAction')"
         >
           AI 推荐并执行
         </button>
       </div>
       <p v-else class="muted">
-        当前阶段尚未开放更多玩家动作。后续步骤会接入狼人发言、查验、用药和投票。
+        当前没有属于你的合法动作。请等待其他玩家或系统推进。
       </p>
       <p v-if="aiNotice" class="ai-notice">{{ aiNotice }}</p>
     </section>

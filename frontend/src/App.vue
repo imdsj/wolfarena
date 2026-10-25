@@ -4,6 +4,7 @@ import { onBeforeUnmount, reactive, ref } from "vue";
 import LobbyPanel from "./components/LobbyPanel.vue";
 import RoomPanel from "./components/RoomPanel.vue";
 import type {
+  ActionSubmission,
   AiActionResponse,
   ConnectionState,
   GameEvent,
@@ -200,13 +201,13 @@ function handleServerMessage(message: unknown): void {
   }
 }
 
-async function runAction(action: "start_night"): Promise<void> {
+async function runAction(action: ActionSubmission): Promise<void> {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     errorMessage.value = "连接尚未建立，不能提交动作";
     return;
   }
   aiNotice.value = "";
-  socket.send(JSON.stringify({ type: "action", action }));
+  socket.send(JSON.stringify({ type: "action", ...action }));
 }
 
 async function runAiAction(): Promise<void> {

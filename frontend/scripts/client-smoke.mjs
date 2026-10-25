@@ -94,6 +94,8 @@ while (Date.now() < joinUpdateDeadline) {
   }
   await delay(50);
 }
+const hasServerStartAction = [...document.querySelectorAll(".action-card strong")]
+  .some((element) => element.textContent?.trim() === "开始首夜");
 const uppercaseRoomId = createdRoomId.toUpperCase();
 let uppercaseJoinStatus = null;
 if (uppercaseRoomId !== createdRoomId) {
@@ -136,6 +138,7 @@ console.log(
       roomIdDisplayedExactly: createdRoomId === displayedRoomId,
       exactJoinStatus: exactJoinResponse.status,
       hostUpdatedAfterJoin,
+      hasServerStartAction,
       uppercaseJoinStatus,
       phaseAfterAction,
       fallbackNotice: fallbackNotice.textContent?.trim(),
