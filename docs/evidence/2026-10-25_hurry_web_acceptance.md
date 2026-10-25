@@ -17,7 +17,60 @@
 
 ---
 
-## 一、20:00 判定：最小入口（W 组）
+## 〇、环境就绪预检（2026-10-25 13:30 完成）
+
+用于确认 10 月 26 日的一小时不用花在环境上。
+
+| 项 | 实际 | 结论 |
+| --- | --- | --- |
+| 仓库位置 | `D:\传智杯\wolfarena` | 任务单写的 `E:\dings\...` 是订书机本机路径，**本机不存在** |
+| 当前 commit | `f0b77bd`（`feat: add unified server-authoritative action routing`） | 比任务单基线 `54cebeb` 更新 |
+| 全量测试 | **155 项通过** | 比任务单写的 148 项更新 |
+| Python | 系统 Python 3.14.0 + `pip install -r requirements.txt` | **没有 .venv，但不是问题**：依赖装好后 155 项全绿 |
+| 前端构建 | `npm install`（53 包）→ `npm run build` | 成功，输出到 `frontend/dist` |
+| 页面托管 | `GET /` → 200，579 字节 | FastAPI 挂载 `frontend/dist` 正常 |
+| 动作链路 | `POST /api/rooms/{id}/actions {"action":"start_night"}` → 200，阶段转 `NIGHT_WOLF_DISCUSSION_R1` | 可用 |
+| 非法动作 | `not_a_real_action` → 409 `ACTION_UNAVAILABLE` | 拒绝方式正确（非 500） |
+| WS 广播 | 第二个连接在动作用后收到 `{"type":"snapshot","event_seq":11,...}` | 可用 |
+| 按玩家下发动作 | 好人 `seed=901`（hunter）首夜 `available_actions=[]`；狼人 `seed=904` 首夜 `["wolf_speech"]` | 权限正确，可据此驱动前端按钮 |
+
+### 必须注意的坑：本机脚本访问 localhost 要绕过代理
+
+本机设置了系统级代理，脚本（httpx / requests）默认读取 `HTTP_PROXY`，会把 `127.0.0.1:8000` 也发给代理，表现为 **`/api/rooms` 返回 404**，极易误判成「接口没实现」。
+
+实测对比：
+
+```text
+默认（走代理）      POST /api/rooms → 404
+trust_env=False    POST /api/rooms → 201
+```
+
+处理方式（任选其一）：
+
+```python
+httpx.Client(base_url="http://127.0.0.1:8000", trust_env=False)
+```
+
+```powershell
+$env:NO_PROXY = "127.0.0.1,localhost"
+```
+
+**浏览器不受影响**，只有脚本会踩。这条必须写进联调笔记，否则明天会出现一整轮假失败。
+
+### 启动顺序（本机实测可用）
+
+```powershell
+cd D:\传智杯\wolfarena\frontend
+npm install          # 首次
+npm run build
+cd ..
+python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
+# 浏览器打开 http://127.0.0.1:8000/
+```
+
+
+
+## 一、W 组判定（2026-10-24 已预检通过，10-26 复核一次即可）
 
 > 预检记录：2026-10-24 15:50 本机实测（Hurry），commit `6ae38e0`。订书机已实现 FastAPI + WebSocket 最小入口，以下为独立复核结果。
 
