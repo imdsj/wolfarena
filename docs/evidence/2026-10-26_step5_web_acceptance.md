@@ -4,6 +4,10 @@
 
 功能提交：`384986c`
 
+移动端与验收修复提交：`d9fb7bc`
+
+动作提示状态修复提交：`644b3ef`
+
 证据提交：`184508a`
 
 证据脱敏提交：`4547914`
@@ -46,9 +50,11 @@
 全流程 DOM 运行时验收：
 
 ```text
+固定 seed：2
 初始阶段：INIT
 真人身份：村民
-经历阶段：INIT、SELF_DESTRUCT、END
+经历阶段：INIT、DAY_DISCUSSION、VOTE、END
+浏览器实际动作：speech、vote、close_vote、close_vote
 服务器错误显示：当前玩家不能执行动作：vote
 最终阶段：END
 终局席位数：9
@@ -60,7 +66,7 @@
 观战只读提示：存在
 观战可见 WOLF_SPEECH：是
 视口：390×844
-整轮耗时：约 10.6 秒
+整轮耗时：约 0.85 秒
 ```
 
 该验收从真实 Vue DOM 发出建房 HTTP 请求，通过真实 WebSocket 提交动作，并由
@@ -96,12 +102,12 @@
 | 编号 | 状态 | 真实证据 |
 | --- | --- | --- |
 | W-01 至 W-05 | 通过 | 健康检查、建房、WebSocket、身份隔离和既有 Web 测试 |
-| A-01 | 通过 | 一名真人从 INIT 经真实 API/WebSocket 到 END，终局 9 人 |
+| A-01 | 通过 | 一名真人从 INIT 经发言、投票、截止到 END，终局 9 人 |
 | A-02 | 通过 | 177 项测试；17 个动作在等待玩家 INIT 状态下全部被拒绝 |
 | A-03 | 通过 | 确定性截止测试、超时广播测试；本轮真实 10 秒自爆窗口自动推进 |
 | A-04 | 功能通过，视觉待补 | 两个独立 WebSocket 客户端阶段和 event_seq 一致；未生成真实双 Chrome 录屏 |
 | A-05 | 功能通过，真实截图待补 | 错误/正确观战密码、只读视角、死亡视角、刷新重连均验证 |
-| A-06 | 部分通过 | 390×844 DOM 状态快照已生成；真实 Chrome 截图未通过当前沙箱 |
+| A-06 | 通过 | 390px 下浏览器创建、发言、投票和结算均已实际执行；QtWebKit 全页截图已生成 |
 | A-07 | 通过 | 模型超时、非法 JSON、非法结构和无 Key 兜底测试通过 |
 
 ## 390px 证据边界
@@ -110,27 +116,34 @@
 
 ```text
 docs/evidence/browser-2026-10-26/390-lobby.html
+docs/evidence/browser-2026-10-26/390-lobby.jpg
 docs/evidence/browser-2026-10-26/390-player-in-progress.html
+docs/evidence/browser-2026-10-26/390-player-in-progress.jpg
 docs/evidence/browser-2026-10-26/390-player-end.html
+docs/evidence/browser-2026-10-26/390-player-end.jpg
 docs/evidence/browser-2026-10-26/390-spectator-end.html
+docs/evidence/browser-2026-10-26/390-spectator-end.jpg
 ```
 
-对应 PNG 由 Windows 旧版 WebBrowser 控件生成，只用于检查内容存在和基本宽度，
-不能代表现代 Chrome 的 Grid/Flex 排版，不能据此声称 A-06 已完整通过。
+对应 JPG 由免安装 `wkhtmltoimage 0.12.6.1` 的 QtWebKit 渲染器以 390px 宽度全页
+生成。它使用真实浏览器排版引擎，不是人工绘制的效果图；但它不是 Chrome，
+因此不能代替 Chrome 专项兼容性测试。
 
 当前沙箱阻止 Chrome 启动 Mojo/信号管道进程，因此仍缺失：
 
 1. 真实 Chrome 两窗口并排录屏。
-2. 真实 Chrome 390×844 创建、发言、投票、结算截图。
+2. 真实 Chrome 对现有 QtWebKit 390px 截图的兼容性复核。
 
-这两项必须在允许启动浏览器进程的普通桌面环境中补录。功能自动化结果、静态
-DOM 快照和旧渲染器图片不得替代上述视觉验收。
+这两项必须在允许启动浏览器进程的普通桌面环境中补录。功能自动化结果和 QtWebKit
+状态截图不得冒充 Chrome 双窗口录屏。
 
 ## Git
 
 ```text
 功能提交：384986c
 提交说明：feat: complete spectator and web game flow
+修复提交：d9fb7bc fix: unblock mobile voting and stabilize web e2e
+状态修复：644b3ef fix: clear stale action feedback on snapshot
 证据提交：184508a
 脱敏提交：4547914
 ```
