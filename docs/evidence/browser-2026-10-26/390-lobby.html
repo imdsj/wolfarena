@@ -387,6 +387,27 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.private-info-panel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #8da9c4;
+  border-radius: 10px;
+  background: #eff5fa;
+}
+
+.private-info-panel span {
+  color: #526b83;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.private-info-panel strong {
+  text-align: right;
+}
+
 .roster-panel {
   display: flex;
   flex-direction: column;
@@ -695,6 +716,16 @@ h2 {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
+  }
+
+  .private-info-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .private-info-panel strong {
+    text-align: left;
   }
 
   .action-row {
