@@ -54,11 +54,11 @@ python -m unittest discover -s tests -v
 
 仅供参考，数字随提交变化，**执行当日必须重新记录**。
 
-| 项 | 2026-10-25 19:40 的实际值 |
+| 项 | 2026-10-25 19:45 的实际值 |
 | --- | --- |
 | 仓库位置 | `D:\传智杯\wolfarena`（Hurry 本机；订书机任务单里的 `E:\dings\...` 是其本机路径，本机不存在） |
-| commit | `3978a12`（远端 main） |
-| 测试 | `.venv` 内 **160 项通过** |
+| commit | `9ed1e11`（远端 main） |
+| 测试 | `.venv` 内 **193 项通过** |
 | 环境 | `.venv`（Python 3.14.0），依赖来自 `requirements.txt` |
 | 前端构建 | `npm install`（53 包）+ `npm run build` 成功，输出 `frontend/dist` |
 | 页面托管 | `GET /` → 200，FastAPI 挂载 `frontend/dist` |
@@ -66,6 +66,7 @@ python -m unittest discover -s tests -v
 | 非法动作 | → 409 `ACTION_UNAVAILABLE`（非 500） |
 | WS 广播 | 第二个连接收到 `{"type":"snapshot",...}` |
 | 按玩家下发动作 | 好人 `seed=901`（hunter）首夜 `available_actions=[]`；狼人 `seed=904` 首夜 `["wolf_speech"]` |
+| **服务层计时器** | **已实现**：`backend/timers.py` 的 `RoomTimerService`，0.1 秒扫描 `process_expired_deadlines` 并立即广播；`tests/test_timers.py` 已覆盖自爆、发言、遗言三类超时与 lifespan 启停 |
 
 启动顺序：
 
@@ -157,7 +158,11 @@ P-01 抓包方法：
 
 ---
 
-## 四、T 组：服务层计时（10/26 执行，引擎测不到）
+## 四、T 组：服务层计时（10/26 执行）
+
+**定性已变更（2026-10-25 19:45）**：此前判断为「服务层未实现、只能记阻塞」，现在计时器已落地（`backend/timers.py`，0.1 秒扫描）。因此本组从「阻塞」改为「可实测」。
+
+需要注意：`tests/test_timers.py` 用的是**注入的假时钟**，验证的是「到期时会推进且只推进一次」，不能证明「真实等待 10 秒 / 30 秒时服务端确实按时触发」。所以本组仍必须在实机上真实等待，不能引用单测结果当通过。
 
 | 编号 | 判据 | 结果 | 证据（时间戳） |
 | --- | --- | --- | --- |
