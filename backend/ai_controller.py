@@ -155,6 +155,7 @@ class AIController:
             state,
             actor,
             host_player_id=self._host_id(state),
+            now=now,
         )
         if not action_views:
             return None

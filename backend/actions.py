@@ -46,12 +46,14 @@ def available_actions_for_state(
     viewer: Player | str,
     *,
     host_player_id: str,
+    now: float | None = None,
 ) -> tuple[ActionView, ...]:
     """Return only actions the authenticated viewer may perform now."""
 
     if viewer == SPECTATOR_VIEW or not isinstance(viewer, Player):
         return ()
 
+    action_now = time.time() if now is None else now
     actions: list[ActionView] = []
     is_host = viewer.player_id == host_player_id
     living = _living_players(state)
@@ -213,7 +215,13 @@ def available_actions_for_state(
     if phase is Phase.SELF_DESTRUCT:
         if viewer.is_alive and viewer.role is Role.WEREWOLF:
             add("self_destruct", "继续自爆")
-        if is_host:
+        day_result = state.day_result
+        if (
+            is_host
+            and day_result is not None
+            and day_result.self_destruct_deadline is not None
+            and action_now >= day_result.self_destruct_deadline
+        ):
             add("close_self_destruct_window", "关闭自爆窗口")
         return tuple(actions)
 
@@ -280,12 +288,14 @@ def execute_engine_action(
 ) -> None:
     """Validate one action and dispatch it through the existing rules engine."""
 
+    action_now = time.time() if now is None else now
     actions = {
         action.action: action
         for action in available_actions_for_state(
             state,
             viewer,
             host_player_id=host_player_id,
+            now=action_now,
         )
     }
     view = actions.get(request.action)
@@ -297,8 +307,6 @@ def execute_engine_action(
     _validate_request(request, view)
     action = request.action
     actor_id = viewer.player_id
-    action_now = time.time() if now is None else now
-
     if action == "start_night":
         start_night(state)
     elif action == "wolf_speech":

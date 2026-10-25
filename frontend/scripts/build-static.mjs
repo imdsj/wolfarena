@@ -122,6 +122,7 @@ await compileTypescriptModule("main.ts", { dropCss: true });
 await compileVueComponent("App.vue");
 await compileVueComponent(path.join("components", "ActionForm.vue"));
 await compileVueComponent(path.join("components", "ConnectionStatus.vue"));
+await compileVueComponent(path.join("components", "GameResultPanel.vue"));
 await compileVueComponent(path.join("components", "LobbyPanel.vue"));
 await compileVueComponent(path.join("components", "PhaseCountdown.vue"));
 await compileVueComponent(path.join("components", "RoomPanel.vue"));

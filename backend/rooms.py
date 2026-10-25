@@ -661,6 +661,7 @@ class InMemoryRoomRepository:
                         room.state,
                         viewer,
                         host_player_id=room.host_player_id,
+                        now=server_time,
                     )
                 ),
             )

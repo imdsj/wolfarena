@@ -16,6 +16,7 @@ let createdRoomId = "";
 Object.assign(globalThis, {
   window,
   document: window.document,
+  localStorage: window.localStorage,
   Node: window.Node,
   Element: window.Element,
   HTMLElement: window.HTMLElement,

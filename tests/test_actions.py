@@ -14,8 +14,10 @@ from backend.actions import (
 )
 from backend.api import create_app
 from backend.game_engine import (
+    DayResult,
     Phase,
     Role,
+    self_destruct,
     get_player,
 )
 from backend.rooms import InMemoryRoomRepository
@@ -199,6 +201,49 @@ class ActionCatalogTests(TestCase):
 
         self.assertEqual(state.phase, before.phase)
         self.assertEqual(len(state.events), len(before.events))
+
+    def test_self_destruct_close_action_appears_only_after_deadline(self) -> None:
+        state = controlled_game(seed=405)
+        host = get_player(state, "p1")
+        wolf = next(
+            player
+            for player in state.players
+            if player.role is Role.WEREWOLF and player.is_alive
+        )
+        state.day = 2
+        state.phase = Phase.DAY_DISCUSSION
+        state.day_result = DayResult(
+            speech_order=[
+                player.player_id
+                for player in state.players
+                if player.is_alive
+            ]
+        )
+        self_destruct(state, wolf.player_id, now=100.0)
+        deadline = state.day_result.self_destruct_deadline
+        self.assertEqual(deadline, 110.0)
+
+        before = available_actions_for_state(
+            state,
+            host,
+            host_player_id=host.player_id,
+            now=109.999,
+        )
+        after = available_actions_for_state(
+            state,
+            host,
+            host_player_id=host.player_id,
+            now=110.0,
+        )
+
+        self.assertNotIn(
+            "close_self_destruct_window",
+            {action.action for action in before},
+        )
+        self.assertIn(
+            "close_self_destruct_window",
+            {action.action for action in after},
+        )
 
 
 class ActionApiTests(TestCase):

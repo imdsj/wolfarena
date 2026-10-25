@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref } from "vue";
+import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 
 import LobbyPanel from "./components/LobbyPanel.vue";
 import RoomPanel from "./components/RoomPanel.vue";
@@ -19,12 +19,26 @@ const events = ref<GameEvent[]>([]);
 const connectionState = ref<ConnectionState>("idle");
 const aiNotice = ref("");
 const session = reactive({
+  kind: "" as "" | "player" | "spectator",
   roomId: "",
   playerToken: "",
   spectatorPassword: "",
+  accessPassword: "",
 });
+const restoring = ref(false);
 
 let socket: WebSocket | null = null;
+const SESSION_STORAGE_KEY = "wolfarena.session.v1";
+const REMEMBERED_SESSION_VERSION = 1;
+
+interface RememberedSession {
+  version: number;
+  kind: "player" | "spectator";
+  roomId: string;
+  playerToken?: string;
+  spectatorPassword?: string;
+  accessPassword?: string;
+}
 
 function mergeEvents(incoming: GameEvent[]): void {
   const bySequence = new Map<number, GameEvent>();
@@ -54,12 +68,15 @@ async function requestJson<T>(
 }
 
 function applySession(payload: RoomSessionResponse): void {
+  session.kind = "player";
   session.roomId = payload.room_id;
   session.playerToken = payload.player_token;
   session.spectatorPassword = payload.spectator_password ?? "";
+  session.accessPassword = "";
   room.value = payload.room;
   events.value = payload.room.visible_events;
   errorMessage.value = "";
+  persistSession();
   connectSocket();
 }
 
@@ -111,8 +128,31 @@ async function joinRoom(payload: {
   }
 }
 
+function watchRoom(payload: {
+  roomId: string;
+  password: string;
+}): void {
+  socket?.close();
+  socket = null;
+  session.kind = "spectator";
+  session.roomId = payload.roomId;
+  session.playerToken = "";
+  session.spectatorPassword = "";
+  session.accessPassword = payload.password;
+  room.value = null;
+  events.value = [];
+  aiNotice.value = "";
+  errorMessage.value = "";
+  busy.value = true;
+  connectSocket();
+}
+
 function connectSocket(): void {
-  if (!session.roomId || !session.playerToken) {
+  if (
+    !session.roomId ||
+    (session.kind === "player" && !session.playerToken) ||
+    (session.kind === "spectator" && !session.accessPassword)
+  ) {
     return;
   }
   socket?.close();
@@ -126,10 +166,17 @@ function connectSocket(): void {
   current.onopen = () => {
     connectionState.value = "authenticating";
     current.send(
-      JSON.stringify({
-        type: "authenticate",
-        token: session.playerToken,
-      }),
+      JSON.stringify(
+        session.kind === "spectator"
+          ? {
+              type: "authenticate",
+              spectator_password: session.accessPassword,
+            }
+          : {
+              type: "authenticate",
+              token: session.playerToken,
+            },
+      ),
     );
   };
 
@@ -148,12 +195,16 @@ function connectSocket(): void {
     if (socket === current) {
       connectionState.value = "disconnected";
       socket = null;
+      busy.value = false;
+      restoring.value = false;
     }
   };
 
   current.onerror = () => {
     if (socket === current) {
       connectionState.value = "error";
+      busy.value = false;
+      restoring.value = false;
     }
   };
 }
@@ -166,11 +217,16 @@ function handleServerMessage(message: unknown): void {
 
   if (message.type === "authenticated") {
     connectionState.value = "connected";
+    busy.value = false;
+    restoring.value = false;
     return;
   }
   if (message.type === "snapshot" && isRecord(message.room)) {
     room.value = message.room as unknown as RoomSnapshot;
     mergeEvents(message.room.visible_events as GameEvent[]);
+    busy.value = false;
+    restoring.value = false;
+    persistSession();
     return;
   }
   if (message.type === "phase") {
@@ -193,10 +249,26 @@ function handleServerMessage(message: unknown): void {
   }
   if (message.type === "action_result") {
     errorMessage.value = "";
+    busy.value = false;
     return;
   }
   if (message.type === "error") {
     errorMessage.value = String(message.message ?? "服务器拒绝了操作");
+    busy.value = false;
+    const code = String(message.code ?? "");
+    if (
+      [
+        "INVALID_PLAYER_TOKEN",
+        "INVALID_SPECTATOR_PASSWORD",
+        "ROOM_NOT_FOUND",
+        "AUTH_REQUIRED",
+        "AUTH_TIMEOUT",
+      ].includes(code)
+    ) {
+      clearStoredSession();
+      restoring.value = false;
+      room.value = null;
+    }
   }
 }
 
@@ -205,6 +277,7 @@ async function runAction(action: ActionSubmission): Promise<void> {
     errorMessage.value = "连接尚未建立，不能提交动作";
     return;
   }
+  busy.value = true;
   aiNotice.value = "";
   socket.send(JSON.stringify({ type: "action", ...action }));
 }
@@ -233,17 +306,103 @@ async function runAiAction(): Promise<void> {
   }
 }
 
-function leaveRoom(): void {
+function resetSession(): void {
   socket?.close();
   socket = null;
+  session.kind = "";
   session.roomId = "";
   session.playerToken = "";
   session.spectatorPassword = "";
+  session.accessPassword = "";
   room.value = null;
   events.value = [];
   connectionState.value = "idle";
   aiNotice.value = "";
+  busy.value = false;
+  restoring.value = false;
+}
+
+function leaveRoom(): void {
+  resetSession();
   errorMessage.value = "";
+  clearStoredSession();
+}
+
+function persistSession(): void {
+  if (!session.kind || !session.roomId) {
+    return;
+  }
+  const payload: RememberedSession = {
+    version: REMEMBERED_SESSION_VERSION,
+    kind: session.kind,
+    roomId: session.roomId,
+  };
+  if (session.kind === "player") {
+    payload.playerToken = session.playerToken;
+    payload.spectatorPassword = session.spectatorPassword;
+  } else {
+    payload.accessPassword = session.accessPassword;
+  }
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    errorMessage.value = "浏览器无法保存当前会话，请重新连接";
+  }
+}
+
+function clearStoredSession(): void {
+  try {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // Storage failures must not block the current WebSocket session.
+  }
+}
+
+function restoreRememberedSession(): void {
+  let remembered: RememberedSession;
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    remembered = JSON.parse(raw) as RememberedSession;
+  } catch {
+    clearStoredSession();
+    return;
+  }
+  if (
+    remembered.version !== REMEMBERED_SESSION_VERSION ||
+    !remembered.roomId ||
+    (remembered.kind !== "player" && remembered.kind !== "spectator")
+  ) {
+    clearStoredSession();
+    return;
+  }
+  if (
+    remembered.kind === "player" &&
+    typeof remembered.playerToken !== "string"
+  ) {
+    clearStoredSession();
+    return;
+  }
+  if (
+    remembered.kind === "spectator" &&
+    typeof remembered.accessPassword !== "string"
+  ) {
+    clearStoredSession();
+    return;
+  }
+
+  session.kind = remembered.kind;
+  session.roomId = remembered.roomId;
+  session.playerToken = remembered.playerToken ?? "";
+  session.spectatorPassword = remembered.spectatorPassword ?? "";
+  session.accessPassword = remembered.accessPassword ?? "";
+  room.value = null;
+  events.value = [];
+  busy.value = true;
+  restoring.value = true;
+  connectSocket();
 }
 
 function errorMessageFrom(error: unknown): string {
@@ -254,6 +413,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+onMounted(restoreRememberedSession);
 onBeforeUnmount(() => socket?.close());
 </script>
 
@@ -274,9 +434,10 @@ onBeforeUnmount(() => socket?.close());
     />
     <LobbyPanel
       v-else
-      :busy="busy"
+      :busy="busy || restoring"
       @create="createRoom"
       @join="joinRoom"
+      @watch="watchRoom"
     />
 
     <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
