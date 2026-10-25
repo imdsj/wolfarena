@@ -1,44 +1,23 @@
-# 2026-10-25 Web 入口与联机验收
+# 2026-10-26 Web 入口与联机验收（执行记录）
 
-对应清单：`docs/11_web_entry_acceptance_checklist.md`
+## 文件状态
 
-状态：**待执行**（订书机完成最小入口后通知联调，本文件随之填写）
+**状态：未执行。** 本文件是 10 月 26 日一小时的执行记录，**验收结论只能在实机执行后填写**。
 
-- commit：
-- 浏览器与系统：
-- 启动命令：
-- 房间配置：
-- 判定：Web 入口可用 / 不可用
-- 通过项：
-- 失败项与复现步骤：
-- 阻塞项：
-- 截图/日志：
-- 下一修复动作：
+本文件包含两节附录（附 A 环境预检、附 B 历史复核），它们是准备工作，**不构成本轮验收结论**，也不得在报告中引用为「已通过」。
 
----
+执行时必须重新记录当日的：
 
-## 〇、环境就绪预检（2026-10-25 13:30 完成）
+- commit
+- 环境（`.venv` 路径与 Python 版本）
+- 测试命令与通过数量
+- 每条的实际页面与网络消息
 
-用于确认 10 月 26 日的一小时不用花在环境上。
+## 执行前必读：两个会导致假失败的环境问题
 
-| 项 | 实际 | 结论 |
-| --- | --- | --- |
-| 仓库位置 | `D:\传智杯\wolfarena` | 任务单写的 `E:\dings\...` 是订书机本机路径，**本机不存在** |
-| 当前 commit | `f0b77bd`（`feat: add unified server-authoritative action routing`） | 比任务单基线 `54cebeb` 更新 |
-| 全量测试 | **155 项通过** | 比任务单写的 148 项更新 |
-| Python | 系统 Python 3.14.0 + `pip install -r requirements.txt` | **没有 .venv，但不是问题**：依赖装好后 155 项全绿 |
-| 前端构建 | `npm install`（53 包）→ `npm run build` | 成功，输出到 `frontend/dist` |
-| 页面托管 | `GET /` → 200，579 字节 | FastAPI 挂载 `frontend/dist` 正常 |
-| 动作链路 | `POST /api/rooms/{id}/actions {"action":"start_night"}` → 200，阶段转 `NIGHT_WOLF_DISCUSSION_R1` | 可用 |
-| 非法动作 | `not_a_real_action` → 409 `ACTION_UNAVAILABLE` | 拒绝方式正确（非 500） |
-| WS 广播 | 第二个连接在动作用后收到 `{"type":"snapshot","event_seq":11,...}` | 可用 |
-| 按玩家下发动作 | 好人 `seed=901`（hunter）首夜 `available_actions=[]`；狼人 `seed=904` 首夜 `["wolf_speech"]` | 权限正确，可据此驱动前端按钮 |
+**1. 本地代理会吞掉 localhost 请求**
 
-### 必须注意的坑：本机脚本访问 localhost 要绕过代理
-
-本机设置了系统级代理，脚本（httpx / requests）默认读取 `HTTP_PROXY`，会把 `127.0.0.1:8000` 也发给代理，表现为 **`/api/rooms` 返回 404**，极易误判成「接口没实现」。
-
-实测对比：
+本机设置了系统级代理，脚本（httpx / requests）默认读取 `HTTP_PROXY`，会把 `127.0.0.1:8000` 的请求也发给代理，表现为接口返回 **404**，会被误判成「接口没实现」。
 
 ```text
 默认（走代理）      POST /api/rooms → 404
@@ -55,81 +34,83 @@ httpx.Client(base_url="http://127.0.0.1:8000", trust_env=False)
 $env:NO_PROXY = "127.0.0.1,localhost"
 ```
 
-**浏览器不受影响**，只有脚本会踩。这条必须写进联调笔记，否则明天会出现一整轮假失败。
+**浏览器不受影响，只有脚本会踩。** 出现大面积 404 时先查这条，不要先怀疑接口。
 
-### 启动顺序（本机实测可用）
+**2. 必须用 `.venv`，不要用系统 Python**
+
+系统 Python 缺少 FastAPI 等依赖时会报 `ModuleNotFoundError`，看起来像代码坏了。统一用：
+
+```powershell
+cd D:\传智杯\wolfarena
+.\.venv\Scripts\Activate.ps1
+python -m unittest discover -s tests -v
+```
+
+本机 `.venv` 已创建（Python 3.14.0），依赖已装齐。
+
+---
+
+## 附 A：环境预检（2026-10-25，不构成验收结论）
+
+仅供参考，数字随提交变化，**执行当日必须重新记录**。
+
+| 项 | 2026-10-25 19:40 的实际值 |
+| --- | --- |
+| 仓库位置 | `D:\传智杯\wolfarena`（Hurry 本机；订书机任务单里的 `E:\dings\...` 是其本机路径，本机不存在） |
+| commit | `3978a12`（远端 main） |
+| 测试 | `.venv` 内 **160 项通过** |
+| 环境 | `.venv`（Python 3.14.0），依赖来自 `requirements.txt` |
+| 前端构建 | `npm install`（53 包）+ `npm run build` 成功，输出 `frontend/dist` |
+| 页面托管 | `GET /` → 200，FastAPI 挂载 `frontend/dist` |
+| 动作链路 | `POST /api/rooms/{id}/actions {"action":"start_night"}` → 200，阶段转 `NIGHT_WOLF_DISCUSSION_R1` |
+| 非法动作 | → 409 `ACTION_UNAVAILABLE`（非 500） |
+| WS 广播 | 第二个连接收到 `{"type":"snapshot",...}` |
+| 按玩家下发动作 | 好人 `seed=901`（hunter）首夜 `available_actions=[]`；狼人 `seed=904` 首夜 `["wolf_speech"]` |
+
+启动顺序：
 
 ```powershell
 cd D:\传智杯\wolfarena\frontend
 npm install          # 首次
 npm run build
 cd ..
+.\.venv\Scripts\Activate.ps1
 python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
 # 浏览器打开 http://127.0.0.1:8000/
 ```
 
+## 附 B：历史复核（2026-10-24 W 组，不构成本轮结论）
 
+2026-10-24 15:50 在 commit `6ae38e0` 上做过一次 W-01 至 W-05 的独立复核，当时五项均通过。**该结果不能代替 10/26 当轮验收**，只用于说明接口形态已经稳定、执行时不必从零摸索。
 
-## 一、W 组判定（2026-10-24 已预检通过，10-26 复核一次即可）
-
-> 预检记录：2026-10-24 15:50 本机实测（Hurry），commit `6ae38e0`。订书机已实现 FastAPI + WebSocket 最小入口，以下为独立复核结果。
-
-| 编号 | 判据 | 结果 | 证据 |
-| --- | --- | --- | --- |
-| W-01 | 后端能启动 | **通过**（`python -m uvicorn backend.api:app` 进程稳定） | 启动无致命错误 |
-| W-02 | `/health` 返回 200 且响应可解析 | **通过**：`{"status":"ok","service":"wolfarena-api","version":"0.2.0"}` | 见下命令记录 |
-| W-03 | 能创建房间，9 人（1 真人 + 8 AI） | **通过**：`POST /api/rooms` 返回 201，`players=9`、真人数 1、`phase=INIT`、`day=0`，返回 `room_id`/`player_token`/`spectator_password` | 见下 |
-| W-04 | WebSocket 能连并收到阶段事件 | **通过**：`/ws/rooms/{id}` 认证后收到 `{"type":"authenticated",...}`，随后收到 `{"type":"snapshot","event_seq":9,...}` | 见下 |
-| W-05 | 身份隔离：好人只看自己、狼人看狼队、观战者看全部 | **通过**（按修正后口径）：<br>好人 `seed=901`（hunter）→ `[('p1','hunter')]` 仅自己<br>狼人 `seed=904` → `[('p1','werewolf'),('p3','werewolf'),('p5','werewolf')]` 自己 + 2 队友<br>狼人 `seed=905` → `[('p1','werewolf'),('p2','werewolf'),('p4','werewolf')]` | 见下 |
-
-判定：**Web 入口可用**（W-01 至 W-05 全部通过）。
-
-### 环境注意（新人会踩）
-
-首次在新机器上跑测试会报 `ModuleNotFoundError: No module named 'fastapi'`，必须先安装依赖：
-
-```powershell
-python -m pip install -r requirements.txt
-```
-
-安装前全量测试为 `110 tests, 2 errors`（两个测试模块因缺依赖无法导入）；安装后为 **`136 tests, OK`**。
-
-### 命令记录
-
-```powershell
-# W-01 启动
-python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000
-
-# W-02 健康检查
-curl http://127.0.0.1:8000/health
-
-# W-03 创建房间
-POST /api/rooms
-{"seed": 901, "human_count": 1, "max_humans": 3, "nickname": "测试真人"}
-→ 201 {"room_id":"...","player_token":"...","spectator_password":"...","room":{...}}
-
-# W-04 WebSocket
-ws://127.0.0.1:8000/ws/rooms/{room_id}
-→ send {"type":"authenticate","token":"..."}
-← {"type":"authenticated", ...}
-→ send {"type":"action","action":"start_night"}
-← {"type":"snapshot","event_seq":9,...}
-
-# W-05 身份可见性
-GET /api/rooms/{room_id}  (Header: X-Player-Token)
-查 visible_events 中 event_type=ROLE_ASSIGNED 的 target_id 与 data.role
-```
-
-### 实测发现的实现事实
-
-- 身份**不在** `players` 数组里：`PublicPlayer` 只有 `player_id`/`seat`/`name`/`is_human`/`is_alive`。身份只出现在 `viewer.role`（自己）与 `visible_events` 的 `ROLE_ASSIGNED`（按可见性过滤）。
-- 因此 W-05 的判定**必须查事件流**，查 `players[].role` 永远为空，会误判为「身份全部隐藏」。
-- `max_humans` 默认值 3，取值范围 1 至 3（`ge=1, le=3`），与 GAME-004 一致，可用于 L-04c。
-- 创建房间返回 `spectator_password`，每局独立，可用于 P-05「无万能密码」。
+其中一条经验值得保留：**身份不在 `players` 数组里**。`PublicPlayer` 只有 `player_id`/`seat`/`name`/`is_human`/`is_alive`，身份只出现在 `viewer.role`（自己）与 `visible_events` 的 `ROLE_ASSIGNED`（按可见性过滤）。**查 `players[].role` 永远为空**，会误判为「身份全部隐藏」。
 
 ---
 
-## 二、联机基础（L 组）
+## 一、W 组：最小入口（10/26 执行）
+
+| 编号 | 判据 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| W-01 | 后端能启动 | 待测 | |
+| W-02 | `/health` 返回 200 且响应可解析 | 待测 | |
+| W-03 | 能创建房间，9 人（1 真人 + 8 AI） | 待测 | |
+| W-04 | WebSocket 能连并收到阶段事件 | 待测 | |
+| W-05 | 身份隔离：好人只看自己、狼人看自己 + 狼队友、观战者看全部 | 待测 | |
+
+W-05 判定方法（必须查事件流，不能查 `players[].role`）：
+
+```text
+同一局分别用「好人真人」「狼人真人」「观战者」三种凭证读取快照
+好人：visible_events 中 ROLE_ASSIGNED 仅 1 条，target 为自己
+狼人：ROLE_ASSIGNED 共 3 条，全部 werewolf，含自己和 2 名队友
+观战者：9 条
+```
+
+判定规则：五项全通过才进入下一节；W-01 或 W-03 不通即判「不可用」，直接跳第七节降级路径。
+
+---
+
+## 二、L 组：联机基础（10/26 执行）
 
 | 编号 | 判据 | 结果 | 证据 |
 | --- | --- | --- | --- |
@@ -137,13 +118,13 @@ GET /api/rooms/{room_id}  (Header: X-Player-Token)
 | L-02 | 1 真人房补 8 个 AI | 待测 | |
 | L-03 | 2 真人房补 7 个 AI | 待测 | |
 | L-04 | 显式 `max_humans=2` 的房间拒绝第 3 名真人 | 待测 | |
-| L-04b | 默认房间允许第 3 名真人、拒绝第 4 名 | 待测 | |
+| L-04b | 默认房间（`max_humans=3`）允许第 3 名真人、拒绝第 4 名 | 待测 | |
 | L-04c | `max_humans` 传 1/3 接受，传 4/0 拒绝 | 待测 | |
 | L-05 | 阶段同步在 2 秒内反映到另一窗口 | 待测 | |
 | L-06 | 断线重连回到原座位、原阶段、保留自身视角 | 待测 | |
 | L-07 | 满员房间加入被明确拒绝 | 待测 | |
 
-失败项记录格式：
+失败项按此格式记录：
 
 ```text
 编号：L-__
@@ -156,11 +137,11 @@ GET /api/rooms/{room_id}  (Header: X-Player-Token)
 
 ---
 
-## 三、权限与可见性（P 组）
+## 三、P 组：权限与可见性（10/26 执行）
 
 | 编号 | 判据 | 结果 | 证据 |
 | --- | --- | --- | --- |
-| P-01 | 玩家 WebSocket 帧中无 `WOLF_SPEECH`、无他人 `role`、无夜间 `causes` | 待测 | |
+| P-01 | 玩家 WS 帧中无 `WOLF_SPEECH`、无他人 `role`、无夜间死因 `causes` | 待测 | |
 | P-02 | 死亡后刷新、重连仍是玩家视角 | 待测 | |
 | P-03 | 错误观战密码不进入观战 | 待测 | |
 | P-04 | 正确密码进入上帝视角 | 待测 | |
@@ -176,7 +157,7 @@ P-01 抓包方法：
 
 ---
 
-## 四、服务层计时（T 组，引擎测不到，只能在这里验）
+## 四、T 组：服务层计时（10/26 执行，引擎测不到）
 
 | 编号 | 判据 | 结果 | 证据（时间戳） |
 | --- | --- | --- | --- |
@@ -198,7 +179,7 @@ T-01 记录格式：
 
 ---
 
-## 五、移动端（M 组）
+## 五、M 组：移动端（10/26 执行）
 
 | 编号 | 判据 | 结果 | 证据 |
 | --- | --- | --- | --- |
@@ -208,7 +189,7 @@ T-01 记录格式：
 
 ---
 
-## 六、模型失败兜底（A 组）
+## 六、A 组：模型失败兜底（10/26 执行，放在最后）
 
 | 编号 | 判据 | 结果 | 证据 |
 | --- | --- | --- | --- |
@@ -218,15 +199,27 @@ T-01 记录格式：
 
 ---
 
-## 七、降级路径（若 W 组未全通）
+## 七、结论与降级路径
 
-按清单第四节执行，当天仍要留下产出：
+执行完毕后填写：
+
+```text
+commit：
+环境：.venv（Python x.x.x）
+命令：
+判定：Web 可用 / 不可用
+通过项：
+失败项与复现步骤：
+阻塞项：
+截图 / 日志：
+下一修复动作：
+```
+
+若 W 组未全通，按降级路径执行，当天仍要留下产出：
 
 1. 引擎层补 `DAY_ANNOUNCEMENT → VOTE → 下一夜` 完整闭环用例。
 2. L / P / T / M / A 各组标记**阻塞**，写明缺失接口。
 3. 用固定 seed 全 AI 跑完整一局，导出事件序列作为单机演示材料。
-
-降级时本文件对应填写：
 
 ```text
 阻塞项：
