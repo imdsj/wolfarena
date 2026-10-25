@@ -6,9 +6,12 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from backend.ai_controller import AIController
-from backend.game_engine import EventType, Phase
+from backend.actions import available_actions_for_state
+from backend.ai_growth import L0Policy
+from backend.game_engine import EventType, NightResult, Phase, Role
 from backend.rooms import InMemoryRoomRepository
 from backend.schemas import ActionRequest
+from tests.test_game_engine import controlled_game
 
 
 def create_seeded_room(repository: InMemoryRoomRepository, seed: int = 1):
@@ -145,3 +148,34 @@ class AIControllerTests(TestCase):
         failure = room.state.events[-1]
         self.assertIs(failure.event_type, EventType.AI_ACTION_FAILED)
         self.assertEqual(failure.data["reason"], "模拟AI动作失败")
+
+    def test_witch_action_always_has_target_for_used_potion(self) -> None:
+        state = controlled_game(seed=500)
+        witch = next(
+            player for player in state.players if player.role is Role.WITCH
+        )
+        state.phase = Phase.NIGHT_WITCH_ACTION
+        state.night_result = NightResult()
+        view = next(
+            action
+            for action in available_actions_for_state(
+                state,
+                witch,
+                host_player_id="p1",
+            )
+            if action.action == "witch_action"
+        )
+        controller = AIController(object())
+
+        for seed in range(1, 200):
+            state.seed = seed
+            request = controller._build_request(
+                state,
+                witch,
+                view,
+                policy=L0Policy(seed=seed),
+            )
+            if request.choice == "none":
+                self.assertIsNone(request.target_id)
+            else:
+                self.assertIn(request.target_id, view.target_ids)

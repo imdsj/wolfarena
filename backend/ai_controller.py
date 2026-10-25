@@ -315,12 +315,16 @@ class AIController:
         )
         choice = rng.choice(view.choices) if view.choices else None
         target_id: str | None = None
-        if view.target_ids and (view.requires_target or view.allow_no_target):
+        if view.action == "witch_action":
+            target_id = (
+                None
+                if choice == "none"
+                else rng.choice(view.target_ids)
+            )
+        elif view.target_ids and (view.requires_target or view.allow_no_target):
             candidates: list[str | None] = list(view.target_ids)
             if view.allow_no_target:
                 candidates.append(None)
-            if view.action == "witch_action" and choice == "none":
-                candidates = [None]
             target_id = rng.choice(candidates)
         content = None
         if view.requires_content:
