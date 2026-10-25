@@ -157,6 +157,13 @@ class AIController:
             host_player_id=self._host_id(state),
             now=now,
         )
+        # L0 must finish the normal turn instead of selecting an optional
+        # self-destruct and stalling the room for a 10-second window.
+        non_stalling_views = tuple(
+            view for view in action_views if view.action != "self_destruct"
+        )
+        if non_stalling_views:
+            action_views = non_stalling_views
         if not action_views:
             return None
         action = policy.choose_action(

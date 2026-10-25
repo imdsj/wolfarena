@@ -72,6 +72,7 @@ function mountRoom(room) {
     connectionState: "connected",
     busy: false,
     aiNotice: "",
+    actionNotice: "",
   });
   app.mount(host);
   return { app, host };

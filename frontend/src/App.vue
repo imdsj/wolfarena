@@ -18,6 +18,7 @@ const room = ref<RoomSnapshot | null>(null);
 const events = ref<GameEvent[]>([]);
 const connectionState = ref<ConnectionState>("idle");
 const aiNotice = ref("");
+const actionNotice = ref("");
 const session = reactive({
   kind: "" as "" | "player" | "spectator",
   roomId: "",
@@ -249,11 +250,17 @@ function handleServerMessage(message: unknown): void {
   }
   if (message.type === "action_result") {
     errorMessage.value = "";
+    actionNotice.value =
+      `已提交：${String(message.action ?? "动作")}` +
+      (Number.isInteger(message.event_seq)
+        ? `（事件 #${message.event_seq}）`
+        : "");
     busy.value = false;
     return;
   }
   if (message.type === "error") {
     errorMessage.value = String(message.message ?? "服务器拒绝了操作");
+    actionNotice.value = "";
     busy.value = false;
     const code = String(message.code ?? "");
     if (
@@ -279,6 +286,7 @@ async function runAction(action: ActionSubmission): Promise<void> {
   }
   busy.value = true;
   aiNotice.value = "";
+  actionNotice.value = "";
   socket.send(JSON.stringify({ type: "action", ...action }));
 }
 
@@ -286,6 +294,7 @@ async function runAiAction(): Promise<void> {
   busy.value = true;
   errorMessage.value = "";
   aiNotice.value = "";
+  actionNotice.value = "";
   try {
     const response = await requestJson<AiActionResponse>(
       `/api/rooms/${encodeURIComponent(session.roomId)}/ai-action`,
@@ -318,6 +327,7 @@ function resetSession(): void {
   events.value = [];
   connectionState.value = "idle";
   aiNotice.value = "";
+  actionNotice.value = "";
   busy.value = false;
   restoring.value = false;
 }
@@ -427,6 +437,7 @@ onBeforeUnmount(() => socket?.close());
       :connection-state="connectionState"
       :busy="busy"
       :ai-notice="aiNotice"
+      :action-notice="actionNotice"
       @action="runAction"
       @ai-action="runAiAction"
       @reconnect="connectSocket"

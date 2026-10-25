@@ -58,7 +58,7 @@ Object.assign(globalThis, {
         ...init,
         body: JSON.stringify({
           ...JSON.parse(init.body),
-          seed: 1,
+          seed: 2,
         }),
       };
     }
@@ -204,6 +204,7 @@ const actionPriority = [
 ];
 
 let lastVoteKey = "";
+let lastVoteCloseKey = "";
 
 function chooseActionCard() {
   const cards = [...document.querySelectorAll(".action-card")];
@@ -226,6 +227,12 @@ function chooseActionCard() {
 
   for (const candidate of ranked) {
     if (candidate.action === "vote" && lastVoteKey === `${day}:${currentPhase}`) {
+      continue;
+    }
+    if (
+      candidate.action === "close_vote" &&
+      lastVoteCloseKey === `${day}:${currentPhase}`
+    ) {
       continue;
     }
     return candidate;
@@ -272,23 +279,51 @@ async function configureAndSubmitAction(card, action) {
     setInput(textarea, `浏览器验收：${action}`);
   }
 
-  await delay(0);
-  const liveCard = [...document.querySelectorAll(".action-card")].find(
-    (candidate) =>
-      normalizedText(candidate.querySelector(".action-card-heading code")) ===
-      action,
-  );
-  const submitButton = liveCard?.querySelector('button[type="submit"]');
+  let liveCard = null;
+  let submitButton = null;
+  const buttonDeadline = Date.now() + 1500;
+  while (Date.now() < buttonDeadline) {
+    liveCard = [...document.querySelectorAll(".action-card")].find(
+      (candidate) =>
+        normalizedText(
+          candidate.querySelector(".action-card-heading code"),
+        ) === action,
+    );
+    submitButton = liveCard?.querySelector('button[type="submit"]');
+    if (submitButton && !submitButton.disabled) {
+      break;
+    }
+    const liveTextarea = liveCard?.querySelector("textarea");
+    if (
+      liveTextarea &&
+      ["speech", "last_words", "wolf_speech"].includes(action)
+    ) {
+      setInput(liveTextarea, `浏览器验收：${action}`);
+    }
+    await delay(25);
+  }
   if (!liveCard || !submitButton || submitButton.disabled) {
+    console.error(
+      `[acceptance] action-unavailable phase=${phaseCode()} action=${action} ` +
+        `card=${Boolean(liveCard)} button=${Boolean(submitButton)} ` +
+        `busy=${submitButton?.dataset.busy} target=${submitButton?.dataset.target} ` +
+        `choice=${submitButton?.dataset.choice}`,
+    );
     return null;
   }
   if (action === "vote") {
     lastVoteKey = `${day}:${phase}`;
   }
+  if (action === "close_vote") {
+    lastVoteCloseKey = `${day}:${phase}`;
+  }
   const beforeEvents = eventCount();
   const beforePhase = phase;
+  const beforeActionNotice = normalizedText(
+    document.querySelector('[data-testid="action-notice"]'),
+  );
   submitButton.click();
-  return { beforeEvents, beforePhase };
+  return { beforeEvents, beforePhase, beforeActionNotice };
 }
 
 let app = mountApp();
@@ -341,6 +376,7 @@ await waitFor(
 await waitFor(() => !uiError(), "合法动作清除错误提示");
 
 const seenPhases = new Set([initialPhase]);
+const performedActions = [];
 let savedInProgress = false;
 let noActionSince = Date.now();
 let noActionMarker = `${eventCount()}:${phaseCode()}`;
@@ -366,6 +402,12 @@ for (let step = 0; step < 500; step += 1) {
     if (marker !== noActionMarker) {
       noActionMarker = marker;
       noActionSince = Date.now();
+      console.error(
+        `[acceptance] waiting phase=${phaseCode()} events=${eventCount()} ` +
+          `actions=${[...document.querySelectorAll(".action-card-heading code")]
+            .map((element) => normalizedText(element))
+            .join(",")}`,
+      );
     }
     if (Date.now() - noActionSince > 12000) {
       throw new Error(`阶段停滞：${phaseCode()}`);
@@ -382,14 +424,30 @@ for (let step = 0; step < 500; step += 1) {
     await delay(50);
     continue;
   }
+  performedActions.push(candidate.action);
+  console.error(
+    `[acceptance] step=${step} phase=${before.beforePhase} action=${candidate.action}`,
+  );
   await waitFor(
     () =>
       eventCount() > before.beforeEvents ||
       phaseCode() !== before.beforePhase ||
       document.querySelector('[data-testid="game-result"]') ||
+      (normalizedText(
+        document.querySelector('[data-testid="action-notice"]'),
+      ) &&
+        normalizedText(
+          document.querySelector('[data-testid="action-notice"]'),
+        ) !== before.beforeActionNotice) ||
       uiError(),
     `动作结果：${candidate.action}`,
   );
+  if (Date.now() - startedAt > 30000) {
+    throw new Error(
+      `全流程超过 30 秒：phase=${phaseCode()}，` +
+        `actions=${performedActions.join(",")}`,
+    );
+  }
 }
 
 const result = await waitFor(
@@ -445,6 +503,14 @@ const spectatorEventText = normalizedText(
   document.querySelector(".event-list"),
 );
 await saveDomSnapshot("390-spectator-end");
+if (
+  !performedActions.includes("speech") ||
+  !performedActions.includes("vote")
+) {
+  throw new Error(
+    `全流程未覆盖发言和投票：${JSON.stringify(performedActions)}`,
+  );
+}
 
 console.log(
   JSON.stringify(
@@ -452,6 +518,7 @@ console.log(
       initialPhase,
       humanRole,
       seenPhases: [...seenPhases],
+      performedActions,
       serverError,
       finalPhase,
       resultPlayers,

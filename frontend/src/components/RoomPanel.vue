@@ -24,6 +24,7 @@ const props = defineProps<{
     | "error";
   busy: boolean;
   aiNotice: string;
+  actionNotice: string;
 }>();
 
 const emit = defineEmits<{
@@ -314,6 +315,13 @@ async function copyRoomId(): Promise<void> {
         当前没有属于你的合法动作。请等待其他玩家或系统推进。
       </p>
       <p v-if="aiNotice" class="ai-notice">{{ aiNotice }}</p>
+      <p
+        v-if="actionNotice"
+        class="action-notice"
+        data-testid="action-notice"
+      >
+        {{ actionNotice }}
+      </p>
     </section>
 
     <GameResultPanel

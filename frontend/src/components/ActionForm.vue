@@ -32,9 +32,22 @@ const aliveTargetIds = computed(() => {
   return props.action.target_ids.filter((playerId) => aliveIds.has(playerId));
 });
 
+const showTargetPicker = computed(() => {
+  if (props.action.action !== "witch_action") {
+    return (
+      aliveTargetIds.value.length > 0 &&
+      (props.action.requires_target || props.action.allow_no_target)
+    );
+  }
+  return (
+    aliveTargetIds.value.length > 0 &&
+    (form.choice === "antidote" || form.choice === "poison")
+  );
+});
+
 const needsSelectedTarget = computed(() => {
   if (props.action.action !== "witch_action") {
-    return aliveTargetIds.value.length > 0;
+    return props.action.requires_target;
   }
   return form.choice === "antidote" || form.choice === "poison";
 });
@@ -120,7 +133,7 @@ function submit(): void {
     </label>
 
     <label
-      v-if="needsSelectedTarget && aliveTargetIds.length"
+      v-if="showTargetPicker"
       class="compact-field"
     >
       <span>目标</span>
@@ -151,6 +164,9 @@ function submit(): void {
     <button
       class="primary-button"
       type="submit"
+      :data-busy="busy"
+      :data-target="form.targetId"
+      :data-choice="form.choice"
       :disabled="
         busy ||
         (action.requires_content && !form.content.trim()) ||

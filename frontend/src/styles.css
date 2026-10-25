@@ -515,6 +515,14 @@ h2 {
   color: #5c4a24;
 }
 
+.action-notice {
+  margin-bottom: 0;
+  padding: 11px 14px;
+  border-left: 3px solid #4f8a5e;
+  background: #edf6ef;
+  color: #2e5838;
+}
+
 .event-list {
   display: grid;
   gap: 0;
@@ -552,6 +560,8 @@ h2 {
   display: block;
   font-size: 12px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .result-panel {

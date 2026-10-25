@@ -159,6 +159,8 @@ class WebGameEndToEndTests(TestCase):
         self.assertEqual(phases[0], "INIT")
         self.assertEqual(phases[-1], "END")
         self.assertEqual(self.client.get("/health").status_code, 200)
+        self.assertTrue(any(":speech" in item for item in history))
+        self.assertTrue(any(":vote" in item for item in history))
 
         events = snapshot["visible_events"]
         self.assertIn(
