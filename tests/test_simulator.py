@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 from backend.simulator import SimulationConfig, run_simulation, simulate_game
 
@@ -108,6 +109,51 @@ class SimulatorGameTests(TestCase):
         self.assertEqual(summary["error"]["type"], "max_action_steps")
         self.assertEqual(len(actions), 1)
         self.assertTrue(actions[0]["succeeded"])
+
+    def test_day_limit_records_explicit_error(self) -> None:
+        summary, _actions = simulate_game(
+            seed=1000,
+            policy_name="l0",
+            max_action_steps=600,
+            max_days=1,
+        )
+
+        self.assertEqual(summary["status"], "error")
+        self.assertEqual(summary["error"]["type"], "max_days")
+
+    def test_unchanged_state_is_recorded_as_deadlock(self) -> None:
+        with patch(
+            "backend.simulator.execute_engine_action",
+            return_value=None,
+        ):
+            summary, actions = simulate_game(
+                seed=1000,
+                policy_name="l0",
+                max_action_steps=10,
+                max_days=20,
+            )
+
+        self.assertEqual(summary["status"], "error")
+        self.assertEqual(summary["error"]["type"], "state_not_advanced")
+        self.assertEqual(len(actions), 1)
+
+    def test_action_exception_is_logged_and_stops_game(self) -> None:
+        with patch(
+            "backend.simulator.execute_engine_action",
+            side_effect=RuntimeError("模拟动作异常"),
+        ):
+            summary, actions = simulate_game(
+                seed=1000,
+                policy_name="l0",
+                max_action_steps=10,
+                max_days=20,
+            )
+
+        self.assertEqual(summary["status"], "error")
+        self.assertEqual(summary["error"]["type"], "action_exception")
+        self.assertEqual(len(actions), 1)
+        self.assertFalse(actions[0]["succeeded"])
+        self.assertIn("模拟动作异常", actions[0]["error"])
 
 
 class SimulatorOutputTests(TestCase):
