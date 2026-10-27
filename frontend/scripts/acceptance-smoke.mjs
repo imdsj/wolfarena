@@ -303,12 +303,15 @@ async function configureAndSubmitAction(card, action) {
     await delay(25);
   }
   if (!liveCard || !submitButton || submitButton.disabled) {
-    console.error(
-      `[acceptance] action-unavailable phase=${phaseCode()} action=${action} ` +
-        `card=${Boolean(liveCard)} button=${Boolean(submitButton)} ` +
-        `busy=${submitButton?.dataset.busy} target=${submitButton?.dataset.target} ` +
-        `choice=${submitButton?.dataset.choice}`,
-    );
+    if (phaseCode() !== "END") {
+      console.error(
+        `[acceptance] action-unavailable phase=${phaseCode()} action=${action} ` +
+          `card=${Boolean(liveCard)} button=${Boolean(submitButton)} ` +
+          `busy=${submitButton?.dataset.busy} ` +
+          `target=${submitButton?.dataset.target} ` +
+          `choice=${submitButton?.dataset.choice}`,
+      );
+    }
     return null;
   }
   if (action === "vote") {
@@ -382,6 +385,13 @@ let noActionSince = Date.now();
 let noActionMarker = `${eventCount()}:${phaseCode()}`;
 for (let step = 0; step < 500; step += 1) {
   if (document.querySelector('[data-testid="game-result"]')) {
+    break;
+  }
+  if (phaseCode() === "END") {
+    await waitFor(
+      () => document.querySelector('[data-testid="game-result"]'),
+      "END 渲染结果面板",
+    );
     break;
   }
   const message = uiError();
