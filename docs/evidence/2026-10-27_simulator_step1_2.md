@@ -173,10 +173,10 @@ witch_kill_target_id
 ## 测试与构建
 
 ```text
-Python：199 tests OK
+Python：206 tests OK
 前端：TypeScript 检查通过
 前端静态构建：通过
-健康检查：wolfarena-api 0.5.0
+健康检查：wolfarena-api 0.6.0
 ```
 
 ## 当前边界
