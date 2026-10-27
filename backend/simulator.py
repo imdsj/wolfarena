@@ -19,7 +19,7 @@ from typing import Any, Sequence
 
 from .actions import available_actions_for_state, execute_engine_action
 from .ai_controller import AIController, AIControllerStep
-from .ai_growth import L0Policy
+from .ai_growth import L0Policy, L1RulePolicy
 from .game_engine import (
     EventType,
     GameState,
@@ -30,7 +30,7 @@ from .game_engine import (
 )
 
 
-SUPPORTED_POLICIES = ("l0",)
+SUPPORTED_POLICIES = ("l0", "l1")
 DEFAULT_HOST_PLAYER_ID = "p1"
 
 
@@ -67,6 +67,8 @@ class SimulationConfig:
 def _policy_for(name: str, *, seed: int):
     if name == "l0":
         return L0Policy(seed=seed)
+    if name == "l1":
+        return L1RulePolicy(seed=seed)
     raise ValueError(f"不支持的策略版本：{name}")
 
 

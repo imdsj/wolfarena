@@ -23,7 +23,7 @@ class ApiHealthTests(unittest.TestCase):
             {
                 "status": "ok",
                 "service": "wolfarena-api",
-                "version": "0.5.0",
+                "version": "0.6.0",
             },
         )
         lowered = response.text.lower()

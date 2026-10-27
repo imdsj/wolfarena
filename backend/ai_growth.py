@@ -7,7 +7,13 @@ from enum import Enum
 from random import Random
 from typing import Final, Sequence
 
-from .game_engine import Phase, Role
+from .game_engine import (
+    EventType,
+    GameState,
+    Phase,
+    Role,
+    get_visible_events,
+)
 
 
 class GrowthStage(str, Enum):
@@ -219,3 +225,144 @@ class L0Policy:
             strategy_id=self.strategy_id,
             confidence=0.0,
         )
+
+
+@dataclass(slots=True)
+class L1RulePolicy:
+    """A deterministic rule policy that uses only legal actions and views."""
+
+    seed: int
+    strategy_id: str = "l1.rule.v1"
+    stage: GrowthStage = GrowthStage.L1_RULE
+
+    def __post_init__(self) -> None:
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int):
+            raise ValueError("seed 必须是整数")
+        if self.stage is not GrowthStage.L1_RULE:
+            raise ValueError("L1RulePolicy 只能使用 L1_RULE 阶段")
+
+    def choose_action(self, legal_actions: Sequence[str]) -> str:
+        actions = tuple(legal_actions)
+        if not actions:
+            raise ValueError("没有合法动作可供选择")
+        if len(set(actions)) != len(actions):
+            raise ValueError("合法动作不能重复")
+        priority = (
+            "wolf_speech",
+            "seer_check",
+            "witch_action",
+            "night_hunter_shot",
+            "day_hunter_shot",
+            "speech",
+            "last_words",
+            "vote",
+            "wolf_kill",
+            "start_night",
+            "resolve_night",
+            "begin_day",
+            "close_vote",
+            "resolve_vote",
+            "begin_banishment_last_words",
+            "close_self_destruct_window",
+            "self_destruct",
+        )
+        for action in priority:
+            if action in actions:
+                return action
+        return actions[0]
+
+    def choose_choice(
+        self,
+        state: GameState,
+        actor,
+        view,
+    ) -> str | None:
+        if not view.choices:
+            return None
+        if view.action == "witch_action":
+            night_result = state.night_result
+            if (
+                "antidote" in view.choices
+                and state.antidote_available
+                and night_result is not None
+                and night_result.wolf_target_id in view.target_ids
+            ):
+                return "antidote"
+            if "none" in view.choices:
+                return "none"
+        return view.choices[0]
+
+    def choose_target(
+        self,
+        state: GameState,
+        actor,
+        view,
+        *,
+        choice: str | None,
+    ) -> str | None:
+        if not view.target_ids:
+            return None
+        if view.action == "witch_action":
+            if choice != "antidote":
+                return None
+            night_result = state.night_result
+            target = (
+                night_result.wolf_target_id
+                if night_result is not None
+                else None
+            )
+            return target if target in view.target_ids else None
+        if view.action == "wolf_kill":
+            claimed = self._claimed_god_ids(state, actor)
+            return next(
+                (
+                    target_id
+                    for target_id in view.target_ids
+                    if target_id in claimed
+                ),
+                view.target_ids[0],
+            )
+        if view.action == "seer_check":
+            checked = {
+                event.target_id
+                for event in get_visible_events(state, actor)
+                if event.event_type is EventType.SEER_CHECKED
+            }
+            return next(
+                (
+                    target_id
+                    for target_id in view.target_ids
+                    if target_id not in checked
+                ),
+                view.target_ids[0],
+            )
+        return view.target_ids[0]
+
+    @staticmethod
+    def choose_content(actor, view) -> str | None:
+        if not view.requires_content:
+            return None
+        if view.action == "wolf_speech":
+            return f"L1规则狼{actor.seat}号发言"
+        if view.action == "last_words":
+            return f"L1规则{actor.seat}号遗言"
+        return f"我是{actor.seat}号，先听后续发言。"
+
+    @staticmethod
+    def _claimed_god_ids(state: GameState, actor) -> set[str]:
+        keywords = ("预言家", "女巫", "猎人")
+        claims: set[str] = set()
+        for event in get_visible_events(state, actor):
+            if event.event_type not in {
+                EventType.PUBLIC_SPEECH,
+                EventType.LAST_WORDS,
+            }:
+                continue
+            content = event.data.get("content")
+            if (
+                event.actor_id
+                and isinstance(content, str)
+                and any(keyword in content for keyword in keywords)
+            ):
+                claims.add(event.actor_id)
+        return claims

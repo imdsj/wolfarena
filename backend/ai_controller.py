@@ -9,6 +9,7 @@ from random import Random
 from typing import TYPE_CHECKING, Literal
 
 from .actions import available_actions_for_state
+from .ai_growth import L1RulePolicy
 from .game_engine import (
     EventType,
     GameState,
@@ -352,6 +353,21 @@ class AIController:
         *,
         policy,
     ) -> ActionRequest:
+        if isinstance(policy, L1RulePolicy):
+            choice = policy.choose_choice(state, actor, view)
+            target_id = policy.choose_target(
+                state,
+                actor,
+                view,
+                choice=choice,
+            )
+            return ActionRequest(
+                action=view.action,
+                target_id=target_id,
+                content=policy.choose_content(actor, view),
+                choice=choice,
+            )
+
         rng = Random(
             f"{state.seed}:{policy.strategy_id}:"
             f"{len(state.events)}:{actor.player_id}:{view.action}"
