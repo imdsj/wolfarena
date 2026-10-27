@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.kill-claimed-seer",
+  "title": "优先处理公开跳预言家的目标",
+  "role": "werewolf",
+  "phase": "NIGHT_WOLF_KILL",
+  "action": "wolf_kill",
+  "trigger": "白天有玩家明确自报预言家，且该玩家存活、属于本夜合法刀人目标。",
+  "recommendation": "在确认自报信息不是明显玩笑后，优先选择该目标；若多个自报，结合票型和发言可信度排序。",
+  "rationale": "预言家是持续提供信息的核心神职，放任其多活一轮会增加好人阵营的信息优势。",
+  "tags": ["预言家", "神职", "自报", "刀人"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

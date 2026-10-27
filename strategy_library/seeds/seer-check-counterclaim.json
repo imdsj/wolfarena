@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "seer.check-counterclaim",
+  "title": "预言家优先核验冲突位",
+  "role": "seer",
+  "phase": "NIGHT_SEER_CHECK",
+  "action": "seer_check",
+  "trigger": "场上存在查验结论冲突、多个自称预言家或高影响力争议玩家。",
+  "recommendation": "在未查验且合法的目标中优先选择能最大程度消除公共冲突的位置。",
+  "rationale": "查验价值不仅来自发现狼人，也来自解决投票前最关键的信息分歧。",
+  "tags": ["预言家", "查验", "对跳", "冲突", "信息"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

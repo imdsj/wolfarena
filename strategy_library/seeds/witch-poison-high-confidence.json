@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "witch.poison-high-confidence",
+  "title": "女巫毒药只用于较高可信度目标",
+  "role": "witch",
+  "phase": "NIGHT_WITCH_ACTION",
+  "action": "witch_action",
+  "trigger": "毒药仍可用，存在发言矛盾、查验冲突或投票行为高度可疑的目标。",
+  "recommendation": "当错误毒杀的代价明显大于观望时再使用毒药；缺少结构化证据时选择不用药。",
+  "rationale": "毒药可能误杀好人，且被毒猎人不能开枪，必须保留较高证据门槛。",
+  "tags": ["女巫", "毒药", "嫌疑", "证据"],
+  "source_type": "rule_doc",
+  "source": "docs/01_game_rules_v1.md",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "villager.compare-votes",
+  "title": "村民比较投票动机与发言变化",
+  "role": "villager",
+  "phase": "DAY_DISCUSSION",
+  "action": "vote",
+  "trigger": "白天出现多组互相冲突的发言，投票前无法仅凭单一发言判断身份。",
+  "recommendation": "对照玩家前后立场、归票行为和受益方，优先选择解释成本最高的目标。",
+  "rationale": "单句发言容易伪装，跨轮一致性和投票结果提供更多可核验信号。",
+  "tags": ["村民", "投票", "发言矛盾", "票型"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

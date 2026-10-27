@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "werewolf.preserve-deep-cover",
+  "title": "狼队保留深水位队友",
+  "role": "werewolf",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "狼队已有队友暴露风险，但仍有未被重点关注的存活队友。",
+  "recommendation": "避免所有狼人使用相同归票和发言结构，优先让低暴露队友保留后续夜间行动空间。",
+  "rationale": "狼队价值来自隐藏成员与夜间协作，集体同质化会提高被整体识别的概率。",
+  "tags": ["狼人", "深水", "发言", "伪装"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

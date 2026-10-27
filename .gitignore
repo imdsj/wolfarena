@@ -30,6 +30,12 @@ training_runs/*
 *.log
 runs/
 
+# AI 生成的战术只能在候选/淘汰目录，不进入正式策略检索
+strategy_library/candidates/*
+!strategy_library/candidates/.gitkeep
+strategy_library/rejected/*
+!strategy_library/rejected/.gitkeep
+
 # 编辑器和系统文件
 .vscode/
 .idea/

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.resolve-counterclaim",
+  "title": "好人先解决预言家冲突",
+  "role": "villager",
+  "phase": "VOTE",
+  "action": "vote",
+  "trigger": "出现多个预言家自报或互相冲突的查验结论，且冲突未解决。",
+  "recommendation": "优先比较双方查验逻辑、验人顺序和受益关系，再决定投票；证据不足时避免盲目跟随单一归票。",
+  "rationale": "预言家冲突通常决定后续信息链可信度，是好人投票中最高价值的判断节点之一。",
+  "tags": ["好人", "预言家", "对跳", "投票", "冲突"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

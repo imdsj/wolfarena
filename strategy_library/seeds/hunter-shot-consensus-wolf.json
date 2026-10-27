@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "hunter.shot-consensus-wolf",
+  "title": "猎人优先处理高可信狼位",
+  "role": "hunter",
+  "phase": "ANY",
+  "action": "day_hunter_shot",
+  "trigger": "猎人合法开枪，场上已有较稳定的自报冲突、票型或查验证据。",
+  "recommendation": "优先选择证据最集中且对好人威胁最高的狼位；没有可信目标时选择不开枪。",
+  "rationale": "猎人开枪也是可能误伤好人的一次性决策，不应仅凭随机目标开火。",
+  "tags": ["猎人", "开枪", "证据", "风险"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

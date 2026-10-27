@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "witch.antidote-known-kill",
+  "title": "女巫按可见刀口评估解药",
+  "role": "witch",
+  "phase": "NIGHT_WITCH_ACTION",
+  "action": "witch_action",
+  "trigger": "女巫仍有解药，并且服务端私密信息给出了当夜准确刀口。",
+  "recommendation": "只在刀口目标属于关键好人或当前局势不能承受该死亡时使用解药；空刀不使用解药。",
+  "rationale": "解药整局只有一次，可见刀口是决策信息，不是必须自动使用解药的命令。",
+  "tags": ["女巫", "解药", "刀口", "救人"],
+  "source_type": "rule_doc",
+  "source": "docs/01_game_rules_v1.md#WITCH-003",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

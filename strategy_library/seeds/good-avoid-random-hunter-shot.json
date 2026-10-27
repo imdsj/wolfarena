@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.avoid-random-hunter-shot",
+  "title": "证据不足时猎人不开枪",
+  "role": "hunter",
+  "phase": "ANY",
+  "action": "day_hunter_shot",
+  "trigger": "猎人获得开枪机会，但公开信息没有形成可信目标。",
+  "recommendation": "选择不开枪，等待赛后复盘或用规则允许的遗言继续传递信息。",
+  "rationale": "随机开枪会提高误伤概率，保留空枪能减少错误决策。",
+  "tags": ["猎人", "空枪", "风险", "证据"],
+  "source_type": "rule_doc",
+  "source": "docs/01_game_rules_v1.md",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-27T00:00:00+08:00",
+  "evaluation": null
+}

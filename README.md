@@ -50,6 +50,7 @@ WolfArena（狼域）是第九届传智杯 AI Web 网页开发挑战赛 B 组项
 - 赛后面板显示胜方、九名玩家身份和当前视角可见的死因。
 - 解药未消耗时，女巫快照返回当夜准确刀口；空刀显示为没有刀口，解药耗尽后不再返回。
 - `backend.simulator` 可运行固定 seed 的 AI-only 对局，输出每局与每动作 JSONL。
+- `backend.strategy_library` 提供本地战术检索、AI 候选写入和人工验证后晋升。
 
 ## 技术方向
 
@@ -169,7 +170,7 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **199 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **206 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 
@@ -213,6 +214,18 @@ python -m backend.metrics --run training_runs/l0-200
 ```
 
 结果写入该目录的 `recomputed-summary.json`，并比较它与 `summary.json` 是否一致。
+
+## 本地战术库
+
+```powershell
+python -m backend.strategy_library `
+  --root strategy_library `
+  search --role werewolf --phase NIGHT_WOLF_KILL --query 神职
+```
+
+默认只检索 `seeds/` 和 `validated/`。AI 生成的 `candidates/` 不参与正式决策；
+候选必须带固定 seed 的 200 局评测证据、manifest 哈希和非 AI 审核者，才能晋升。
+当前尚未接入 LLM 自动复盘、向量检索或实时联网资料搜索。
 
 模拟器复用现有 `create_game`、`AIController`、`available_actions_for_state` 和
 `execute_engine_action`，不复制规则。每局同时受最大动作步数和最大天数限制；
