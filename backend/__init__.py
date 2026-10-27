@@ -50,6 +50,12 @@ from .game_engine import (
     timeout_last_words,
     timeout_public_speech,
 )
+from .strategy_library import (
+    PromotionEvidence,
+    StrategyCard,
+    StrategyError,
+    StrategyLibrary,
+)
 
 __all__ = [
     "GROWTH_STAGE_ORDER",
@@ -69,6 +75,10 @@ __all__ = [
     "Player",
     "Role",
     "SPECTATOR_VIEW",
+    "PromotionEvidence",
+    "StrategyCard",
+    "StrategyError",
+    "StrategyLibrary",
     "StrategyRecord",
     "Team",
     "Visibility",
