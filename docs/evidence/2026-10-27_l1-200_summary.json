@@ -1,8 +1,8 @@
 {
   "run_id": "l1-1000-1199",
-  "generated_at": "2026-10-27T02:49:06.258219+00:00",
-  "code_commit": "0f01afe",
-  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l1 --out training_runs/l1-200 --commit 0f01afe",
+  "generated_at": "2026-10-28T15:26:01.665544+00:00",
+  "code_commit": "25e95e8",
+  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l1 --out training_runs/l1-200 --commit 25e95e8",
   "policy": "l1",
   "policy_version": "l1.rule.v1",
   "python_version": "3.14.7",
@@ -60,7 +60,7 @@
     "wolf": 0.635
   },
   "average_steps": 77.015,
-  "average_duration_ms": 35.69049,
-  "total_duration_ms": 7138.098,
+  "average_duration_ms": 34.148625,
+  "total_duration_ms": 6829.725,
   "errors_by_type": {}
 }
