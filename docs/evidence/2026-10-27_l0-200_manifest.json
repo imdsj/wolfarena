@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-28T15:25:57.554979+00:00",
-  "code_commit": "25e95e8",
-  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out training_runs/l0-200 --commit 25e95e8",
+  "generated_at": "2026-10-28T15:45:21.501993+00:00",
+  "code_commit": "b2a8d89",
+  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out training_runs/l0-200 --commit b2a8d89",
   "python_version": "3.14.7",
   "policy": "l0",
   "policy_version": "l0.random.v1",
@@ -11,12 +11,12 @@
   "hash_algorithm": "sha256",
   "files": {
     "run.json": {
-      "sha256": "b537db705eebef75706b55aa12aec457a246decaf380dccf064dfc1682836b6e",
-      "bytes": 2454
+      "sha256": "e8f488b93ecf8aaebf42153c9a2f185d77b20b4c87c872f1cb484afa58244447",
+      "bytes": 2446
     },
     "games.jsonl": {
-      "sha256": "82ff1f6aa619621a42170adea137875c5d7552c7ad2b49f1d48116ff1c8a453e",
-      "bytes": 103127
+      "sha256": "c4f8f9ab06ccb3f737a25a0dae1e31528d278fe9575fa06ad2cbb8d6799c9b86",
+      "bytes": 103133
     },
     "actions.jsonl": {
       "sha256": "9ab277a428a9a233995c4722cd8ab31dceca5998d92c99b29cb9052531fdcbcf",
@@ -27,8 +27,8 @@
       "bytes": 219605
     },
     "summary.json": {
-      "sha256": "0d915dfa29814eeb91746baf6c995bc404a4825d983affa5243d162b97ead0af",
-      "bytes": 1890
+      "sha256": "2c7ff24a93e0ddbf811275bb266553be40fac9846d734c9fc0f38efc4b7bfc13",
+      "bytes": 1881
     }
   }
 }

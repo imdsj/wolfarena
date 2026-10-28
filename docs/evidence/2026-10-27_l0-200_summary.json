@@ -1,8 +1,8 @@
 {
   "run_id": "l0-1000-1199",
-  "generated_at": "2026-10-28T15:25:57.503998+00:00",
-  "code_commit": "25e95e8",
-  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out training_runs/l0-200 --commit 25e95e8",
+  "generated_at": "2026-10-28T15:45:21.438402+00:00",
+  "code_commit": "b2a8d89",
+  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out training_runs/l0-200 --commit b2a8d89",
   "policy": "l0",
   "policy_version": "l0.random.v1",
   "python_version": "3.14.7",
@@ -64,7 +64,7 @@
     "wolf": 0.16
   },
   "average_steps": 43.595,
-  "average_duration_ms": 15.099815000000001,
-  "total_duration_ms": 3019.963,
+  "average_duration_ms": 17.243705,
+  "total_duration_ms": 3448.741,
   "errors_by_type": {}
 }
