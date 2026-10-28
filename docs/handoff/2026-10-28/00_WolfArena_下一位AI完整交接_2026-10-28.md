@@ -8,9 +8,9 @@
 
 训练证据绑定：`b2a8d89`（2026-10-28 晚重跑 L0/L1 各 200 局）
 
-核对时远端 `main`：`b2a8d89cbb123990c2451f7dcc4f9436ce7f2b22`
+代码基线提交：`b2a8d89cbb123990c2451f7dcc4f9436ce7f2b22`
 
-当前标签：`v0.9.24-ai-handoff-2026-10-28`
+标签：`v0.9.24-ai-handoff-2026-10-28` 指向该基线；其后只有证据与文档提交。
 
 ## 0. 给下一位 AI 的直接开场指令
 
@@ -599,15 +599,17 @@ npm run build
 当前远端：
 
 ```text
-main = b2a8d89cbb123990c2451f7dcc4f9436ce7f2b22
-tag  = v0.9.24-ai-handoff-2026-10-28
+基线提交 = b2a8d89cbb123990c2451f7dcc4f9436ce7f2b22（代码与策略逻辑）
+tag      = v0.9.24-ai-handoff-2026-10-28 -> b2a8d89
 ```
 
 已确认：
 
-- `git ls-remote origin refs/heads/main` 返回 `b2a8d89`。
+- 2026-10-28 晚 `git ls-remote origin refs/heads/main` 返回 `b2a8d89`。
 - 本地工作区与 `b2a8d89` 逐文件比对为空（临时 Git 元数据执行）。
 - L0/L1 各 200 局已用 `b2a8d89` 重跑，manifest 与 summary 已替换。
+- 其后提交只包含证据与文档，不改变策略行为；以 `git log b2a8d89..origin/main`
+  可确认这几笔提交的范围。
 - 没有因本地视图差异而丢失训练证据。
 - 没有使用 reset --hard、checkout -- 或强推改写历史。
 
@@ -624,8 +626,9 @@ git rev-parse HEAD
 git rev-parse origin/main
 ```
 
-若 `git rev-parse HEAD` 仍是 `222577c`，说明本地引用未同步；此时工作区与远端
-内容一致，执行 `git reset --mixed origin/main` 即可对齐引用且不动文件。
+若 `git rev-parse HEAD` 仍是 `222577c`，说明本地引用未同步。`222577c` 是远端
+`main` 的祖先，工作区内容也与远端一致，因此执行 `git merge --ff-only origin/main`
+（或 `git reset --mixed origin/main`）即可对齐引用且不动文件。
 先确认再同步，不要直接执行 reset --hard 或强推。
 
 ## 12. 运行方式
