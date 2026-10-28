@@ -202,6 +202,10 @@ class AIController:
                 action_views = non_stalling_views
         if not action_views:
             return None
+        observer = getattr(policy, "observe_state", None)
+        if callable(observer):
+            # Optional read-only hook for policies that learn from state.
+            observer(state, actor)
         action = policy.choose_action(
             [view.action for view in action_views]
         )

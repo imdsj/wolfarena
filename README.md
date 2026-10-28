@@ -219,6 +219,40 @@ python -m backend.metrics --run training_runs/l0-200
 
 结果写入该目录的 `recomputed-summary.json`，并比较它与 `summary.json` 是否一致。
 
+## L2 最小 Q-learning
+
+`l2.qtable.v1` 是第一个可保存、可重载的表格式策略，只学习动作类型。
+
+```powershell
+# 训练：seed 0 至 19，epsilon 从 0.3 线性降到 0.05
+python -m backend.simulator `
+  --games 20 `
+  --seed-start 0 `
+  --policy l2 `
+  --out training_runs/l2-train-20 `
+  --model-out training_runs/l2-train-20/model.json `
+  --commit <short-sha>
+
+# 评估：独立 seed 区间，加载模型后固定贪心
+python -m backend.simulator `
+  --games 20 `
+  --seed-start 1000 `
+  --policy l2 `
+  --out training_runs/l2-eval-20 `
+  --model-in training_runs/l2-train-20/model.json `
+  --commit <short-sha>
+```
+
+边界：
+
+- 状态只含自身角色、阶段、天数组和公开存活人数，不读取他人隐藏身份。
+- 动作只从服务端 `legal_actions` 中选择，目标、选项和发言沿用 L1。
+- 奖励只有终局胜方 +1、败方 -1，中间步骤为 0。
+- 训练 seed 与评估 seed 必须不重叠。
+- 模型 JSON 含 `strategy_id`、`config`、`q_table`、`stats`、`meta` 和
+  `content_hash`，加载时校验哈希，篡改会直接报错。
+- 20 局样本只能证明流程可跑通，不能据此声称胜率提升。
+
 ## 本地战术库
 
 ```powershell
