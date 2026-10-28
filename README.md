@@ -193,8 +193,12 @@ python -m backend.simulator `
   --games 10 `
   --seed-start 1000 `
   --policy l0 `
-  --out training_runs/smoke-l0
+  --out training_runs/smoke-l0 `
+  --commit <short-sha>
 ```
+
+写进文档证据的批次必须显式传 `--commit`，值和推送后的远端 `main` 一致。
+不传时模拟器会读取本地 `git HEAD`，本地引用落后于远端时会写错提交号。
 
 输出：
 
