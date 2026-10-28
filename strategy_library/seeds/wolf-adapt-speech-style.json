@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.adapt-speech-style",
+  "title": "狼人避免固定发言模板",
+  "role": "werewolf",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "多名狼队友连续使用近似的发言结构和归票理由。",
+  "recommendation": "根据各自公开视角调整用词和关注点，保持事实一致但不复刻同一模板。",
+  "rationale": "重复模板会形成可检测的群体模式，增加狼队被整体识别风险。",
+  "tags": ["狼人", "发言", "模板", "伪装"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

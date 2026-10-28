@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "seer.check-claim-conflict",
+  "title": "预言家围绕身份冲突补查验",
+  "role": "seer",
+  "phase": "NIGHT_SEER_CHECK",
+  "action": "seer_check",
+  "trigger": "某名未查验玩家支持与自己结论直接冲突的神职自报。",
+  "recommendation": "在合法且未查验的目标中优先核验该玩家，以验证冲突阵营的结构。",
+  "rationale": "围绕冲突节点查验可以同时验证身份链和投票动机。",
+  "tags": ["预言家", "查验", "冲突", "身份"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

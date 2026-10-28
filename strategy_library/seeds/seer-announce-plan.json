@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "seer.announce-check-plan",
+  "title": "预言家公开查验逻辑",
+  "role": "seer",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "预言家已经掌握多轮查验结果，需要对好人阵营提供可核验信息。",
+  "recommendation": "按夜次说明查验对象和结果，并解释目标选择；只陈述实际收到的结果。",
+  "rationale": "稳定的信息结构便于其他玩家复核，也能减少身份冲突时的表述歧义。",
+  "tags": ["预言家", "发言", "查验", "信息"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

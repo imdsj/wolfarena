@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "witch.hold-poison-without-evidence",
+  "title": "无解药女巫保留毒药证据门槛",
+  "role": "witch",
+  "phase": "NIGHT_WITCH_ACTION",
+  "action": "witch_action",
+  "trigger": "解药已用、毒药仍可用，但没有结构化高可信狼位。",
+  "recommendation": "选择不用药，继续观察公开冲突和票型；不要因没有刀口信息而随机毒人。",
+  "rationale": "毒药误伤猎人或好人会造成不可逆损失，证据不足时应拒绝行动。",
+  "tags": ["女巫", "毒药", "证据", "风险"],
+  "source_type": "rule_doc",
+  "source": "docs/01_game_rules_v1.md",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

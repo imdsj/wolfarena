@@ -82,6 +82,18 @@ class StrategyLibraryTests(unittest.TestCase):
             all(match.card.status in {"seed", "validated"} for match in matches)
         )
 
+    def test_repository_has_at_least_thirty_unique_seed_strategies(self) -> None:
+        repository_library = StrategyLibrary(
+            PROJECT_ROOT / "strategy_library"
+        )
+        seeds = repository_library.load("seed")
+
+        self.assertGreaterEqual(len(seeds), 30)
+        self.assertEqual(
+            len({card.strategy_id for card in seeds}),
+            len(seeds),
+        )
+
     def test_candidate_is_not_searchable_by_default(self) -> None:
         card = candidate_card()
         self.library.record_candidate(card)

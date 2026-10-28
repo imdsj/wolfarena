@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.disciplined-selfdest",
+  "title": "狼人只在收益明确时自爆",
+  "role": "werewolf",
+  "phase": "DAY_DISCUSSION",
+  "action": "self_destruct",
+  "trigger": "狼人即将被确定放逐，或自爆能够立即终止不利投票并扭转节奏。",
+  "recommendation": "只有当收益高于保留身份和发言机会时自爆；普通讨论不因情绪触发。",
+  "rationale": "自爆是公开身份的一次性节奏工具，过早使用会减少狼队可操作人数。",
+  "tags": ["狼人", "自爆", "节奏", "收益"],
+  "source_type": "rule_doc",
+  "source": "docs/01_game_rules_v1.md",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

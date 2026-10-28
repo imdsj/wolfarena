@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "villager.track-vote-reversal",
+  "title": "村民关注归票反转",
+  "role": "villager",
+  "phase": "VOTE",
+  "action": "vote",
+  "trigger": "投票截止前出现明显归票反转，且反转方的公开理由不足。",
+  "recommendation": "对照反转前后的受益者，将解释不足者列为高优先级嫌疑，而不是机械追随末轮归票。",
+  "rationale": "票型变化能够暴露发言之外的协作关系，是好人可复核的公共证据。",
+  "tags": ["村民", "投票", "归票", "反转"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

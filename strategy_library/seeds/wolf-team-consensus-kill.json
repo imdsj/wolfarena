@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.consensus-wolf-kill",
+  "title": "狼队刀口保持统一信息",
+  "role": "werewolf",
+  "phase": "NIGHT_WOLF_KILL",
+  "action": "wolf_kill",
+  "trigger": "狼队内部对多个目标存在不同判断。",
+  "recommendation": "先形成统一目标并记录理由，避免队员在后续复盘中引用互相矛盾的刀口信息。",
+  "rationale": "统一刀口有助于维护团队叙事一致性，但不应以泄漏队友身份为代价。",
+  "tags": ["狼人", "刀人", "共识", "信息"],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}
