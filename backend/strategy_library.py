@@ -22,6 +22,12 @@ SourceType = Literal[
     "offline_research",
     "agent_observation",
 ]
+EvidenceLevel = Literal[
+    "untested",
+    "rule_derived",
+    "simulated",
+    "human_validated",
+]
 
 
 class StrategyError(ValueError):
@@ -44,6 +50,8 @@ class StrategyCard(BaseModel):
     trigger: str = Field(min_length=1, max_length=600)
     recommendation: str = Field(min_length=1, max_length=600)
     rationale: str = Field(min_length=1, max_length=1000)
+    risk: str = Field(min_length=1, max_length=600)
+    evidence_level: EvidenceLevel = "untested"
     tags: list[str] = Field(default_factory=list, max_length=20)
     source_type: SourceType
     source: str = Field(min_length=1, max_length=500)

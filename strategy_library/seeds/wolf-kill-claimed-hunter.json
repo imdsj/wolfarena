@@ -8,7 +8,15 @@
   "trigger": "玩家公开自报猎人，且狼队当前不能承受猎人开枪风险。",
   "recommendation": "比较直接击杀猎人与其可能带走的狼队友风险；风险过高时改刀其他神职或空刀。",
   "rationale": "猎人的死亡可能触发反制，不能只按神职身份机械下刀。",
-  "tags": ["猎人", "神职", "自报", "反制", "刀人"],
+  "risk": "刀真猎人会立即挨一枪；把它判断成假跳则可能浪费一刀。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "猎人",
+    "神职",
+    "自报",
+    "反制",
+    "刀人"
+  ],
   "source_type": "rule_doc",
   "source": "docs/01_game_rules_v1.md",
   "status": "seed",

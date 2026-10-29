@@ -8,7 +8,14 @@
   "trigger": "女巫仍有解药，并且服务端私密信息给出了当夜准确刀口。",
   "recommendation": "只在刀口目标属于关键好人或当前局势不能承受该死亡时使用解药；空刀不使用解药。",
   "rationale": "解药整局只有一次，可见刀口是决策信息，不是必须自动使用解药的命令。",
-  "tags": ["女巫", "解药", "刀口", "救人"],
+  "risk": "只按可见刀口评估会漏掉自刀骗药的局；救错目标会浪费唯一的解药。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "女巫",
+    "解药",
+    "刀口",
+    "救人"
+  ],
   "source_type": "rule_doc",
   "source": "docs/01_game_rules_v1.md#WITCH-003",
   "status": "seed",

@@ -172,6 +172,11 @@ class QTablePolicy:
         self._current_role: Role | None = None
         self._active_actor_id: str | None = None
         self._progress = 0.0
+        # Per-episode trace used only for convergence evidence. It is not part
+        # of the model payload, so it never changes the content hash.
+        self.history: list[dict[str, float]] = []
+        self._episode_abs_delta = 0.0
+        self._episode_updates = 0
 
     # -- training loop hooks ------------------------------------------------
 
@@ -195,6 +200,7 @@ class QTablePolicy:
         digest = self.content_hash
         self.config.training = False
         self.stats = {"episodes": 0, "updates": 0, "decisions": 0}
+        self.history = []
         self.meta["frozen_from_hash"] = digest
         return digest
 
@@ -207,13 +213,32 @@ class QTablePolicy:
     def end_episode(self, winner: str | None) -> None:
         """Apply the terminal reward once the game result is known."""
 
+        episode_reward = 0.0
         for pending in self._pending.values():
             reward = 0.0
             if winner is not None:
                 reward = 1.0 if pending.faction == winner else -1.0
+                episode_reward = reward
             self._update(pending.key, pending.action, reward, None)
         self._pending.clear()
         self.stats["episodes"] = int(self.stats.get("episodes", 0)) + 1
+        if self.config.training:
+            self.history.append(
+                {
+                    "episode": len(self.history) + 1,
+                    "reward": episode_reward,
+                    "epsilon": round(self.epsilon, 4),
+                    "mean_abs_delta": round(
+                        self._episode_abs_delta
+                        / self._episode_updates
+                        if self._episode_updates
+                        else 0.0,
+                        6,
+                    ),
+                }
+            )
+        self._episode_abs_delta = 0.0
+        self._episode_updates = 0
 
     # -- policy interface used by AIController ------------------------------
 
@@ -310,10 +335,11 @@ class QTablePolicy:
             if next_values:
                 bootstrap = max(next_values.values())
         target = reward + self.config.gamma * bootstrap
-        values[action] = round(
-            current + self.config.alpha * (target - current), 9
-        )
+        delta = self.config.alpha * (target - current)
+        values[action] = round(current + delta, 9)
         self.stats["updates"] = int(self.stats.get("updates", 0)) + 1
+        self._episode_abs_delta += abs(delta)
+        self._episode_updates += 1
 
     # -- persistence --------------------------------------------------------
 

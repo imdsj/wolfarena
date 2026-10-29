@@ -253,6 +253,16 @@ python -m backend.simulator `
   `content_hash`，加载时校验哈希，篡改会直接报错。
 - 20 局样本只能证明流程可跑通，不能据此声称胜率提升。
 
+CLI 参数说明：
+
+- 训练必须给 `--model-out`，模型写到 `strategy_library/models/` 之外的
+  临时目录或该目录均可，提交时只保留小体积 JSON。
+- 评估用 `--model-in`，`--model` 是它的短别名，两种写法等价；加载后会
+  `freeze()`，epsilon 固定为 0，且不再更新 Q 表。
+- 训练批次的 `manifest.json` 的 `model.train_curve` 记录分段平均奖励和
+  平均 |TD 误差|，`model.train_curve_summary` 给出前段/后段对比，用于判断
+  是否收敛；评估批次不要期望出现该字段。
+
 ## 本地战术库
 
 ```powershell

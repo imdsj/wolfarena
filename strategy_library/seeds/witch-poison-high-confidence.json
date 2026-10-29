@@ -8,7 +8,14 @@
   "trigger": "毒药仍可用，存在发言矛盾、查验冲突或投票行为高度可疑的目标。",
   "recommendation": "当错误毒杀的代价明显大于观望时再使用毒药；缺少结构化证据时选择不用药。",
   "rationale": "毒药可能误杀好人，且被毒猎人不能开枪，必须保留较高证据门槛。",
-  "tags": ["女巫", "毒药", "嫌疑", "证据"],
+  "risk": "“高可信”仍可能是狼队诱导；毒错好人会直接改变人数优势。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "女巫",
+    "毒药",
+    "嫌疑",
+    "证据"
+  ],
   "source_type": "rule_doc",
   "source": "docs/01_game_rules_v1.md",
   "status": "seed",

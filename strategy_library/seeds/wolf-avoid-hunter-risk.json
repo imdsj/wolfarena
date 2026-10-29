@@ -8,7 +8,14 @@
   "trigger": "高价值目标可能是猎人，且狼队无法承受其开枪反制。",
   "recommendation": "在刀神职收益与被猎人带走的风险之间比较，必要时选择更安全的目标或空刀。",
   "rationale": "击杀高身份不等于正收益，反制死亡会改变下一轮人数关系。",
-  "tags": ["狼人", "猎人", "刀口", "风险"],
+  "risk": "回避猎人刀口会放弃高价值目标；过度谨慎会让神职多活一天。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "狼人",
+    "猎人",
+    "刀口",
+    "风险"
+  ],
   "source_type": "rule_doc",
   "source": "docs/01_game_rules_v1.md",
   "status": "seed",

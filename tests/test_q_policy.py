@@ -19,6 +19,7 @@ from backend.q_policy import (
     visible_key,
 )
 from backend.simulator import SimulationConfig, run_simulation
+from backend.simulator import build_parser
 
 
 def _policy(**overrides) -> QTablePolicy:
@@ -227,6 +228,91 @@ class PersistenceTests(TestCase):
 
 
 class SimulatorIntegrationTests(TestCase):
+    def test_model_alias_targets_model_in(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "--games",
+                "1",
+                "--policy",
+                "l2",
+                "--out",
+                "training_runs/alias",
+                "--model",
+                "strategy_library/models/l2-qtable-v1.json",
+            ]
+        )
+        self.assertEqual(
+            args.model_in,
+            Path("strategy_library/models/l2-qtable-v1.json"),
+        )
+        self.assertIsNone(args.model_out)
+
+    def test_training_manifest_carries_convergence_curve(self) -> None:
+        root = _temp_dir("q-curve")
+        out = root / "train"
+        run_simulation(
+            SimulationConfig(
+                games=3,
+                seed_start=0,
+                policy="l2",
+                output_directory=out,
+                model_out=out / "model.json",
+                code_commit="test-sha",
+            )
+        )
+        manifest = json.loads(
+            (out / "manifest.json").read_text(encoding="utf-8")
+        )
+        model = manifest["model"]
+        self.assertEqual(model["mode"], "train")
+        self.assertEqual(len(model["train_curve"]), 3)
+        self.assertEqual(
+            [row["episode_from"] for row in model["train_curve"]],
+            [1, 2, 3],
+        )
+        for row in model["train_curve"]:
+            self.assertIn(row["avg_reward"], {-1.0, 1.0})
+            self.assertGreaterEqual(row["mean_abs_delta"], 0.0)
+        self.assertGreater(model["epsilon"], 0.0)
+
+    def test_evaluated_model_reports_frozen_greedy_settings(self) -> None:
+        root = _temp_dir("q-eval-meta")
+        train_out = root / "train"
+        run_simulation(
+            SimulationConfig(
+                games=2,
+                seed_start=0,
+                policy="l2",
+                output_directory=train_out,
+                model_out=train_out / "model.json",
+                code_commit="test-sha",
+            )
+        )
+        eval_out = root / "eval"
+        run_simulation(
+            SimulationConfig(
+                games=2,
+                seed_start=1000,
+                policy="l2",
+                output_directory=eval_out,
+                model_in=train_out / "model.json",
+                code_commit="test-sha",
+            )
+        )
+        manifest = json.loads(
+            (eval_out / "manifest.json").read_text(encoding="utf-8")
+        )
+        model = manifest["model"]
+        self.assertEqual(model["mode"], "evaluate")
+        self.assertEqual(model["epsilon"], 0.0)
+        self.assertNotIn("train_curve", model)
+        self.assertEqual(
+            model["loaded_content_hash"],
+            json.loads(
+                (train_out / "model.json").read_text(encoding="utf-8")
+            )["content_hash"],
+        )
+
     def test_l2_requires_a_model_destination_or_source(self) -> None:
         root = _temp_dir("q-config")
         with self.assertRaises(ValueError):

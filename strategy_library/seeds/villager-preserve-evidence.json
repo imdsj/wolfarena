@@ -8,7 +8,14 @@
   "trigger": "白天讨论出现多轮身份自报和冲突结论。",
   "recommendation": "引用实际发生的自报、查验、死亡和票型事件，避免用记忆模糊的二手描述定案。",
   "rationale": "可核验事件能够跨轮复用，降低信息在转述中的扭曲。",
-  "tags": ["好人", "发言", "证据", "事件"],
+  "risk": "只保存证据不下结论会拖慢节奏；关键回合仍需要明确表态。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "好人",
+    "发言",
+    "证据",
+    "事件"
+  ],
   "source_type": "team",
   "source": "WolfArena 团队策略假设；未经过胜率验证",
   "status": "seed",

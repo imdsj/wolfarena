@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import math
 from pathlib import Path
 import platform
 import shlex
@@ -546,6 +547,61 @@ def _build_learner(config: SimulationConfig) -> QTablePolicy | None:
     return learner
 
 
+def _training_curve(
+    history: Sequence[dict[str, float]],
+    *,
+    buckets: int = 20,
+) -> list[dict[str, float]]:
+    """Aggregate per-episode training rewards into a small convergence curve."""
+
+    if not history:
+        return []
+    size = max(1, math.ceil(len(history) / buckets))
+    rows: list[dict[str, float]] = []
+    for start in range(0, len(history), size):
+        chunk = history[start : start + size]
+        rows.append(
+            {
+                "episode_from": chunk[0]["episode"],
+                "episode_to": chunk[-1]["episode"],
+                "epsilon": round(
+                    sum(item["epsilon"] for item in chunk) / len(chunk), 4
+                ),
+                "avg_reward": round(
+                    sum(item["reward"] for item in chunk) / len(chunk), 4
+                ),
+                "mean_abs_delta": round(
+                    sum(item["mean_abs_delta"] for item in chunk)
+                    / len(chunk),
+                    6,
+                ),
+            }
+        )
+    return rows
+
+
+def _curve_summary(
+    curve: Sequence[dict[str, float]],
+) -> dict[str, Any] | None:
+    """Compare the head and tail of the curve as a coarse convergence check."""
+
+    if len(curve) < 2:
+        return None
+    half = max(1, len(curve) // 2)
+    head = list(curve[:half])
+    tail = list(curve[-half:])
+
+    def mean(rows: Sequence[dict[str, float]], key: str) -> float:
+        return round(sum(row[key] for row in rows) / len(rows), 6)
+
+    return {
+        "head_avg_reward": mean(head, "avg_reward"),
+        "tail_avg_reward": mean(tail, "avg_reward"),
+        "head_mean_abs_delta": mean(head, "mean_abs_delta"),
+        "tail_mean_abs_delta": mean(tail, "mean_abs_delta"),
+    }
+
+
 def _finish_learner(
     learner: QTablePolicy | None,
     config: SimulationConfig,
@@ -561,9 +617,14 @@ def _finish_learner(
             len(values) for values in learner.q_table.values()
         ),
         "mode": "train" if learner.config.training else "evaluate",
+        "epsilon": round(learner.epsilon, 4),
         "model_path": None,
         "content_hash": None,
     }
+    if learner.config.training:
+        curve = _training_curve(learner.history)
+        info["train_curve"] = curve
+        info["train_curve_summary"] = _curve_summary(curve)
     if learner.config.training and config.model_out is not None:
         learner.meta["code_commit"] = _resolve_code_commit(config.code_commit)
         info["content_hash"] = learner.save(config.model_out)
@@ -774,9 +835,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model-in",
+        "--model",
         type=Path,
         default=None,
-        help="加载 l2 模型做贪心评估（epsilon 固定为 0）",
+        help=(
+            "加载 l2 模型做贪心评估（epsilon 固定为 0）；"
+            "--model 是同一参数的短别名"
+        ),
     )
     parser.add_argument("--epsilon-start", type=float, default=0.3)
     parser.add_argument("--epsilon-end", type=float, default=0.05)
