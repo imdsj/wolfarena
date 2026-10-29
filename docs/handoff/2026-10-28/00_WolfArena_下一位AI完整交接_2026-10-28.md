@@ -805,3 +805,21 @@ npm run smoke:acceptance
 
 下一位 AI 应先保住这些可验证性，再实现训练。任何新结论都必须能回到代码、
 固定 seed、原始日志和 manifest。
+
+## 19. 2026-10-29 进展更新（晚于正文）
+
+- 代码提交 `b1234e9`：L2 增加训练曲线（分段平均奖励与平均 |TD 误差|）、
+  CLI 增加 `--model` 作为 `--model-in` 的短别名、策略卡新增必填字段
+  `risk` 与 `evidence_level`。
+- 训练：seed 0–999 共 1000 局，Q 表 199 状态 / 248 状态-动作对，
+  模型 18 KB，内容哈希 `3461404e…33572`。
+- 评估：seed 1000–1199 各 200 局，L0 好人胜 84.0%、L1 36.5%、
+  L2 31.5%；L2 未超过 L1，同模型同 seed 两次动作流哈希一致。
+- 结论：判据（独立性/复现性/合法性/样本量/对照/可复算）全部通过，
+  但 G-06 仍为 No-Go，禁止宣传“训练后胜率提升”；L2 不进演示主链。
+- 策略库：33 条种子策略全部补齐 `risk` 与 `evidence_level=rule_derived`，
+  盘点见 `docs/evidence/2026-10-29_strategy_library_inventory.md`。
+- 详细证据：`docs/evidence/2026-10-29_l2_train_eval_200.md`、
+  `docs/evidence/2026-10-29_l2_model_card.md`。
+- 环境注意：E 盘 `.git` 仍不可由沙箱写入，提交通过镜像 git-dir 完成；
+  本地仓库需自行 `git fetch origin && git merge --ff-only origin/main` 对齐。

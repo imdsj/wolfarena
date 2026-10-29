@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-29T01:19:07.912790+00:00",
+  "code_commit": "b1234e9",
+  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out 'training_runs\\eval-l0-200' --commit b1234e9",
+  "python_version": "3.14.7",
+  "policy": "l0",
+  "policy_version": "l0.random.v1",
+  "seed_start": 1000,
+  "seed_end": 1199,
+  "model": null,
+  "hash_algorithm": "sha256",
+  "files": {
+    "run.json": {
+      "sha256": "eb1ed4c517c8b52b24a4a9a57b41b6c4dd931a5ba59ae3240899a584599b1b0f",
+      "bytes": 2477
+    },
+    "games.jsonl": {
+      "sha256": "1f97851c70ee8899b1b2ea8f34361cb9146f56da5bed25070660052ceec45cd1",
+      "bytes": 103079
+    },
+    "actions.jsonl": {
+      "sha256": "9ab277a428a9a233995c4722cd8ab31dceca5998d92c99b29cb9052531fdcbcf",
+      "bytes": 4395594
+    },
+    "roles.json": {
+      "sha256": "97ba5aef4441b1de5ac6faa6d3b2e66b190fc89284b652b5675efe2407986043",
+      "bytes": 219605
+    },
+    "summary.json": {
+      "sha256": "816281cf897816ede6aea294a9efce9982378a28fd01fb23a570e074181efd19",
+      "bytes": 1907
+    }
+  }
+}

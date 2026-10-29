@@ -668,7 +668,7 @@
     "train_seed_start": 0,
     "train_seed_end": 999,
     "games": 1000,
-    "code_commit": "dd33758"
+    "code_commit": "b1234e9"
   },
   "content_hash": "3461404ed50f43b85e3d61a583e3d1e5b5af2e6a0ab07cba4dfe2f5f0c233572"
 }

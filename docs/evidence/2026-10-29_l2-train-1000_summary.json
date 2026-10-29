@@ -1,0 +1,240 @@
+{
+  "run_id": "l2-0-999",
+  "generated_at": "2026-10-29T01:19:04.903138+00:00",
+  "code_commit": "b1234e9",
+  "command": "python -m backend.simulator --games 1000 --seed-start 0 --policy l2 --out 'training_runs\\train-l2-0000-0999' --model-out 'strategy_library\\models\\l2-qtable-v1.json' --commit b1234e9",
+  "policy": "l2",
+  "policy_version": "l2.qtable.v1",
+  "python_version": "3.14.7",
+  "model": {
+    "strategy_id": "l2.qtable.v1",
+    "config": {
+      "seed": 0,
+      "epsilon_start": 0.3,
+      "epsilon_end": 0.05,
+      "alpha": 0.2,
+      "gamma": 0.95,
+      "training": true
+    },
+    "stats": {
+      "episodes": 1000,
+      "updates": 53980,
+      "decisions": 53980
+    },
+    "states": 199,
+    "state_action_pairs": 248,
+    "mode": "train",
+    "epsilon": 0.0502,
+    "model_path": "strategy_library\\models\\l2-qtable-v1.json",
+    "content_hash": "3461404ed50f43b85e3d61a583e3d1e5b5af2e6a0ab07cba4dfe2f5f0c233572",
+    "train_curve": [
+      {
+        "episode_from": 1,
+        "episode_to": 50,
+        "epsilon": 0.2939,
+        "avg_reward": 0.017,
+        "mean_abs_delta": 0.058197
+      },
+      {
+        "episode_from": 51,
+        "episode_to": 100,
+        "epsilon": 0.2814,
+        "avg_reward": 0.026,
+        "mean_abs_delta": 0.056663
+      },
+      {
+        "episode_from": 101,
+        "episode_to": 150,
+        "epsilon": 0.2689,
+        "avg_reward": -0.0771,
+        "mean_abs_delta": 0.060452
+      },
+      {
+        "episode_from": 151,
+        "episode_to": 200,
+        "epsilon": 0.2563,
+        "avg_reward": -0.0305,
+        "mean_abs_delta": 0.050412
+      },
+      {
+        "episode_from": 201,
+        "episode_to": 250,
+        "epsilon": 0.2438,
+        "avg_reward": -0.0283,
+        "mean_abs_delta": 0.05412
+      },
+      {
+        "episode_from": 251,
+        "episode_to": 300,
+        "epsilon": 0.2314,
+        "avg_reward": -0.0855,
+        "mean_abs_delta": 0.055449
+      },
+      {
+        "episode_from": 301,
+        "episode_to": 350,
+        "epsilon": 0.2189,
+        "avg_reward": 0.0283,
+        "mean_abs_delta": 0.054448
+      },
+      {
+        "episode_from": 351,
+        "episode_to": 400,
+        "epsilon": 0.2063,
+        "avg_reward": 0.0117,
+        "mean_abs_delta": 0.056695
+      },
+      {
+        "episode_from": 401,
+        "episode_to": 450,
+        "epsilon": 0.1939,
+        "avg_reward": -0.0171,
+        "mean_abs_delta": 0.054315
+      },
+      {
+        "episode_from": 451,
+        "episode_to": 500,
+        "epsilon": 0.1813,
+        "avg_reward": 0.0017,
+        "mean_abs_delta": 0.052034
+      },
+      {
+        "episode_from": 501,
+        "episode_to": 550,
+        "epsilon": 0.1689,
+        "avg_reward": -0.0667,
+        "mean_abs_delta": 0.059672
+      },
+      {
+        "episode_from": 551,
+        "episode_to": 600,
+        "epsilon": 0.1564,
+        "avg_reward": 0.0019,
+        "mean_abs_delta": 0.056409
+      },
+      {
+        "episode_from": 601,
+        "episode_to": 650,
+        "epsilon": 0.1439,
+        "avg_reward": -0.0071,
+        "mean_abs_delta": 0.053893
+      },
+      {
+        "episode_from": 651,
+        "episode_to": 700,
+        "epsilon": 0.1314,
+        "avg_reward": 0.0317,
+        "mean_abs_delta": 0.056561
+      },
+      {
+        "episode_from": 701,
+        "episode_to": 750,
+        "epsilon": 0.1188,
+        "avg_reward": -0.0188,
+        "mean_abs_delta": 0.054396
+      },
+      {
+        "episode_from": 751,
+        "episode_to": 800,
+        "epsilon": 0.1064,
+        "avg_reward": -0.008,
+        "mean_abs_delta": 0.054492
+      },
+      {
+        "episode_from": 801,
+        "episode_to": 850,
+        "epsilon": 0.0939,
+        "avg_reward": 0.0133,
+        "mean_abs_delta": 0.051941
+      },
+      {
+        "episode_from": 851,
+        "episode_to": 900,
+        "epsilon": 0.0813,
+        "avg_reward": -0.0571,
+        "mean_abs_delta": 0.055249
+      },
+      {
+        "episode_from": 901,
+        "episode_to": 950,
+        "epsilon": 0.0689,
+        "avg_reward": -0.0817,
+        "mean_abs_delta": 0.049592
+      },
+      {
+        "episode_from": 951,
+        "episode_to": 1000,
+        "epsilon": 0.0563,
+        "avg_reward": -0.1121,
+        "mean_abs_delta": 0.049204
+      }
+    ],
+    "train_curve_summary": {
+      "head_avg_reward": -0.01538,
+      "tail_avg_reward": -0.03046,
+      "head_mean_abs_delta": 0.055278,
+      "tail_mean_abs_delta": 0.054141
+    }
+  },
+  "seed_start": 0,
+  "seed_end": 999,
+  "total_games": 1000,
+  "completed_games": 1000,
+  "valid_completed_games": 1000,
+  "failed_games": 0,
+  "completion_rate": 1.0,
+  "actions_submitted": 66990,
+  "actions_succeeded": 66990,
+  "actions_failed": 0,
+  "action_legal_rate": 1.0,
+  "action_counts": {
+    "begin_banishment_last_words": 1059,
+    "begin_day": 2919,
+    "close_self_destruct_window": 358,
+    "close_vote": 2462,
+    "day_hunter_shot": 140,
+    "last_words": 2352,
+    "night_hunter_shot": 350,
+    "resolve_night": 3488,
+    "resolve_vote": 2462,
+    "seer_check": 2726,
+    "self_destruct": 457,
+    "speech": 16086,
+    "start_night": 1000,
+    "vote": 10120,
+    "witch_action": 2701,
+    "wolf_kill": 3488,
+    "wolf_speech": 14822
+  },
+  "action_frequency_per_game": {
+    "begin_banishment_last_words": 1.059,
+    "begin_day": 2.919,
+    "close_self_destruct_window": 0.358,
+    "close_vote": 2.462,
+    "day_hunter_shot": 0.14,
+    "last_words": 2.352,
+    "night_hunter_shot": 0.35,
+    "resolve_night": 3.488,
+    "resolve_vote": 2.462,
+    "seer_check": 2.726,
+    "self_destruct": 0.457,
+    "speech": 16.086,
+    "start_night": 1.0,
+    "vote": 10.12,
+    "witch_action": 2.701,
+    "wolf_kill": 3.488,
+    "wolf_speech": 14.822
+  },
+  "faction_win_counts": {
+    "good": 471,
+    "wolf": 529
+  },
+  "faction_win_rates": {
+    "good": 0.471,
+    "wolf": 0.529
+  },
+  "average_steps": 66.99,
+  "average_duration_ms": 28.969909,
+  "total_duration_ms": 28969.909,
+  "errors_by_type": {}
+}
