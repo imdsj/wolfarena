@@ -12,11 +12,17 @@ from backend.q_policy import (
     QPolicyConfig,
     QTablePolicy,
     STRATEGY_ID,
+    STRATEGY_ID_V1,
     alive_bucket,
+    alive_flag,
     day_bucket,
     faction_of,
+    speech_bucket,
     state_key,
+    state_key_v1,
     visible_key,
+    votes_bucket,
+    witch_items_bucket,
 )
 from backend.simulator import SimulationConfig, run_simulation
 from backend.simulator import build_parser
@@ -59,6 +65,24 @@ class VisibilityTests(TestCase):
         )
         self.assertNotEqual(before, visible_key(state, actor))
 
+    def test_schema_two_expands_key_with_public_and_own_features(self) -> None:
+        state = create_game(seed=11, human_count=0)
+        actor = get_player(state, "p1")
+        key = visible_key(state, actor, schema=2)
+        self.assertIn("|me1|", key)
+        self.assertIn("|v0|", key)
+        self.assertIn("|s0|", key)
+        self.assertTrue(key.endswith("|w-"))
+
+        actor.is_alive = False
+        self.assertIn("|me0|", visible_key(state, actor, schema=2))
+        actor.is_alive = True
+
+        for player in state.players:
+            if player.player_id != actor.player_id:
+                player.role = Role.WEREWOLF
+        self.assertEqual(visible_key(state, actor, schema=2), key)
+
     def test_buckets_cover_every_day_and_alive_count(self) -> None:
         self.assertEqual(day_bucket(1), "d1")
         self.assertEqual(day_bucket(2), "d2-3")
@@ -66,9 +90,19 @@ class VisibilityTests(TestCase):
         self.assertEqual(alive_bucket(9), "a9")
         self.assertEqual(alive_bucket(8), "a7-8")
         self.assertEqual(alive_bucket(0), "a0-2")
+        self.assertEqual(alive_flag(True), "me1")
+        self.assertEqual(votes_bucket(0), "v0")
+        self.assertEqual(votes_bucket(5), "v5+")
+        self.assertEqual(speech_bucket(3), "s1-4")
+        self.assertEqual(witch_items_bucket("villager", True, True), "w-")
+        self.assertEqual(witch_items_bucket("witch", True, False), "w10")
+        self.assertEqual(
+            state_key_v1(role="villager", phase="VOTE", day=2, alive=6),
+            "villager|VOTE|d2-3|a5-6",
+        )
         self.assertEqual(
             state_key(role="villager", phase="VOTE", day=2, alive=6),
-            "villager|VOTE|d2-3|a5-6",
+            "villager|VOTE|d2-3|a5-6|me1|v0|s0|w-",
         )
 
     def test_faction_uses_only_werewolf_role(self) -> None:
@@ -163,7 +197,9 @@ class RewardTests(TestCase):
         policy.begin_episode()
         policy.observe_state(self.state, self.actor)
         chosen = policy.choose_action(("vote", "speech"))
-        key = visible_key(self.state, self.actor)
+        key = visible_key(
+            self.state, self.actor, schema=policy.config.state_schema
+        )
 
         policy.end_episode(faction_of(self.actor.role))
 
@@ -175,7 +211,9 @@ class RewardTests(TestCase):
         policy.begin_episode()
         policy.observe_state(self.state, self.actor)
         chosen = policy.choose_action(("vote", "speech"))
-        key = visible_key(self.state, self.actor)
+        key = visible_key(
+            self.state, self.actor, schema=policy.config.state_schema
+        )
         other = "good" if faction_of(self.actor.role) == "wolf" else "wolf"
 
         policy.end_episode(other)
@@ -187,7 +225,9 @@ class RewardTests(TestCase):
         policy.begin_episode()
         policy.observe_state(self.state, self.actor)
         chosen = policy.choose_action(("vote", "speech"))
-        key = visible_key(self.state, self.actor)
+        key = visible_key(
+            self.state, self.actor, schema=policy.config.state_schema
+        )
 
         self.actor.is_alive = True
         policy.observe_state(self.state, self.actor)
@@ -235,7 +275,8 @@ class PersistenceTests(TestCase):
 
         self.assertEqual(loaded.content_hash, digest)
         self.assertEqual(loaded.q_table, policy.q_table)
-        self.assertEqual(loaded.strategy_id, STRATEGY_ID)
+        self.assertEqual(loaded.strategy_id, policy.strategy_id)
+        self.assertEqual(loaded.strategy_id, STRATEGY_ID_V1)
         payload = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(payload["schema_version"], 1)
 
@@ -288,6 +329,8 @@ class SimulatorIntegrationTests(TestCase):
         )
         model = manifest["model"]
         self.assertEqual(model["mode"], "train")
+        self.assertEqual(model["strategy_id"], STRATEGY_ID)
+        self.assertEqual(model["config"].get("state_schema"), 2)
         self.assertEqual(len(model["train_curve"]), 3)
         self.assertEqual(
             [row["episode_from"] for row in model["train_curve"]],

@@ -26,7 +26,9 @@ from .ai_growth import L1RulePolicy
 from .game_engine import GameState, Role
 
 
-STRATEGY_ID = "l2.qtable.v1"
+STRATEGY_ID = "l2.qtable.v2"
+STRATEGY_ID_V1 = "l2.qtable.v1"
+SUPPORTED_STRATEGY_IDS = (STRATEGY_ID, STRATEGY_ID_V1)
 MODEL_SCHEMA_VERSION = 1
 
 # Tie-breaking order at zero value, inherited from the L1 rule policy.
@@ -76,23 +78,96 @@ def alive_bucket(alive: int) -> str:
     return "a0-2"
 
 
-def state_key(*, role: str, phase: str, day: int, alive: int) -> str:
+def alive_flag(own_alive: bool) -> str:
+    """Own seat alive/dead, visible to the acting agent itself."""
+
+    return "me1" if own_alive else "me0"
+
+
+def votes_bucket(vote_count: int) -> str:
+    """Public count of votes cast so far in the current day."""
+
+    if vote_count <= 0:
+        return "v0"
+    if vote_count <= 4:
+        return "v1-4"
+    return "v5+"
+
+
+def speech_bucket(speech_count: int) -> str:
+    """Public count of speeches delivered so far in the current day."""
+
+    if speech_count <= 0:
+        return "s0"
+    if speech_count <= 4:
+        return "s1-4"
+    return "s5+"
+
+
+def witch_items_bucket(role: str, antidote: bool, poison: bool) -> str:
+    """The witch's own remaining items; non-witches get a constant token."""
+
+    if role != Role.WITCH.value:
+        return "w-"
+    return "w" + ("1" if antidote else "0") + ("1" if poison else "0")
+
+
+def state_key(
+    *,
+    role: str,
+    phase: str,
+    day: int,
+    alive: int,
+    own_alive: bool = True,
+    votes: int = 0,
+    speeches: int = 0,
+    antidote: bool = False,
+    poison: bool = False,
+) -> str:
     """Discrete key built exclusively from the agent's own visible state."""
 
     return "|".join(
-        (role, phase, day_bucket(day), alive_bucket(alive))
+        (
+            role,
+            phase,
+            day_bucket(day),
+            alive_bucket(alive),
+            alive_flag(own_alive),
+            votes_bucket(votes),
+            speech_bucket(speeches),
+            witch_items_bucket(role, antidote, poison),
+        )
     )
 
 
-def visible_key(state: GameState, actor) -> str:
+def state_key_v1(*, role: str, phase: str, day: int, alive: int) -> str:
+    """The original four-feature key used by ``l2.qtable.v1`` models."""
+
+    return "|".join((role, phase, day_bucket(day), alive_bucket(alive)))
+
+
+def visible_key(state: GameState, actor, *, schema: int = 2) -> str:
     """Derive a state key without reading any hidden player identity."""
 
     alive = sum(1 for player in state.players if player.is_alive)
+    if schema == 1:
+        return state_key_v1(
+            role=actor.role.value,
+            phase=state.phase.value,
+            day=state.day,
+            alive=alive,
+        )
+    day_result = state.day_result
     return state_key(
         role=actor.role.value,
         phase=state.phase.value,
         day=state.day,
         alive=alive,
+        own_alive=actor.is_alive,
+        votes=len(day_result.votes) if day_result else 0,
+        speeches=day_result.next_speaker_index if day_result else 0,
+        antidote=state.antidote_available,
+        poison=state.poison_available,
     )
 
 
@@ -111,6 +186,7 @@ class QPolicyConfig:
     alpha: float = 0.2
     gamma: float = 0.95
     training: bool = True
+    state_schema: int = 1
 
     def __post_init__(self) -> None:
         if isinstance(self.seed, bool) or not isinstance(self.seed, int):
@@ -121,9 +197,11 @@ class QPolicyConfig:
             raise ValueError("alpha 必须在 (0, 1] 内")
         if not 0.0 <= self.gamma <= 1.0:
             raise ValueError("gamma 必须在 [0, 1] 内")
+        if self.state_schema not in (1, 2):
+            raise ValueError("state_schema 只能是 1 或 2")
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "seed": self.seed,
             "epsilon_start": self.epsilon_start,
             "epsilon_end": self.epsilon_end,
@@ -131,6 +209,9 @@ class QPolicyConfig:
             "gamma": self.gamma,
             "training": self.training,
         }
+        if self.state_schema == 2:
+            payload["state_schema"] = 2
+        return payload
 
 
 @dataclass(slots=True)
@@ -143,7 +224,6 @@ class _Pending:
 class QTablePolicy:
     """Epsilon-greedy tabular learner over action types."""
 
-    strategy_id: str = STRATEGY_ID
     stage_name: str = "L2_STRATEGY"
 
     def __init__(
@@ -155,6 +235,9 @@ class QTablePolicy:
         meta: dict[str, Any] | None = None,
     ) -> None:
         self.config = config
+        self.strategy_id = (
+            STRATEGY_ID if config.state_schema >= 2 else STRATEGY_ID_V1
+        )
         self.q_table: dict[str, dict[str, float]] = {
             key: dict(values) for key, values in (q_table or {}).items()
         }
@@ -248,7 +331,9 @@ class QTablePolicy:
     def observe_state(self, state: GameState, actor) -> None:
         """Record the acting agent's visible state before it chooses."""
 
-        self._current_key = visible_key(state, actor)
+        self._current_key = visible_key(
+            state, actor, schema=self.config.state_schema
+        )
         self._current_role = actor.role
         self._active_actor_id = actor.player_id
 
@@ -393,7 +478,7 @@ class QTablePolicy:
         payload = json.loads(path.read_text(encoding="utf-8"))
         if payload.get("schema_version") != MODEL_SCHEMA_VERSION:
             raise ValueError("不支持的模型 schema 版本")
-        if payload.get("strategy_id") != STRATEGY_ID:
+        if payload.get("strategy_id") not in SUPPORTED_STRATEGY_IDS:
             raise ValueError("模型 strategy_id 不匹配")
         config = QPolicyConfig(**payload["config"])
         policy = cls(
@@ -402,6 +487,7 @@ class QTablePolicy:
             stats=payload.get("stats", {}),
             meta=payload.get("meta", {}),
         )
+        policy.strategy_id = payload["strategy_id"]
         if policy.content_hash != payload.get("content_hash"):
             raise ValueError("模型内容哈希不匹配，文件可能被修改")
         return policy

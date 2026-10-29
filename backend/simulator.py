@@ -21,7 +21,7 @@ from typing import Any, Sequence
 from .actions import available_actions_for_state, execute_engine_action
 from .ai_controller import AIController, AIControllerStep
 from .ai_growth import L0Policy, L1RulePolicy
-from .q_policy import QPolicyConfig, QTablePolicy, STRATEGY_ID as Q_STRATEGY_ID
+from .q_policy import QPolicyConfig, QTablePolicy
 from .game_engine import (
     EventType,
     GameState,
@@ -535,6 +535,7 @@ def _build_learner(config: SimulationConfig) -> QTablePolicy | None:
         alpha=config.alpha,
         gamma=config.gamma,
         training=True,
+        state_schema=2,
     )
     learner = QTablePolicy(settings)
     learner.meta.update(
@@ -609,7 +610,7 @@ def _finish_learner(
     if learner is None:
         return None
     info: dict[str, Any] = {
-        "strategy_id": Q_STRATEGY_ID,
+        "strategy_id": learner.strategy_id,
         "config": learner.config.as_dict(),
         "stats": dict(learner.stats),
         "states": len(learner.q_table),
