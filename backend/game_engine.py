@@ -110,6 +110,7 @@ PHASE_ORDER: Final[tuple[Phase, ...]] = (
 SPECTATOR_VIEW: Final[str] = "spectator"
 PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 30.0
 LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 30.0
+HUMAN_ACTION_TIMEOUT_SECONDS: Final[float] = 20.0
 
 
 ROLE_DECK: Final[tuple[Role, ...]] = (
@@ -227,6 +228,8 @@ class GameState:
     night_result: NightResult | None = None
     day_result: DayResult | None = None
     events: list[Event] = field(default_factory=list)
+    phase_deadline_at: float | None = None
+    phase_deadline_kind: str | None = None
 
     def role_counts(self) -> Counter[Role]:
         """Return one count for each role in the game."""

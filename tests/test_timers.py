@@ -16,7 +16,8 @@ from backend.game_engine import (
     begin_day,
     self_destruct,
 )
-from backend.rooms import InMemoryRoomRepository
+from backend.rooms import InMemoryRoomRepository, ViewerAccess
+from backend.schemas import ActionRequest
 from backend.timers import RoomTimerService
 
 
@@ -113,6 +114,39 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
         events_after = len(room.state.events)
         await timer.tick(now=deadline)
         self.assertEqual(len(room.state.events), events_after)
+
+    async def test_idle_human_night_role_reaches_end_via_autoplay(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = repository.create_room(
+            seed=3,
+            human_count=1,
+            max_humans=3,
+            nickname="H",
+        )
+        room = repository._rooms[created.room_id]
+        access = ViewerAccess(
+            room_id=created.room_id,
+            kind="player",
+            player_id="p1",
+        )
+        repository.execute_action_and_advance_ai(
+            access,
+            ActionRequest(action="start_night"),
+            now=0.0,
+        )
+        self.assertEqual(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
+        self.assertEqual(room.state.phase_deadline_kind, "human_action")
+
+        realtime = FakeRealtime()
+        timer = RoomTimerService(repository, realtime)
+        now = 0.0
+        for _ in range(600):
+            now += 21.0
+            await timer.tick(now=now)
+            if room.state.phase is Phase.END:
+                break
+
+        self.assertIs(room.state.phase, Phase.END)
 
 
 class TimerLifecycleTests(IsolatedAsyncioTestCase):

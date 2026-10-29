@@ -13,6 +13,7 @@ from .ai_growth import L1RulePolicy
 from .game_engine import (
     EventType,
     GameState,
+    HUMAN_ACTION_TIMEOUT_SECONDS,
     Phase,
     Player,
     Role,
@@ -24,6 +25,25 @@ from .schemas import ActionRequest, ActionView
 
 if TYPE_CHECKING:
     from .rooms import RoomMutation
+
+
+NIGHT_ACTION_PHASES = frozenset(
+    {
+        Phase.NIGHT_WOLF_DISCUSSION_R1,
+        Phase.NIGHT_WOLF_DISCUSSION_R2,
+        Phase.NIGHT_WOLF_KILL,
+        Phase.NIGHT_SEER_CHECK,
+        Phase.NIGHT_WITCH_ACTION,
+        Phase.NIGHT_HUNTER_SHOT,
+    }
+)
+HUMAN_TURN_TIMEOUT_PHASES = frozenset(
+    NIGHT_ACTION_PHASES
+    | {
+        Phase.VOTE,
+        Phase.DAY_HUNTER_SHOT,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +86,7 @@ class AIController:
         room = self._repository._get_room(room_id)
         with room.lock:
             previous_event_seq = room.last_event_seq
+            self._clear_phase_deadline(room.state)
             steps = 0
             reason: Literal[
                 "human_turn",
@@ -132,6 +153,9 @@ class AIController:
                     reason=f"AI推进超过{self._max_steps}步",
                 )
 
+            if reason == "human_turn":
+                self._ensure_human_turn_deadline(room.state, now)
+
             return AIControllerResult(
                 steps=steps,
                 stopped_reason=reason,
@@ -148,6 +172,7 @@ class AIController:
         skip_optional_self_destruct: bool = True,
         auto_close_vote: bool = False,
         auto_start_game: bool = False,
+        include_human: bool = False,
     ) -> AIControllerStep | None:
         if auto_start_game and state.phase is Phase.INIT:
             return AIControllerStep(
@@ -180,8 +205,10 @@ class AIController:
                 is_system=True,
             )
 
-        actor = self._next_role_actor(state)
-        if actor is None or actor.is_human:
+        actor = self._next_role_actor(state, include_human=include_human)
+        if actor is None:
+            return None
+        if actor.is_human and not include_human:
             return None
 
         action_views = available_actions_for_state(
@@ -214,6 +241,27 @@ class AIController:
         return AIControllerStep(actor=actor, request=request)
 
     @staticmethod
+    def _clear_phase_deadline(state: GameState) -> None:
+        state.phase_deadline_at = None
+        state.phase_deadline_kind = None
+
+    def _ensure_human_turn_deadline(
+        self,
+        state: GameState,
+        now: float | None,
+    ) -> None:
+        """Start the idle timer when the game waits on a human action."""
+
+        if state.phase not in HUMAN_TURN_TIMEOUT_PHASES:
+            return
+        actor = self._next_role_actor(state, include_human=True)
+        if actor is None or not actor.is_human:
+            return
+        reference = now if now is not None else time.time()
+        state.phase_deadline_at = reference + HUMAN_ACTION_TIMEOUT_SECONDS
+        state.phase_deadline_kind = "human_action"
+
+    @staticmethod
     def _system_action(
         state: GameState,
         *,
@@ -241,7 +289,12 @@ class AIController:
             return ActionRequest(action="close_self_destruct_window")
         return None
 
-    def _next_role_actor(self, state: GameState) -> Player | None:
+    def _next_role_actor(
+        self,
+        state: GameState,
+        *,
+        include_human: bool = False,
+    ) -> Player | None:
         living = [
             player
             for player in sorted(state.players, key=lambda item: item.seat)
@@ -331,7 +384,7 @@ class AIController:
                 (
                     player
                     for player in living
-                    if not player.is_human
+                    if (not player.is_human or include_human)
                     and player.player_id not in state.day_result.votes
                 ),
                 None,
