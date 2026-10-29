@@ -213,13 +213,16 @@ class QTablePolicy:
     def end_episode(self, winner: str | None) -> None:
         """Apply the terminal reward once the game result is known."""
 
-        episode_reward = 0.0
+        rewards: list[float] = []
         for pending in self._pending.values():
             reward = 0.0
             if winner is not None:
                 reward = 1.0 if pending.faction == winner else -1.0
-                episode_reward = reward
+            rewards.append(reward)
             self._update(pending.key, pending.action, reward, None)
+        # Nine agents share one table, so the episode's trace value is the
+        # mean terminal reward per agent rather than one arbitrary seat.
+        episode_reward = sum(rewards) / len(rewards) if rewards else 0.0
         self._pending.clear()
         self.stats["episodes"] = int(self.stats.get("episodes", 0)) + 1
         if self.config.training:

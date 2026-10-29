@@ -195,6 +195,29 @@ class RewardTests(TestCase):
 
         self.assertEqual(policy.q_table.get(key, {}).get(chosen, 0.0), 0.0)
 
+    def test_episode_trace_averages_all_shared_seats(self) -> None:
+        policy = _policy()
+        policy.begin_episode()
+        good_seat = next(
+            player
+            for player in self.state.players
+            if faction_of(player.role) == "good"
+        )
+        wolf_seat = next(
+            player
+            for player in self.state.players
+            if faction_of(player.role) == "wolf"
+        )
+        for seat in (good_seat, wolf_seat):
+            policy.observe_state(self.state, seat)
+            policy.choose_action(("vote", "speech"))
+
+        policy.end_episode("good")
+
+        self.assertEqual(policy.history[-1]["reward"], 0.0)
+        self.assertEqual(policy.history[-1]["episode"], 1)
+        self.assertGreaterEqual(policy.history[-1]["epsilon"], 0.05)
+
 
 class PersistenceTests(TestCase):
     def test_save_and_load_roundtrip_preserves_table(self) -> None:
@@ -271,7 +294,11 @@ class SimulatorIntegrationTests(TestCase):
             [1, 2, 3],
         )
         for row in model["train_curve"]:
-            self.assertIn(row["avg_reward"], {-1.0, 1.0})
+            # Nine seats share one table, so the trace reward is a mean over
+            # an odd number of ±1 outcomes.
+            self.assertGreaterEqual(row["avg_reward"], -1.0)
+            self.assertLessEqual(row["avg_reward"], 1.0)
+            self.assertEqual(round(row["avg_reward"] * 9) % 2, 1)
             self.assertGreaterEqual(row["mean_abs_delta"], 0.0)
         self.assertGreater(model["epsilon"], 0.0)
 
