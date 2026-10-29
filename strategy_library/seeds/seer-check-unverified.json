@@ -8,7 +8,14 @@
   "trigger": "当前仍有存活且本人尚未查验的合法目标。",
   "recommendation": "从未查验的合法目标中选择信息价值最高者，避免重复消耗夜间查验。",
   "rationale": "每次查验都应扩大已知信息集合，重复查验不会产生新增结论。",
-  "tags": ["预言家", "查验", "未查验", "信息"],
+  "risk": "追求“未查验”可能挑到信息价值低的目标；要结合发言异常，而不是只看是否查过。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "预言家",
+    "查验",
+    "未查验",
+    "信息"
+  ],
   "source_type": "rule_doc",
   "source": "docs/01_game_rules_v1.md",
   "status": "seed",

@@ -1,0 +1,91 @@
+{
+  "run_id": "l2-0-19",
+  "generated_at": "2026-10-28T15:56:48.317387+00:00",
+  "code_commit": "f911f4c",
+  "command": "python -m backend.simulator --games 20 --seed-start 0 --policy l2 --out training_runs/l2-train-20 --model-out training_runs/l2-train-20/model.json --commit f911f4c",
+  "policy": "l2",
+  "policy_version": "l2.qtable.v1",
+  "python_version": "3.14.7",
+  "model": {
+    "strategy_id": "l2.qtable.v1",
+    "config": {
+      "seed": 0,
+      "epsilon_start": 0.3,
+      "epsilon_end": 0.05,
+      "alpha": 0.2,
+      "gamma": 0.95,
+      "training": true
+    },
+    "stats": {
+      "episodes": 20,
+      "updates": 1084,
+      "decisions": 1084
+    },
+    "states": 133,
+    "state_action_pairs": 145,
+    "mode": "train",
+    "model_path": "training_runs\\l2-train-20\\model.json",
+    "content_hash": "e59dc5b0ee14640355271bfe234ead337bd1fdaef1f346512ed30234011ea27b"
+  },
+  "seed_start": 0,
+  "seed_end": 19,
+  "total_games": 20,
+  "completed_games": 20,
+  "valid_completed_games": 20,
+  "failed_games": 0,
+  "completion_rate": 1.0,
+  "actions_submitted": 1357,
+  "actions_succeeded": 1357,
+  "actions_failed": 0,
+  "action_legal_rate": 1.0,
+  "action_counts": {
+    "begin_banishment_last_words": 25,
+    "begin_day": 63,
+    "close_self_destruct_window": 12,
+    "close_vote": 45,
+    "day_hunter_shot": 4,
+    "last_words": 48,
+    "night_hunter_shot": 5,
+    "resolve_night": 71,
+    "resolve_vote": 45,
+    "seer_check": 60,
+    "self_destruct": 18,
+    "speech": 306,
+    "start_night": 20,
+    "vote": 221,
+    "witch_action": 51,
+    "wolf_kill": 71,
+    "wolf_speech": 292
+  },
+  "action_frequency_per_game": {
+    "begin_banishment_last_words": 1.25,
+    "begin_day": 3.15,
+    "close_self_destruct_window": 0.6,
+    "close_vote": 2.25,
+    "day_hunter_shot": 0.2,
+    "last_words": 2.4,
+    "night_hunter_shot": 0.25,
+    "resolve_night": 3.55,
+    "resolve_vote": 2.25,
+    "seer_check": 3.0,
+    "self_destruct": 0.9,
+    "speech": 15.3,
+    "start_night": 1.0,
+    "vote": 11.05,
+    "witch_action": 2.55,
+    "wolf_kill": 3.55,
+    "wolf_speech": 14.6
+  },
+  "faction_win_counts": {
+    "good": 11,
+    "wolf": 9
+  },
+  "faction_win_rates": {
+    "good": 0.55,
+    "wolf": 0.45
+  },
+  "average_steps": 67.85,
+  "average_duration_ms": 30.42705,
+  "total_duration_ms": 608.541,
+  "errors_by_type": {}
+}

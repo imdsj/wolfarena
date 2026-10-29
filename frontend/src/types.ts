@@ -6,7 +6,11 @@ export type ConnectionState =
   | "disconnected"
   | "error";
 
-export type DeadlineKind = "last_words" | "speech" | "self_destruct";
+export type DeadlineKind =
+  | "last_words"
+  | "speech"
+  | "self_destruct"
+  | "human_action";
 
 export interface ViewerIdentity {
   kind: "player" | "spectator";

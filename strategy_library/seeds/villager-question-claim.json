@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "villager.question-claim",
+  "title": "村民追问神职自报细节",
+  "role": "villager",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "有玩家自报神职，但验人顺序、药水状态或行为因果无法闭合。",
+  "recommendation": "针对可核验细节提出简短追问，并要求对方按时间顺序说明。",
+  "rationale": "结构化追问能帮助区分真实信息链与临时拼接的虚假叙事。",
+  "risk": "追问过细会迫使真神职暴露更多信息，也可能被狼队用来消耗发言时间。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "村民",
+    "发言",
+    "神职",
+    "追问"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "hunter.shot-exposed-wolf",
+  "title": "猎人处理已暴露狼位",
+  "role": "hunter",
+  "phase": "ANY",
+  "action": "day_hunter_shot",
+  "trigger": "合法开枪时，已有公开事件、票型或查验明确指向一个狼位。",
+  "recommendation": "优先带走证据链最清晰的狼人，并避免被未经核实的归票节奏推动。",
+  "rationale": "猎人开枪的确定性价值来自核验过的信息，而不是发言音量。",
+  "risk": "已暴露狼位也可能是狼队弃子诱导开枪；开枪前需确认没有更值得保护的神职目标。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "猎人",
+    "开枪",
+    "狼位",
+    "证据"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

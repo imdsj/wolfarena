@@ -417,6 +417,47 @@ class InMemoryRoomRepository:
     ) -> AIControllerResult:
         return self.ai_controller.advance(room_id, now=now)
 
+    def auto_play_human_turn(
+        self,
+        room_id: str,
+        *,
+        now: float,
+    ) -> None:
+        """Play one action for an idle human so the game can continue."""
+
+        room = self._get_room(room_id)
+        with room.lock:
+            step = self.ai_controller.plan_next_step(
+                room.state,
+                policy=room.ai_policy,
+                now=now,
+                include_human=True,
+            )
+            if step is None:
+                return
+            actor_id = (
+                step.actor.player_id
+                if step.actor is not None
+                else room.host_player_id
+            )
+            access = ViewerAccess(
+                room_id=room_id,
+                kind="player",
+                player_id=actor_id,
+            )
+            state_before = deepcopy(room.state)
+            try:
+                self.execute_action(access, step.request, now=now)
+            except Exception:
+                room.state = state_before
+                logger.exception(
+                    "Human auto-play failed for %s action=%s",
+                    room_id,
+                    step.request.action,
+                )
+                return
+            self.advance_ai(room_id, now=now)
+
     def process_expired_deadlines(
         self,
         now: float,
@@ -434,7 +475,9 @@ class InMemoryRoomRepository:
                 previous_event_seq = room.last_event_seq
                 state_before = deepcopy(room.state)
                 try:
-                    if timeout_kind == "last_words":
+                    if timeout_kind == "human_action":
+                        self.auto_play_human_turn(room_id, now=now)
+                    elif timeout_kind == "last_words":
                         timeout_last_words(room.state, now)
                     elif timeout_kind == "speech":
                         timeout_public_speech(room.state, now)
@@ -449,7 +492,8 @@ class InMemoryRoomRepository:
                     )
                     continue
 
-                self.advance_ai(room_id, now=now)
+                if timeout_kind != "human_action":
+                    self.advance_ai(room_id, now=now)
                 if room.last_event_seq > previous_event_seq:
                     mutations.append(
                         RoomMutation(
@@ -477,6 +521,8 @@ class InMemoryRoomRepository:
     ) -> tuple[str, float] | None:
         """Return the one server deadline that currently governs the phase."""
 
+        if state.phase_deadline_at is not None:
+            return (state.phase_deadline_kind or "human_action", state.phase_deadline_at)
         day_result = state.day_result
         if day_result is None:
             return None

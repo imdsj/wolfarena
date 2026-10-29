@@ -170,7 +170,7 @@ X-Player-Token: 玩家凭证
 python -m unittest discover -s tests -v
 ```
 
-当前基线应显示 **206 个测试**全部通过，并输出 `OK`。
+当前基线应显示 **207 个测试**全部通过，并输出 `OK`。
 
 服务运行时，可执行前端 DOM 冒烟测试：
 
@@ -193,8 +193,12 @@ python -m backend.simulator `
   --games 10 `
   --seed-start 1000 `
   --policy l0 `
-  --out training_runs/smoke-l0
+  --out training_runs/smoke-l0 `
+  --commit <short-sha>
 ```
+
+写进文档证据的批次必须显式传 `--commit`，值和推送后的远端 `main` 一致。
+不传时模拟器会读取本地 `git HEAD`，本地引用落后于远端时会写错提交号。
 
 输出：
 
@@ -214,6 +218,54 @@ python -m backend.metrics --run training_runs/l0-200
 ```
 
 结果写入该目录的 `recomputed-summary.json`，并比较它与 `summary.json` 是否一致。
+
+## L2 最小 Q-learning
+
+`l2.qtable.v1` 是第一个可保存、可重载的表格式策略，只学习动作类型。
+`l2.qtable.v2` 在相同安全边界下扩展了状态（自身存活、公开票数、
+公开发言数、女巫自己的药量），仍只学习动作类型，目标/选项/发言沿用 L1。
+新训练默认生成 v2，旧 v1 模型仍可加载并按 schema 1 复现。
+
+```powershell
+# 训练：seed 0 至 19，epsilon 从 0.3 线性降到 0.05
+python -m backend.simulator `
+  --games 20 `
+  --seed-start 0 `
+  --policy l2 `
+  --out training_runs/l2-train-20 `
+  --model-out training_runs/l2-train-20/model.json `
+  --commit <short-sha>
+
+# 评估：独立 seed 区间，加载模型后固定贪心
+python -m backend.simulator `
+  --games 20 `
+  --seed-start 1000 `
+  --policy l2 `
+  --out training_runs/l2-eval-20 `
+  --model-in training_runs/l2-train-20/model.json `
+  --commit <short-sha>
+```
+
+边界：
+
+- 状态只含自身角色、阶段、天数组和公开存活人数，不读取他人隐藏身份。
+- 动作只从服务端 `legal_actions` 中选择，目标、选项和发言沿用 L1。
+- 奖励只有终局胜方 +1、败方 -1，中间步骤为 0。
+- 训练 seed 与评估 seed 必须不重叠。
+- 模型 JSON 含 `strategy_id`、`config`、`q_table`、`stats`、`meta` 和
+  `content_hash`，加载时校验哈希，篡改会直接报错。
+- 20 局样本只能证明流程可跑通，不能据此声称胜率提升。
+- `config.state_schema`：`2` 表示 v2 扩展状态，缺失或 `1` 表示 v1 四维状态。
+
+CLI 参数说明：
+
+- 训练必须给 `--model-out`，模型写到 `strategy_library/models/` 之外的
+  临时目录或该目录均可，提交时只保留小体积 JSON。
+- 评估用 `--model-in`，`--model` 是它的短别名，两种写法等价；加载后会
+  `freeze()`，epsilon 固定为 0，且不再更新 Q 表。
+- 训练批次的 `manifest.json` 的 `model.train_curve` 记录分段平均奖励和
+  平均 |TD 误差|，`model.train_curve_summary` 给出前段/后段对比，用于判断
+  是否收敛；评估批次不要期望出现该字段。
 
 ## 本地战术库
 

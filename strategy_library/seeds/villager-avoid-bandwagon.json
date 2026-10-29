@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "villager.avoid-blind-bandwagon",
+  "title": "村民避免无证据跟票",
+  "role": "villager",
+  "phase": "VOTE",
+  "action": "vote",
+  "trigger": "票型快速集中，但最早归票理由没有公共证据支撑。",
+  "recommendation": "要求归票者说明依据，并在可接受时选择弃权或支持证据更充分的目标。",
+  "rationale": "盲目跟随会放大狼队带票能力，让信息不足的一方控制结果。",
+  "risk": "拒绝跟票可能造成分票放走狼；必须给出可复核理由，不能只是消极不投。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "村民",
+    "投票",
+    "跟票",
+    "证据"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

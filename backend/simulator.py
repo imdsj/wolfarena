@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import math
 from pathlib import Path
 import platform
 import shlex
@@ -20,6 +21,7 @@ from typing import Any, Sequence
 from .actions import available_actions_for_state, execute_engine_action
 from .ai_controller import AIController, AIControllerStep
 from .ai_growth import L0Policy, L1RulePolicy
+from .q_policy import QPolicyConfig, QTablePolicy
 from .game_engine import (
     EventType,
     GameState,
@@ -30,7 +32,7 @@ from .game_engine import (
 )
 
 
-SUPPORTED_POLICIES = ("l0", "l1")
+SUPPORTED_POLICIES = ("l0", "l1", "l2")
 DEFAULT_HOST_PLAYER_ID = "p1"
 
 
@@ -47,6 +49,12 @@ class SimulationConfig:
     allow_self_destruct: bool = True
     command: str | None = None
     code_commit: str | None = None
+    model_in: Path | None = None
+    model_out: Path | None = None
+    epsilon_start: float = 0.3
+    epsilon_end: float = 0.05
+    alpha: float = 0.2
+    gamma: float = 0.95
 
     def __post_init__(self) -> None:
         if self.games <= 0:
@@ -62,6 +70,14 @@ class SimulationConfig:
             raise ValueError("max_action_steps 必须大于 0")
         if self.max_days <= 0:
             raise ValueError("max_days 必须大于 0")
+        if (
+            self.policy == "l2"
+            and self.model_in is None
+            and self.model_out is None
+        ):
+            raise ValueError(
+                "l2 训练批次需要 --model-out 保存结果；评估请用 --model-in"
+            )
 
 
 def _policy_for(name: str, *, seed: int):
@@ -69,6 +85,8 @@ def _policy_for(name: str, *, seed: int):
         return L0Policy(seed=seed)
     if name == "l1":
         return L1RulePolicy(seed=seed)
+    if name == "l2":
+        raise ValueError("l2 策略由 run_simulation 统一构建，不能按单局创建")
     raise ValueError(f"不支持的策略版本：{name}")
 
 
@@ -217,11 +235,13 @@ def simulate_game(
     max_action_steps: int,
     max_days: int,
     allow_self_destruct: bool = True,
+    policy: Any | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Run one game through the shared action layer and return auditable logs."""
 
     game_id = f"seed-{seed}"
-    policy = _policy_for(policy_name, seed=seed)
+    if policy is None:
+        policy = _policy_for(policy_name, seed=seed)
     state = create_game(seed=seed, human_count=0)
     controller = AIController(None)
     actions: list[dict[str, Any]] = []
@@ -498,6 +518,124 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _build_learner(config: SimulationConfig) -> QTablePolicy | None:
+    """Create the Q learner shared by every game in one batch."""
+
+    if config.policy != "l2":
+        return None
+    if config.model_in is not None:
+        learner = QTablePolicy.load(config.model_in)
+        learner.meta.setdefault("loaded_from", str(config.model_in))
+        learner.freeze()
+        return learner
+    settings = QPolicyConfig(
+        seed=config.seed_start,
+        epsilon_start=config.epsilon_start,
+        epsilon_end=config.epsilon_end,
+        alpha=config.alpha,
+        gamma=config.gamma,
+        training=True,
+        state_schema=2,
+    )
+    learner = QTablePolicy(settings)
+    learner.meta.update(
+        {
+            "train_seed_start": config.seed_start,
+            "train_seed_end": config.seed_start + config.games - 1,
+            "games": config.games,
+        }
+    )
+    return learner
+
+
+def _training_curve(
+    history: Sequence[dict[str, float]],
+    *,
+    buckets: int = 20,
+) -> list[dict[str, float]]:
+    """Aggregate per-episode training rewards into a small convergence curve."""
+
+    if not history:
+        return []
+    size = max(1, math.ceil(len(history) / buckets))
+    rows: list[dict[str, float]] = []
+    for start in range(0, len(history), size):
+        chunk = history[start : start + size]
+        rows.append(
+            {
+                "episode_from": chunk[0]["episode"],
+                "episode_to": chunk[-1]["episode"],
+                "epsilon": round(
+                    sum(item["epsilon"] for item in chunk) / len(chunk), 4
+                ),
+                "avg_reward": round(
+                    sum(item["reward"] for item in chunk) / len(chunk), 4
+                ),
+                "mean_abs_delta": round(
+                    sum(item["mean_abs_delta"] for item in chunk)
+                    / len(chunk),
+                    6,
+                ),
+            }
+        )
+    return rows
+
+
+def _curve_summary(
+    curve: Sequence[dict[str, float]],
+) -> dict[str, Any] | None:
+    """Compare the head and tail of the curve as a coarse convergence check."""
+
+    if len(curve) < 2:
+        return None
+    half = max(1, len(curve) // 2)
+    head = list(curve[:half])
+    tail = list(curve[-half:])
+
+    def mean(rows: Sequence[dict[str, float]], key: str) -> float:
+        return round(sum(row[key] for row in rows) / len(rows), 6)
+
+    return {
+        "head_avg_reward": mean(head, "avg_reward"),
+        "tail_avg_reward": mean(tail, "avg_reward"),
+        "head_mean_abs_delta": mean(head, "mean_abs_delta"),
+        "tail_mean_abs_delta": mean(tail, "mean_abs_delta"),
+    }
+
+
+def _finish_learner(
+    learner: QTablePolicy | None,
+    config: SimulationConfig,
+) -> dict[str, Any] | None:
+    if learner is None:
+        return None
+    info: dict[str, Any] = {
+        "strategy_id": learner.strategy_id,
+        "config": learner.config.as_dict(),
+        "stats": dict(learner.stats),
+        "states": len(learner.q_table),
+        "state_action_pairs": sum(
+            len(values) for values in learner.q_table.values()
+        ),
+        "mode": "train" if learner.config.training else "evaluate",
+        "epsilon": round(learner.epsilon, 4),
+        "model_path": None,
+        "content_hash": None,
+    }
+    if learner.config.training:
+        curve = _training_curve(learner.history)
+        info["train_curve"] = curve
+        info["train_curve_summary"] = _curve_summary(curve)
+    if learner.config.training and config.model_out is not None:
+        learner.meta["code_commit"] = _resolve_code_commit(config.code_commit)
+        info["content_hash"] = learner.save(config.model_out)
+        info["model_path"] = str(config.model_out)
+    if config.model_in is not None:
+        info["loaded_from"] = str(config.model_in)
+        info["loaded_content_hash"] = learner.meta.get("frozen_from_hash")
+    return info
+
+
 def run_simulation(config: SimulationConfig) -> dict[str, Any]:
     """Run a configured batch and write JSON/JSONL outputs."""
 
@@ -507,18 +645,27 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
     run_started_at = datetime.now(UTC).isoformat()
     games: list[dict[str, Any]] = []
     actions: list[dict[str, Any]] = []
+    learner = _build_learner(config)
 
     for offset in range(config.games):
         seed = config.seed_start + offset
+        if learner is not None:
+            learner.set_progress(offset, config.games)
+            learner.begin_episode()
         summary, game_actions = simulate_game(
             seed=seed,
             policy_name=config.policy,
             max_action_steps=config.max_action_steps,
             max_days=config.max_days,
             allow_self_destruct=config.allow_self_destruct,
+            policy=learner,
         )
+        if learner is not None:
+            learner.end_episode(summary.get("winner"))
         games.append(summary)
         actions.extend(game_actions)
+
+    model_info = _finish_learner(learner, config)
 
     completed = sum(game["status"] == "completed" for game in games)
     failed = len(games) - completed
@@ -572,6 +719,7 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
         "failed_game_ids": [
             game["game_id"] for game in games if game["status"] != "completed"
         ],
+        "model": model_info,
         "metrics": metrics,
     }
 
@@ -594,6 +742,7 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
         "policy": config.policy,
         "policy_version": games[0]["policy"] if games else None,
         "python_version": platform.python_version(),
+        "model": model_info,
         **metrics,
     }
     (out / "summary.json").write_text(
@@ -618,6 +767,7 @@ def run_simulation(config: SimulationConfig) -> dict[str, Any]:
         "policy_version": games[0]["policy"] if games else None,
         "seed_start": config.seed_start,
         "seed_end": config.seed_start + config.games - 1,
+        "model": model_info,
         "hash_algorithm": "sha256",
         "files": {
             name: {
@@ -678,6 +828,26 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="写入 manifest 的代码提交；默认尝试读取 git HEAD",
     )
+    parser.add_argument(
+        "--model-out",
+        type=Path,
+        default=None,
+        help="l2 训练后保存 Q 表模型",
+    )
+    parser.add_argument(
+        "--model-in",
+        "--model",
+        type=Path,
+        default=None,
+        help=(
+            "加载 l2 模型做贪心评估（epsilon 固定为 0）；"
+            "--model 是同一参数的短别名"
+        ),
+    )
+    parser.add_argument("--epsilon-start", type=float, default=0.3)
+    parser.add_argument("--epsilon-end", type=float, default=0.05)
+    parser.add_argument("--alpha", type=float, default=0.2)
+    parser.add_argument("--gamma", type=float, default=0.95)
     return parser
 
 
@@ -695,6 +865,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         allow_self_destruct=not args.no_self_destruct,
         command=command,
         code_commit=args.commit,
+        model_in=args.model_in,
+        model_out=args.model_out,
+        epsilon_start=args.epsilon_start,
+        epsilon_end=args.epsilon_end,
+        alpha=args.alpha,
+        gamma=args.gamma,
     )
     try:
         summary = run_simulation(config)

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.protect-credible-seer",
+  "title": "好人优先保护可信预言家",
+  "role": "villager",
+  "phase": "VOTE",
+  "action": "vote",
+  "trigger": "预言家已经给出一致可核验的查验链，狼队正在集中攻击该身份。",
+  "recommendation": "优先处理直接威胁可信预言家的高嫌疑目标，并避免把票投给已核验好人。",
+  "rationale": "保护持续信息来源可以降低后续轮次的信息损失，但仍需保留证据校验。",
+  "risk": "过早集中保护会被狼队反向利用票型；对“可信”的判断一旦出错会连带失去真神职。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "好人",
+    "预言家",
+    "保护",
+    "投票"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

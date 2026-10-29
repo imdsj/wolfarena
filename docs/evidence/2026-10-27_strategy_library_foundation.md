@@ -2,7 +2,9 @@
 
 日期：2026-10-27
 
-代码提交：`9c3cf41`
+代码提交：`b2a8d89`（2026-10-28 重跑）
+
+原基线：`25e95e8`。策略库内容与检索行为未变。
 
 ## 目录边界
 
@@ -14,7 +16,7 @@ strategy_library/
   rejected/     淘汰或来源不明策略，gitignored
 ```
 
-种子策略 12 条，覆盖：
+种子策略 33 条，覆盖：
 
 - 狼人刀神职与保护深水位。
 - 预言家避免重复查验和处理对跳。
@@ -68,7 +70,7 @@ python -m backend.strategy_library `
 ## 测试
 
 ```text
-Python：206 tests OK
+Python：207 tests OK
 ```
 
 策略库测试覆盖：

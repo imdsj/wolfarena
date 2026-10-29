@@ -19,6 +19,7 @@ const labels: Record<DeadlineKind, string> = {
   last_words: "遗言倒计时",
   speech: "公开发言倒计时",
   self_destruct: "自爆窗口",
+  human_action: "行动倒计时",
 };
 
 const expired = computed(() => remainingMilliseconds.value <= 0);

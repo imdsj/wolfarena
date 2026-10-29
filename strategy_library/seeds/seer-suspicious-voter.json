@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "seer.check-suspicious-voter",
+  "title": "预言家优先查验异常归票者",
+  "role": "seer",
+  "phase": "NIGHT_SEER_CHECK",
+  "action": "seer_check",
+  "trigger": "某玩家有明显异常归票、发言与票型不一致，且尚未被查验。",
+  "recommendation": "在合法未查验目标中优先核验该玩家，以便将投票线索转化为确定信息。",
+  "rationale": "异常行为提供查验方向，但尚未核验前不能被当作确定狼人。",
+  "risk": "异常归票也可能来自信息不足的好人；误判会直接浪费一次查验。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "预言家",
+    "查验",
+    "票型",
+    "异常"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

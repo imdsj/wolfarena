@@ -96,7 +96,10 @@ class RoomSnapshot(ApiModel):
     day: int
     server_time: float = Field(ge=0)
     deadline_at: float | None = Field(default=None, ge=0)
-    deadline_kind: Literal["last_words", "speech", "self_destruct"] | None = None
+    deadline_kind: (
+        Literal["last_words", "speech", "self_destruct", "human_action"]
+        | None
+    ) = None
     remaining_ms: int | None = Field(default=None, ge=0)
     witch_kill_target_visible: bool = False
     witch_kill_target_id: str | None = None

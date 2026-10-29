@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.endgame-count",
+  "title": "狼人终局优先计算人数",
+  "role": "werewolf",
+  "phase": "ANY",
+  "action": "wolf_kill",
+  "trigger": "存活人数接近获胜条件，狼队需要在击杀、空刀和自爆之间选择。",
+  "recommendation": "先计算行动后的存活狼人与好人数量，再选择能直接满足胜利条件或阻止好人获胜的方案。",
+  "rationale": "终局阶段身份猜测价值下降，确定性人数关系决定胜负。",
+  "risk": "只算人数会忽略猎人枪与女巫药；错算一次就可能把必胜局打成平局。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "狼人",
+    "终局",
+    "人数",
+    "胜负"
+  ],
+  "source_type": "rule_doc",
+  "source": "docs/01_game_rules_v1.md",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

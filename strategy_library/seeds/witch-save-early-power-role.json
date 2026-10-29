@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "witch.save-confirmed-power-role",
+  "title": "女巫优先保护高可信度神职",
+  "role": "witch",
+  "phase": "NIGHT_WITCH_ACTION",
+  "action": "witch_action",
+  "trigger": "解药仍可用，刀口目标有较高可信度的预言家或关键好人身份。",
+  "recommendation": "在资源和局势允许时使用解药保护该目标，并在白天避免泄露过多夜间细节。",
+  "rationale": "解药价值取决于阻止的信息损失，而不是简单追求存活人数。",
+  "risk": "“高可信”依赖白天发言，狼队可伪装神职骗药；救错即浪费解药。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "女巫",
+    "解药",
+    "保护",
+    "神职"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

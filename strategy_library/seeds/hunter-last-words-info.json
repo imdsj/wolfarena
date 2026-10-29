@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "hunter.last-words-information",
+  "title": "猎人遗言传递可核验信息",
+  "role": "hunter",
+  "phase": "DAY_LAST_WORDS",
+  "action": "last_words",
+  "trigger": "猎人即将通过遗言发言，队内仍需要其身份和判断依据。",
+  "recommendation": "先说明可核验事实，再给出怀疑顺位；不编造未获得的信息。",
+  "rationale": "遗言会影响后续投票，结构化事实比情绪化指认更有复用价值。",
+  "risk": "遗言过长或写入未验证推断会误导好人；应只保留可被规则或日志复核的内容。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "猎人",
+    "遗言",
+    "信息",
+    "投票"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

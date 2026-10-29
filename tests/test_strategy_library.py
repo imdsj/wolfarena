@@ -27,6 +27,8 @@ def candidate_card(strategy_id: str = "candidate.test-seer") -> StrategyCard:
         trigger="存在未查验的存活目标",
         recommendation="优先选择未查验目标",
         rationale="避免重复查验",
+        risk="追求未查验可能挑到信息价值低的目标，浪费查验次数。",
+        evidence_level="untested",
         tags=["预言家", "查验", "未查验"],
         source_type="agent_observation",
         source="对局复盘候选，未经胜率验证",
@@ -82,6 +84,18 @@ class StrategyLibraryTests(unittest.TestCase):
             all(match.card.status in {"seed", "validated"} for match in matches)
         )
 
+    def test_repository_has_at_least_thirty_unique_seed_strategies(self) -> None:
+        repository_library = StrategyLibrary(
+            PROJECT_ROOT / "strategy_library"
+        )
+        seeds = repository_library.load("seed")
+
+        self.assertGreaterEqual(len(seeds), 30)
+        self.assertEqual(
+            len({card.strategy_id for card in seeds}),
+            len(seeds),
+        )
+
     def test_candidate_is_not_searchable_by_default(self) -> None:
         card = candidate_card()
         self.library.record_candidate(card)
@@ -103,6 +117,39 @@ class StrategyLibraryTests(unittest.TestCase):
             [match.card.strategy_id for match in candidate_matches],
             [card.strategy_id],
         )
+
+    def test_repository_seeds_declare_risk_and_evidence_level(self) -> None:
+        repository_library = StrategyLibrary(
+            PROJECT_ROOT / "strategy_library"
+        )
+        seeds = repository_library.load("seed")
+
+        self.assertGreaterEqual(len(seeds), 30)
+        for card in seeds:
+            with self.subTest(strategy_id=card.strategy_id):
+                self.assertGreaterEqual(len(card.risk), 8)
+                self.assertEqual(card.evidence_level, "rule_derived")
+                self.assertIsNone(card.win_rate)
+                self.assertEqual(card.samples, 0)
+
+    def test_card_without_risk_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            StrategyCard(
+                strategy_id="candidate.missing-risk",
+                title="缺少风险说明",
+                role="villager",
+                phase="VOTE",
+                action="vote",
+                trigger="进入归票阶段",
+                recommendation="跟随可信归票",
+                rationale="减少分票",
+                tags=["测试"],
+                source_type="agent_observation",
+                source="测试构造，无真实来源",
+                status="candidate",
+                created_by="ai",
+                created_at="2026-10-28T00:00:00+08:00",
+            )
 
     def test_duplicate_id_cannot_override_seed(self) -> None:
         seed_source = (

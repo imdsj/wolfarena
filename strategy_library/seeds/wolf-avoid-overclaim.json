@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.avoid-overclaim",
+  "title": "狼人避免无准备的神职对跳",
+  "role": "werewolf",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "没有验人逻辑、票型或队友配合支撑时考虑自报神职。",
+  "recommendation": "缺少可验证叙事时保持普通好人表达，不临时自报高冲突神职。",
+  "rationale": "准备不足的对跳会快速消耗狼队可信度，并让队友被迫承担解释成本。",
+  "risk": "完全不跳神职会失去话语权；残局必须抢节奏时过度保守会直接输。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "狼人",
+    "神职对跳",
+    "发言",
+    "风险"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

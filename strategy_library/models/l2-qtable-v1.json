@@ -1,0 +1,674 @@
+{
+  "schema_version": 1,
+  "strategy_id": "l2.qtable.v1",
+  "config": {
+    "seed": 0,
+    "epsilon_start": 0.3,
+    "epsilon_end": 0.05,
+    "alpha": 0.2,
+    "gamma": 0.95,
+    "training": true
+  },
+  "q_table": {
+    "hunter|DAY_DISCUSSION|d1|a7-8": {
+      "speech": -0.129261903
+    },
+    "hunter|DAY_DISCUSSION|d1|a9": {
+      "speech": -0.061115309
+    },
+    "hunter|DAY_DISCUSSION|d2-3|a3-4": {
+      "speech": 0.301283897
+    },
+    "hunter|DAY_DISCUSSION|d2-3|a5-6": {
+      "speech": -0.072364321
+    },
+    "hunter|DAY_DISCUSSION|d2-3|a7-8": {
+      "speech": -0.060054154
+    },
+    "hunter|DAY_DISCUSSION|d2-3|a9": {
+      "speech": -0.024161604
+    },
+    "hunter|DAY_DISCUSSION|d4+|a3-4": {
+      "speech": 0.117316253
+    },
+    "hunter|DAY_DISCUSSION|d4+|a5-6": {
+      "speech": 0.059010561
+    },
+    "hunter|DAY_DISCUSSION|d4+|a7-8": {
+      "speech": 0.072894806
+    },
+    "hunter|DAY_HUNTER_SHOT|d1|a5-6": {
+      "day_hunter_shot": -0.455484611
+    },
+    "hunter|DAY_HUNTER_SHOT|d1|a7-8": {
+      "day_hunter_shot": -0.405966202
+    },
+    "hunter|DAY_HUNTER_SHOT|d2-3|a0-2": {
+      "day_hunter_shot": -0.36
+    },
+    "hunter|DAY_HUNTER_SHOT|d2-3|a3-4": {
+      "day_hunter_shot": 0.242994235
+    },
+    "hunter|DAY_HUNTER_SHOT|d2-3|a5-6": {
+      "day_hunter_shot": -0.493566094
+    },
+    "hunter|DAY_HUNTER_SHOT|d2-3|a7-8": {
+      "day_hunter_shot": -0.2
+    },
+    "hunter|DAY_HUNTER_SHOT|d4+|a0-2": {
+      "day_hunter_shot": -0.335790248
+    },
+    "hunter|DAY_HUNTER_SHOT|d4+|a3-4": {
+      "day_hunter_shot": -0.277813397
+    },
+    "hunter|DAY_HUNTER_SHOT|d4+|a5-6": {
+      "day_hunter_shot": -0.2
+    },
+    "hunter|DAY_LAST_WORDS|d1|a5-6": {
+      "last_words": 0.09990376
+    },
+    "hunter|DAY_LAST_WORDS|d1|a7-8": {
+      "last_words": -0.585907428
+    },
+    "hunter|DAY_LAST_WORDS|d2-3|a0-2": {
+      "last_words": -0.038
+    },
+    "hunter|DAY_LAST_WORDS|d2-3|a3-4": {
+      "last_words": -0.166618016
+    },
+    "hunter|DAY_LAST_WORDS|d2-3|a5-6": {
+      "last_words": -0.280191558
+    },
+    "hunter|DAY_LAST_WORDS|d2-3|a7-8": {
+      "last_words": 0.0
+    },
+    "hunter|DAY_LAST_WORDS|d4+|a0-2": {
+      "last_words": -0.137940857
+    },
+    "hunter|DAY_LAST_WORDS|d4+|a3-4": {
+      "last_words": -0.231530872
+    },
+    "hunter|DAY_LAST_WORDS|d4+|a5-6": {
+      "last_words": 0.0
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d1|a7-8": {
+      "night_hunter_shot": -0.38080381
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d2-3|a3-4": {
+      "night_hunter_shot": -0.35301167
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d2-3|a5-6": {
+      "night_hunter_shot": 0.063346521
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d2-3|a7-8": {
+      "night_hunter_shot": -0.569732789
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d4+|a0-2": {
+      "night_hunter_shot": -0.1318666
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d4+|a3-4": {
+      "night_hunter_shot": -0.591733605
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d4+|a5-6": {
+      "night_hunter_shot": -0.113300262
+    },
+    "hunter|NIGHT_HUNTER_SHOT|d4+|a7-8": {
+      "night_hunter_shot": -0.2
+    },
+    "hunter|VOTE|d1|a7-8": {
+      "close_vote": -0.039831217,
+      "vote": -0.563290218
+    },
+    "hunter|VOTE|d1|a9": {
+      "close_vote": -0.127214197,
+      "vote": 0.013590456
+    },
+    "hunter|VOTE|d2-3|a3-4": {
+      "close_vote": 0.163226079,
+      "vote": -0.232060458
+    },
+    "hunter|VOTE|d2-3|a5-6": {
+      "close_vote": -0.000939574,
+      "vote": -0.182487526
+    },
+    "hunter|VOTE|d2-3|a7-8": {
+      "close_vote": -0.04632275,
+      "vote": -0.153371666
+    },
+    "hunter|VOTE|d2-3|a9": {
+      "vote": 0.041061054
+    },
+    "hunter|VOTE|d4+|a3-4": {
+      "close_vote": -0.248098152,
+      "vote": -0.237984217
+    },
+    "hunter|VOTE|d4+|a5-6": {
+      "close_vote": 0.005731554,
+      "vote": 0.022655532
+    },
+    "hunter|VOTE|d4+|a7-8": {
+      "vote": 0.208891123
+    },
+    "seer|DAY_DISCUSSION|d1|a5-6": {
+      "speech": 0.091326591
+    },
+    "seer|DAY_DISCUSSION|d1|a7-8": {
+      "speech": -0.114087807
+    },
+    "seer|DAY_DISCUSSION|d1|a9": {
+      "speech": -0.015116978
+    },
+    "seer|DAY_DISCUSSION|d2-3|a3-4": {
+      "speech": 0.001433285
+    },
+    "seer|DAY_DISCUSSION|d2-3|a5-6": {
+      "speech": 0.039659903
+    },
+    "seer|DAY_DISCUSSION|d2-3|a7-8": {
+      "speech": -0.065761242
+    },
+    "seer|DAY_DISCUSSION|d2-3|a9": {
+      "speech": -0.01833243
+    },
+    "seer|DAY_DISCUSSION|d4+|a3-4": {
+      "speech": 0.124370658
+    },
+    "seer|DAY_DISCUSSION|d4+|a5-6": {
+      "speech": 0.142834602
+    },
+    "seer|DAY_DISCUSSION|d4+|a7-8": {
+      "speech": 0.031047739
+    },
+    "seer|DAY_LAST_WORDS|d1|a5-6": {
+      "last_words": -0.72350129
+    },
+    "seer|DAY_LAST_WORDS|d1|a7-8": {
+      "last_words": -0.477647528
+    },
+    "seer|DAY_LAST_WORDS|d2-3|a0-2": {
+      "last_words": -0.83222784
+    },
+    "seer|DAY_LAST_WORDS|d2-3|a3-4": {
+      "last_words": -0.22308679
+    },
+    "seer|DAY_LAST_WORDS|d2-3|a5-6": {
+      "last_words": -0.185714094
+    },
+    "seer|DAY_LAST_WORDS|d2-3|a7-8": {
+      "last_words": -0.2
+    },
+    "seer|DAY_LAST_WORDS|d4+|a0-2": {
+      "last_words": -0.892625818
+    },
+    "seer|DAY_LAST_WORDS|d4+|a3-4": {
+      "last_words": -0.346270473
+    },
+    "seer|NIGHT_SEER_CHECK|d1|a9": {
+      "seer_check": -0.113861897
+    },
+    "seer|NIGHT_SEER_CHECK|d2-3|a3-4": {
+      "seer_check": 0.433425717
+    },
+    "seer|NIGHT_SEER_CHECK|d2-3|a5-6": {
+      "seer_check": 0.238612646
+    },
+    "seer|NIGHT_SEER_CHECK|d2-3|a7-8": {
+      "seer_check": -0.096160849
+    },
+    "seer|NIGHT_SEER_CHECK|d2-3|a9": {
+      "seer_check": -0.06453893
+    },
+    "seer|NIGHT_SEER_CHECK|d4+|a3-4": {
+      "seer_check": 0.361267187
+    },
+    "seer|NIGHT_SEER_CHECK|d4+|a5-6": {
+      "seer_check": 0.094440123
+    },
+    "seer|NIGHT_SEER_CHECK|d4+|a7-8": {
+      "seer_check": -0.165930155
+    },
+    "seer|VOTE|d1|a5-6": {
+      "close_vote": 0.040032266,
+      "vote": 0.11862289
+    },
+    "seer|VOTE|d1|a7-8": {
+      "close_vote": -0.124590147,
+      "vote": -0.271416377
+    },
+    "seer|VOTE|d1|a9": {
+      "close_vote": -0.043564022,
+      "vote": 0.03535351
+    },
+    "seer|VOTE|d2-3|a3-4": {
+      "close_vote": 0.025793044,
+      "vote": -0.032826708
+    },
+    "seer|VOTE|d2-3|a5-6": {
+      "close_vote": 0.000434841,
+      "vote": -0.072496821
+    },
+    "seer|VOTE|d2-3|a7-8": {
+      "close_vote": -0.013033536,
+      "vote": -0.043533709
+    },
+    "seer|VOTE|d2-3|a9": {
+      "vote": 0.01565288
+    },
+    "seer|VOTE|d4+|a3-4": {
+      "close_vote": -0.079267904,
+      "vote": -0.172277973
+    },
+    "seer|VOTE|d4+|a5-6": {
+      "close_vote": 0.068736173,
+      "vote": 0.150762352
+    },
+    "seer|VOTE|d4+|a7-8": {
+      "vote": -0.048104145
+    },
+    "villager|DAY_DISCUSSION|d1|a5-6": {
+      "speech": 0.152184843
+    },
+    "villager|DAY_DISCUSSION|d1|a7-8": {
+      "speech": -0.103155461
+    },
+    "villager|DAY_DISCUSSION|d1|a9": {
+      "speech": -0.238114062
+    },
+    "villager|DAY_DISCUSSION|d2-3|a3-4": {
+      "speech": 0.300425453
+    },
+    "villager|DAY_DISCUSSION|d2-3|a5-6": {
+      "speech": -0.033001519
+    },
+    "villager|DAY_DISCUSSION|d2-3|a7-8": {
+      "speech": 0.128677895
+    },
+    "villager|DAY_DISCUSSION|d2-3|a9": {
+      "speech": -0.025370525
+    },
+    "villager|DAY_DISCUSSION|d4+|a3-4": {
+      "speech": -0.22504699
+    },
+    "villager|DAY_DISCUSSION|d4+|a5-6": {
+      "speech": 0.311350583
+    },
+    "villager|DAY_DISCUSSION|d4+|a7-8": {
+      "speech": 0.100288506
+    },
+    "villager|DAY_LAST_WORDS|d1|a5-6": {
+      "last_words": -0.56307505
+    },
+    "villager|DAY_LAST_WORDS|d1|a7-8": {
+      "last_words": -0.655115618
+    },
+    "villager|DAY_LAST_WORDS|d2-3|a0-2": {
+      "last_words": -0.945024418
+    },
+    "villager|DAY_LAST_WORDS|d2-3|a3-4": {
+      "last_words": -0.615663108
+    },
+    "villager|DAY_LAST_WORDS|d2-3|a5-6": {
+      "last_words": -0.459564433
+    },
+    "villager|DAY_LAST_WORDS|d2-3|a7-8": {
+      "last_words": -0.533056
+    },
+    "villager|DAY_LAST_WORDS|d4+|a0-2": {
+      "last_words": -0.999675481
+    },
+    "villager|DAY_LAST_WORDS|d4+|a3-4": {
+      "last_words": 0.212306861
+    },
+    "villager|DAY_LAST_WORDS|d4+|a5-6": {
+      "last_words": -0.488
+    },
+    "villager|VOTE|d1|a5-6": {
+      "close_vote": -0.00920138,
+      "vote": 0.191390455
+    },
+    "villager|VOTE|d1|a7-8": {
+      "close_vote": -0.296962721,
+      "vote": -0.616645742
+    },
+    "villager|VOTE|d1|a9": {
+      "close_vote": 0.168533224,
+      "vote": 0.031644498
+    },
+    "villager|VOTE|d2-3|a3-4": {
+      "close_vote": 0.220531234,
+      "vote": 0.017004023
+    },
+    "villager|VOTE|d2-3|a5-6": {
+      "close_vote": 0.167184805,
+      "vote": -0.181588172
+    },
+    "villager|VOTE|d2-3|a7-8": {
+      "close_vote": -0.234297155,
+      "vote": 0.259481092
+    },
+    "villager|VOTE|d2-3|a9": {
+      "close_vote": 0.028404066,
+      "vote": -0.157630274
+    },
+    "villager|VOTE|d4+|a3-4": {
+      "close_vote": -0.010467918,
+      "vote": -0.509610119
+    },
+    "villager|VOTE|d4+|a5-6": {
+      "close_vote": 0.036506161,
+      "vote": 0.419664026
+    },
+    "villager|VOTE|d4+|a7-8": {
+      "vote": 0.496942146
+    },
+    "werewolf|DAY_DISCUSSION|d1|a5-6": {
+      "self_destruct": -0.0656,
+      "speech": 0.047045488
+    },
+    "werewolf|DAY_DISCUSSION|d1|a7-8": {
+      "self_destruct": -0.336768829,
+      "speech": 0.184414365
+    },
+    "werewolf|DAY_DISCUSSION|d1|a9": {
+      "self_destruct": -0.240041061,
+      "speech": 0.153256295
+    },
+    "werewolf|DAY_DISCUSSION|d2-3|a3-4": {
+      "self_destruct": -0.996222107,
+      "speech": 0.105035661
+    },
+    "werewolf|DAY_DISCUSSION|d2-3|a5-6": {
+      "self_destruct": -0.629486047,
+      "speech": 0.277707784
+    },
+    "werewolf|DAY_DISCUSSION|d2-3|a7-8": {
+      "self_destruct": -0.079269397,
+      "speech": 0.224272642
+    },
+    "werewolf|DAY_DISCUSSION|d2-3|a9": {
+      "self_destruct": -0.36,
+      "speech": 0.124675909
+    },
+    "werewolf|DAY_DISCUSSION|d4+|a3-4": {
+      "self_destruct": -0.988470786,
+      "speech": 0.204788519
+    },
+    "werewolf|DAY_DISCUSSION|d4+|a5-6": {
+      "self_destruct": -0.931280523,
+      "speech": 0.160980721
+    },
+    "werewolf|DAY_DISCUSSION|d4+|a7-8": {
+      "self_destruct": -0.145984,
+      "speech": 0.054645038
+    },
+    "werewolf|DAY_LAST_WORDS|d1|a5-6": {
+      "last_words": 0.09550745
+    },
+    "werewolf|DAY_LAST_WORDS|d1|a7-8": {
+      "last_words": 0.22875878
+    },
+    "werewolf|DAY_LAST_WORDS|d2-3|a0-2": {
+      "last_words": -0.914100654
+    },
+    "werewolf|DAY_LAST_WORDS|d2-3|a3-4": {
+      "last_words": -0.512568358
+    },
+    "werewolf|DAY_LAST_WORDS|d2-3|a5-6": {
+      "last_words": -0.17938661
+    },
+    "werewolf|DAY_LAST_WORDS|d2-3|a7-8": {
+      "last_words": -0.38115584
+    },
+    "werewolf|DAY_LAST_WORDS|d4+|a0-2": {
+      "last_words": -0.999945555
+    },
+    "werewolf|DAY_LAST_WORDS|d4+|a3-4": {
+      "last_words": -0.877785746
+    },
+    "werewolf|DAY_LAST_WORDS|d4+|a5-6": {
+      "last_words": -0.36
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d1|a9": {
+      "wolf_speech": 0.273276913
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d2-3|a3-4": {
+      "wolf_speech": -0.201259922
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d2-3|a5-6": {
+      "wolf_speech": 0.262513597
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d2-3|a7-8": {
+      "wolf_speech": 0.170688327
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d2-3|a9": {
+      "wolf_speech": 0.134607287
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d4+|a3-4": {
+      "wolf_speech": 0.192954281
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d4+|a5-6": {
+      "wolf_speech": 0.290806094
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R1|d4+|a7-8": {
+      "wolf_speech": 0.361677546
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d1|a9": {
+      "wolf_speech": 0.189007906
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d2-3|a3-4": {
+      "wolf_speech": -0.230930287
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d2-3|a5-6": {
+      "wolf_speech": 0.381442624
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d2-3|a7-8": {
+      "wolf_speech": -0.043963023
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d2-3|a9": {
+      "wolf_speech": -0.063344797
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d4+|a3-4": {
+      "wolf_speech": 0.172177996
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d4+|a5-6": {
+      "wolf_speech": 0.217752086
+    },
+    "werewolf|NIGHT_WOLF_DISCUSSION_R2|d4+|a7-8": {
+      "wolf_speech": 0.403787752
+    },
+    "werewolf|NIGHT_WOLF_KILL|d1|a9": {
+      "wolf_kill": 0.237534123
+    },
+    "werewolf|NIGHT_WOLF_KILL|d2-3|a3-4": {
+      "wolf_kill": -0.067354962
+    },
+    "werewolf|NIGHT_WOLF_KILL|d2-3|a5-6": {
+      "wolf_kill": 0.161333975
+    },
+    "werewolf|NIGHT_WOLF_KILL|d2-3|a7-8": {
+      "wolf_kill": 0.300762585
+    },
+    "werewolf|NIGHT_WOLF_KILL|d2-3|a9": {
+      "wolf_kill": 0.159055564
+    },
+    "werewolf|NIGHT_WOLF_KILL|d4+|a3-4": {
+      "wolf_kill": -0.263518638
+    },
+    "werewolf|NIGHT_WOLF_KILL|d4+|a5-6": {
+      "wolf_kill": -0.145103387
+    },
+    "werewolf|NIGHT_WOLF_KILL|d4+|a7-8": {
+      "wolf_kill": 0.232036922
+    },
+    "werewolf|VOTE|d1|a5-6": {
+      "vote": 0.0805562
+    },
+    "werewolf|VOTE|d1|a7-8": {
+      "close_vote": 0.051006615,
+      "vote": 0.878752613
+    },
+    "werewolf|VOTE|d1|a9": {
+      "close_vote": 0.141608098,
+      "vote": 0.064761172
+    },
+    "werewolf|VOTE|d2-3|a3-4": {
+      "close_vote": 0.009358574,
+      "vote": -0.122847157
+    },
+    "werewolf|VOTE|d2-3|a5-6": {
+      "close_vote": 0.052984985,
+      "vote": 0.398917306
+    },
+    "werewolf|VOTE|d2-3|a7-8": {
+      "close_vote": 0.093592272,
+      "vote": 0.200478771
+    },
+    "werewolf|VOTE|d2-3|a9": {
+      "close_vote": 0.106701267,
+      "vote": 0.045468895
+    },
+    "werewolf|VOTE|d4+|a3-4": {
+      "close_vote": 0.035148035,
+      "vote": 0.43229229
+    },
+    "werewolf|VOTE|d4+|a5-6": {
+      "close_vote": 0.05995416,
+      "vote": 0.140641013
+    },
+    "werewolf|VOTE|d4+|a7-8": {
+      "vote": 0.078548023
+    },
+    "witch|DAY_DISCUSSION|d1|a5-6": {
+      "speech": 0.065290496
+    },
+    "witch|DAY_DISCUSSION|d1|a7-8": {
+      "speech": -0.03639369
+    },
+    "witch|DAY_DISCUSSION|d1|a9": {
+      "speech": -0.101349644
+    },
+    "witch|DAY_DISCUSSION|d2-3|a3-4": {
+      "speech": 0.04901392
+    },
+    "witch|DAY_DISCUSSION|d2-3|a5-6": {
+      "speech": 0.098701906
+    },
+    "witch|DAY_DISCUSSION|d2-3|a7-8": {
+      "speech": 0.010577972
+    },
+    "witch|DAY_DISCUSSION|d2-3|a9": {
+      "speech": -0.037147651
+    },
+    "witch|DAY_DISCUSSION|d4+|a3-4": {
+      "speech": 0.171662592
+    },
+    "witch|DAY_DISCUSSION|d4+|a5-6": {
+      "speech": 0.081200278
+    },
+    "witch|DAY_DISCUSSION|d4+|a7-8": {
+      "speech": 0.041744538
+    },
+    "witch|DAY_LAST_WORDS|d1|a5-6": {
+      "last_words": -0.488026749
+    },
+    "witch|DAY_LAST_WORDS|d1|a7-8": {
+      "last_words": 0.121113714
+    },
+    "witch|DAY_LAST_WORDS|d2-3|a0-2": {
+      "last_words": -0.7902848
+    },
+    "witch|DAY_LAST_WORDS|d2-3|a3-4": {
+      "last_words": -0.623122167
+    },
+    "witch|DAY_LAST_WORDS|d2-3|a5-6": {
+      "last_words": -0.435762434
+    },
+    "witch|DAY_LAST_WORDS|d2-3|a7-8": {
+      "last_words": -0.0144
+    },
+    "witch|DAY_LAST_WORDS|d4+|a0-2": {
+      "last_words": -0.83222784
+    },
+    "witch|DAY_LAST_WORDS|d4+|a3-4": {
+      "last_words": -0.460710706
+    },
+    "witch|DAY_LAST_WORDS|d4+|a5-6": {
+      "last_words": -0.36
+    },
+    "witch|NIGHT_WITCH_ACTION|d1|a9": {
+      "witch_action": -0.131946723
+    },
+    "witch|NIGHT_WITCH_ACTION|d2-3|a3-4": {
+      "witch_action": 0.370405112
+    },
+    "witch|NIGHT_WITCH_ACTION|d2-3|a5-6": {
+      "witch_action": 0.273835984
+    },
+    "witch|NIGHT_WITCH_ACTION|d2-3|a7-8": {
+      "witch_action": -0.239008233
+    },
+    "witch|NIGHT_WITCH_ACTION|d2-3|a9": {
+      "witch_action": -0.216501304
+    },
+    "witch|NIGHT_WITCH_ACTION|d4+|a3-4": {
+      "witch_action": -0.307331864
+    },
+    "witch|NIGHT_WITCH_ACTION|d4+|a5-6": {
+      "witch_action": -0.127560933
+    },
+    "witch|NIGHT_WITCH_ACTION|d4+|a7-8": {
+      "witch_action": -0.226466014
+    },
+    "witch|VOTE|d1|a5-6": {
+      "vote": 0.051630101
+    },
+    "witch|VOTE|d1|a7-8": {
+      "close_vote": -0.09707495,
+      "vote": -0.356374174
+    },
+    "witch|VOTE|d1|a9": {
+      "close_vote": -0.00698616,
+      "vote": -0.019607335
+    },
+    "witch|VOTE|d2-3|a3-4": {
+      "close_vote": 0.224714916,
+      "vote": 0.058072823
+    },
+    "witch|VOTE|d2-3|a5-6": {
+      "close_vote": 0.139278256,
+      "vote": -0.022458277
+    },
+    "witch|VOTE|d2-3|a7-8": {
+      "close_vote": 0.040378195,
+      "vote": 0.005774578
+    },
+    "witch|VOTE|d2-3|a9": {
+      "vote": 0.032160892
+    },
+    "witch|VOTE|d4+|a3-4": {
+      "close_vote": 0.083902122,
+      "vote": -0.10632861
+    },
+    "witch|VOTE|d4+|a5-6": {
+      "close_vote": 0.053871307,
+      "vote": 0.132550704
+    },
+    "witch|VOTE|d4+|a7-8": {
+      "vote": -0.012283317
+    }
+  },
+  "stats": {
+    "episodes": 1000,
+    "updates": 53980,
+    "decisions": 53980,
+    "states": 199,
+    "state_action_pairs": 248
+  },
+  "meta": {
+    "train_seed_start": 0,
+    "train_seed_end": 999,
+    "games": 1000,
+    "code_commit": "b1234e9"
+  },
+  "content_hash": "3461404ed50f43b85e3d61a583e3d1e5b5af2e6a0ab07cba4dfe2f5f0c233572"
+}

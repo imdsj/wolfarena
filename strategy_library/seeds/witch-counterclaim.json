@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "witch.respond-counterclaim",
+  "title": "女巫处理神职对跳",
+  "role": "witch",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "出现女巫身份冲突或有人冒充女巫影响好人归票。",
+  "recommendation": "只在必要且可解释时披露自己的关键决策信息，说明限制和不确定之处。",
+  "rationale": "女巫公开身份可解决冲突，但也会暴露用药状态并成为狼队目标。",
+  "risk": "女巫参与对跳会暴露药量信息；判断失误会同时失去可信度与药品。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "女巫",
+    "对跳",
+    "身份",
+    "发言"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

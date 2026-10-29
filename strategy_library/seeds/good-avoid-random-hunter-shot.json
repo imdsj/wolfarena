@@ -8,7 +8,14 @@
   "trigger": "猎人获得开枪机会，但公开信息没有形成可信目标。",
   "recommendation": "选择不开枪，等待赛后复盘或用规则允许的遗言继续传递信息。",
   "rationale": "随机开枪会提高误伤概率，保留空枪能减少错误决策。",
-  "tags": ["猎人", "空枪", "风险", "证据"],
+  "risk": "漏枪会让好人少一次击杀窗口；把有证据的目标误判为“证据不足”会放走已暴露的狼。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "猎人",
+    "空枪",
+    "风险",
+    "证据"
+  ],
   "source_type": "rule_doc",
   "source": "docs/01_game_rules_v1.md",
   "status": "seed",

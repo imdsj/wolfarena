@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "witch.save-before-following-vote",
+  "title": "女巫先处理夜间信息再跟票",
+  "role": "witch",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "女巫掌握与白天归票方向冲突的夜间信息，但尚未决定是否公开。",
+  "recommendation": "先比较公开信息的风险与收益，再用最小必要细节纠正错误归票。",
+  "rationale": "夜间信息可能避免误票，但完整公开会暴露药水状态和自身身份。",
+  "risk": "先处理夜间信息可能延误白天归票；夜间信息不完整时容易两头落空。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "女巫",
+    "夜间信息",
+    "归票",
+    "发言"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 团队策略假设；未经过胜率验证",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-10-28T00:00:00+08:00",
+  "evaluation": null
+}

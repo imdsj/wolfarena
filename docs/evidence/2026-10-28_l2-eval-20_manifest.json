@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-28T15:56:54.662446+00:00",
+  "code_commit": "f911f4c",
+  "command": "python -m backend.simulator --games 20 --seed-start 1000 --policy l2 --out training_runs/l2-eval-20 --model-in training_runs/l2-train-20/model.json --commit f911f4c",
+  "python_version": "3.14.7",
+  "policy": "l2",
+  "policy_version": "l2.qtable.v1",
+  "seed_start": 1000,
+  "seed_end": 1019,
+  "model": {
+    "strategy_id": "l2.qtable.v1",
+    "config": {
+      "seed": 0,
+      "epsilon_start": 0.3,
+      "epsilon_end": 0.05,
+      "alpha": 0.2,
+      "gamma": 0.95,
+      "training": false
+    },
+    "stats": {
+      "episodes": 20,
+      "updates": 0,
+      "decisions": 1210
+    },
+    "states": 133,
+    "state_action_pairs": 145,
+    "mode": "evaluate",
+    "model_path": null,
+    "content_hash": null,
+    "loaded_from": "training_runs\\l2-train-20\\model.json",
+    "loaded_content_hash": "e59dc5b0ee14640355271bfe234ead337bd1fdaef1f346512ed30234011ea27b"
+  },
+  "hash_algorithm": "sha256",
+  "files": {
+    "run.json": {
+      "sha256": "139cbf598fc30f25e5c3bd75750d5ca3a37496eb8ed0d84a8bd6bb81a64a8ed1",
+      "bytes": 2933
+    },
+    "games.jsonl": {
+      "sha256": "922f1b444ef6468d1f1562ea0dcc6444c40678e4d6d40578d494c490af3c93c4",
+      "bytes": 10328
+    },
+    "actions.jsonl": {
+      "sha256": "44d6a446c1c1df7c1860fa3ea49614d86c211fdcb0625fdc706515d0602b93a2",
+      "bytes": 746480
+    },
+    "roles.json": {
+      "sha256": "2aaa45baa504dc4664e6136a17fede63dd4a1d9e732358c1e267200ec5de5585",
+      "bytes": 21965
+    },
+    "summary.json": {
+      "sha256": "096e0f7915f8ffaf040e1439367ed27eab7e340b870b8644322d59289726a4a1",
+      "bytes": 2375
+    }
+  }
+}
