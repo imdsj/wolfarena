@@ -222,6 +222,9 @@ python -m backend.metrics --run training_runs/l0-200
 ## L2 最小 Q-learning
 
 `l2.qtable.v1` 是第一个可保存、可重载的表格式策略，只学习动作类型。
+`l2.qtable.v2` 在相同安全边界下扩展了状态（自身存活、公开票数、
+公开发言数、女巫自己的药量），仍只学习动作类型，目标/选项/发言沿用 L1。
+新训练默认生成 v2，旧 v1 模型仍可加载并按 schema 1 复现。
 
 ```powershell
 # 训练：seed 0 至 19，epsilon 从 0.3 线性降到 0.05
@@ -252,6 +255,7 @@ python -m backend.simulator `
 - 模型 JSON 含 `strategy_id`、`config`、`q_table`、`stats`、`meta` 和
   `content_hash`，加载时校验哈希，篡改会直接报错。
 - 20 局样本只能证明流程可跑通，不能据此声称胜率提升。
+- `config.state_schema`：`2` 表示 v2 扩展状态，缺失或 `1` 表示 v1 四维状态。
 
 CLI 参数说明：
 

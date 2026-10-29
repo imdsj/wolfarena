@@ -823,3 +823,7 @@ npm run smoke:acceptance
   `docs/evidence/2026-10-29_l2_model_card.md`。
 - 环境注意：E 盘 `.git` 仍不可由沙箱写入，提交通过镜像 git-dir 完成；
   本地仓库需自行 `git fetch origin && git merge --ff-only origin/main` 对齐。
+- 同日继续：新增 `l2.qtable.v2`（提交 `efeb66e`），状态扩到自身存活、
+  公开票数、公开发言数、女巫药量，仍只学动作类型；评估好人胜率 35.0%
+  vs L1 36.5%（−1.5pp，噪声级），G-06 维持 No-Go。仓库已公开。
+  详见 `docs/evidence/2026-10-29_l2_qtable_v2_expanded_state.md`。
