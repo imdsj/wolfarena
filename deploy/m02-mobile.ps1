@@ -1,12 +1,23 @@
-# 打开一个 390x844 的手机尺寸 Chrome 窗口，用于 M-02 手机端验收。
-# 用法：powershell -ExecutionPolicy Bypass -File deploy\m02-mobile.ps1
+# Open a 390x844 Chrome app window for the M-02 mobile acceptance check.
+# Usage: powershell -ExecutionPolicy Bypass -File deploy\m02-mobile.ps1
 $ErrorActionPreference = "Stop"
 $base = "http://127.0.0.1:8000"
 
+# Raw TCP check: avoids any system proxy that would reject 127.0.0.1.
+$client = New-Object System.Net.Sockets.TcpClient
+$online = $false
 try {
-    Invoke-WebRequest "$base/health" -TimeoutSec 3 | Out-Null
+    $client.Connect("127.0.0.1", 8000)
+    $online = $client.Connected
 } catch {
-    Write-Host "后端没有启动。请先运行：" -ForegroundColor Yellow
+    $online = $false
+} finally {
+    $client.Close()
+}
+
+if (-not $online) {
+    Write-Host "Backend is not running on port 8000." -ForegroundColor Yellow
+    Write-Host "Start it first:"
     Write-Host "  cd E:\dings\Documents\Codex\2026-10-20\web\wolfarena"
     Write-Host "  .\.venv\Scripts\python.exe -m uvicorn backend.api:app --host 127.0.0.1 --port 8000"
     exit 1
@@ -17,20 +28,22 @@ if (-not (Test-Path $chrome)) {
     $chrome = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
 }
 if (-not (Test-Path $chrome)) {
-    Write-Host "没有找到 Chrome，请手动打开 $base/" -ForegroundColor Yellow
+    Write-Host "Chrome not found. Open $base/ manually." -ForegroundColor Yellow
     exit 1
 }
 
 Start-Process $chrome -ArgumentList @(
     "--app=$base/",
+    "--new-window",
     "--window-size=390,844",
     "--window-position=120,80"
 )
 
 Write-Host ""
-Write-Host "已打开 390x844 窗口。" -ForegroundColor Green
-Write-Host "1. 填入昵称，点“创建房间”"
-Write-Host "2. 点开局的提交按钮，夜晚会自动逐阶段推进"
-Write-Host "3. 轮到你时发言/投票，直到“对局结束”"
-Write-Host "4. 每一步按 Win+Shift+S 截图，保存到 docs\evidence\"
+Write-Host "Opened a 390x844 Chrome window." -ForegroundColor Green
+Write-Host "1. Type a nickname, click the create-room button."
+Write-Host "2. Click the start button; night phases advance one by one."
+Write-Host "3. Speak and vote when it is your turn, until the game ends."
+Write-Host "4. Press Win+Shift+S to capture each screen into docs\evidence\."
 Write-Host ""
+Write-Host "If no window appeared, open this URL manually: $base/"
