@@ -17,7 +17,7 @@
 
 执行环境：
 
-- 仓库 `D:\传智杯\wolfarena`，commit `fe9cb29`
+- 仓库 `<local-path>`，commit `fe9cb29`
 - `.venv`（Python 3.14.0）
 - 服务 `python -m uvicorn backend.api:app --host 127.0.0.1 --port 8000`
 - 服务版本 `0.6.0`
@@ -50,7 +50,7 @@ $env:NO_PROXY = "127.0.0.1,localhost"
 系统 Python 缺少 FastAPI 等依赖时会报 `ModuleNotFoundError`，看起来像代码坏了。统一用：
 
 ```powershell
-cd D:\传智杯\wolfarena
+cd <local-path>
 .\.venv\Scripts\Activate.ps1
 python -m unittest discover -s tests -v
 ```
@@ -65,7 +65,7 @@ python -m unittest discover -s tests -v
 
 | 项 | 2026-10-25 19:45 的实际值 |
 | --- | --- |
-| 仓库位置 | `D:\传智杯\wolfarena`（Hurry 本机；订书机任务单里的 `E:\dings\...` 是其本机路径，本机不存在） |
+| 仓库位置 | `<local-path>`（Hurry 本机；订书机任务单里的 `E:\dings\...` 是其本机路径，本机不存在） |
 | commit | `9ed1e11`（远端 main） |
 | 测试 | `.venv` 内 **193 项通过** |
 | 环境 | `.venv`（Python 3.14.0），依赖来自 `requirements.txt` |
@@ -80,7 +80,7 @@ python -m unittest discover -s tests -v
 启动顺序：
 
 ```powershell
-cd D:\传智杯\wolfarena\frontend
+cd <local-path>
 npm install          # 首次
 npm run build
 cd ..
@@ -280,7 +280,7 @@ T-01 记录格式：
 
 ### 8.5 截图目录
 
-`D://传智杯//evidence-2026-10-28//`
+`<本地截图目录>/evidence-2026-10-28//`
 
 ---
 

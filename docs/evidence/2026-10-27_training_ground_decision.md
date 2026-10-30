@@ -8,7 +8,7 @@
 
 对照文档：`docs/evidence/2026-10-27_training_go_no_go.md`（订书机撰写，基于 `0f01afe`）
 
-环境：`D:\传智杯\wolfarena` + `.venv`（Python 3.14.0）
+环境：`<local-path>` + `.venv`（Python 3.14.0）
 
 ## 一、判定结论
 
@@ -23,14 +23,14 @@
 
 ## 二、验证方法
 
-不采信既有文档的结论，全部在本机用 `.venv` 复跑，命令与原始数据均保留在 `D:\传智杯\_verify\`。
+不采信既有文档的结论，全部在本机用 `.venv` 复跑，命令与原始数据均保留在 `<local-path>`。
 
 ```powershell
-python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out D:\传智杯\_verify\l0-200
-python -m backend.simulator --games 1   --seed-start 1033 --policy l0 --out D:\传智杯\_verify\seed1033-a
-python -m backend.simulator --games 1   --seed-start 1033 --policy l0 --out D:\传智杯\_verify\seed1033-b
-python -m backend.simulator --games 200 --seed-start 1000 --policy l1 --out D:\传智杯\_verify\l1-200
-python -m backend.metrics   --run D:\传智杯\_verify\l0-200
+python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out <local-path>
+python -m backend.simulator --games 1   --seed-start 1033 --policy l0 --out <local-path>
+python -m backend.simulator --games 1   --seed-start 1033 --policy l0 --out <local-path>
+python -m backend.simulator --games 200 --seed-start 1000 --policy l1 --out <local-path>
+python -m backend.metrics   --run <local-path>
 ```
 
 ## 三、门禁逐项结果

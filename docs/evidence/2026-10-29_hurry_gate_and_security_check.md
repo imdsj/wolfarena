@@ -4,7 +4,7 @@
 
 执行人：Hurry
 
-执行环境：`D:\传智杯\wolfarena` 的 `.venv`（Python 3.14.0），代码取自远端 `main` 的压缩包
+执行环境：`<local-path>` 的 `.venv`（Python 3.14.0），代码取自远端 `main` 的压缩包
 
 代码版本：`de85b20`（`docs: add 10-30 pre-result acceptance checklist`）
 
@@ -115,7 +115,7 @@ L2 v2 评估（200 局，seed 1000–1199）：
 | 内容 | 出现次数 | 涉及文件 |
 | --- | ---: | --- |
 | `C:\Users\dings\…`（订书机本机路径，含 Windows 用户名） | **31** | `docs/13_项目交接说明书_2026-10-24.md`、`docs/14_AI完整交接说明书_2026-10-25.md`、`docs/handoff/2026-10-25/*`、部分 evidence |
-| `D:\传智杯\…`（Hurry 本机路径） | **25** | `docs/13`、`docs/14`、`docs/evidence/2026-10-25_hurry_web_acceptance.md`、`2026-10-27_training_ground_decision.md` 等 |
+| `<local-path>`（Hurry 本机路径） | **25** | `docs/13`、`docs/14`、`docs/evidence/2026-10-25_hurry_web_acceptance.md`、`2026-10-27_training_ground_decision.md` 等 |
 
 风险等级：**低但不该留**。泄漏的是 Windows 用户名与目录结构，不是凭据。但仓库公开后，评委会看到「文档里的命令路径和实际仓库位置无关」，观感不好，也不符合交接文档应有的通用性。
 
