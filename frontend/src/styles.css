@@ -791,3 +791,86 @@ body.night-mode .divider::before,
 body.night-mode .divider::after {
   background: #29362d;
 }
+
+body.night-mode .phase-countdown {
+  border-color: #33443a;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body.night-mode .phase-countdown-urgent {
+  border-color: #8a4a42;
+  background: rgba(140, 50, 40, 0.2);
+}
+
+body.night-mode .countdown-value {
+  color: #d8f0dc;
+}
+
+body.night-mode .phase-countdown-urgent .countdown-value {
+  color: #ff9d8d;
+}
+
+body.night-mode .metric {
+  border-color: #263429;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body.night-mode .roster-player {
+  border-color: #263429;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body.night-mode .roster-player[data-alive="false"] {
+  background: rgba(255, 255, 255, 0.02);
+  color: #7d8f81;
+}
+
+body.night-mode .roster-heading > span,
+body.night-mode .roster-heading small,
+body.night-mode .roster-meta {
+  color: #93a597;
+}
+
+body.night-mode .connection-status {
+  border-color: #2d3a30;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cfe0d3;
+}
+
+body.night-mode .view-mode-banner,
+body.night-mode .dead-banner,
+body.night-mode .spectator-banner {
+  border-color: #35463a;
+  background: rgba(255, 255, 255, 0.05);
+  color: #dbe7dd;
+}
+
+body.night-mode .private-info-panel {
+  border-color: #35463a;
+  background: rgba(255, 255, 255, 0.045);
+  color: #dbe7dd;
+}
+
+body.night-mode .private-info-panel span {
+  color: #93a597;
+}
+
+body.night-mode .event-row {
+  border-bottom-color: #1f2a23;
+}
+
+body.night-mode .event-row code {
+  background: rgba(255, 255, 255, 0.07);
+  color: #cfe0d3;
+}
+
+body.night-mode .action-card {
+  border-color: #263429;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body.night-mode .text-button,
+body.night-mode .copy-room-id,
+body.night-mode .room-code {
+  color: #9fd0ad;
+}

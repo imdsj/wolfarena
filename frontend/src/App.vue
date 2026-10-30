@@ -5,7 +5,7 @@ import {
   onMounted,
   reactive,
   ref,
-  watch,
+  watchEffect,
 } from "vue";
 
 import LobbyPanel from "./components/LobbyPanel.vue";
@@ -31,8 +31,8 @@ const isNight = computed(() =>
   (room.value?.phase ?? "").startsWith("NIGHT_"),
 );
 
-watch(isNight, (night) => {
-  document.body.classList.toggle("night-mode", night);
+watchEffect(() => {
+  document.body.classList.toggle("night-mode", isNight.value);
 });
 const session = reactive({
   kind: "" as "" | "player" | "spectator",
