@@ -477,6 +477,8 @@ class InMemoryRoomRepository:
                 try:
                     if timeout_kind == "human_action":
                         self.auto_play_human_turn(room_id, now=now)
+                    elif timeout_kind == "phase_pace":
+                        pass  # advanced below by advance_ai()
                     elif timeout_kind == "last_words":
                         timeout_last_words(room.state, now)
                     elif timeout_kind == "speech":

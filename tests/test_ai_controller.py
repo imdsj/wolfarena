@@ -66,12 +66,15 @@ class AIControllerTests(TestCase):
         snapshot = repository.snapshot_for_access(room, session.access)
         event_types = {event.event_type for event in room.state.events}
 
-        self.assertEqual(result.stopped_reason, "human_turn")
+        self.assertIn(
+            result.stopped_reason,
+            {"human_turn", "phase_entered"},
+        )
         self.assertIn(EventType.VOTE_CLOSED, event_types)
         self.assertIn(EventType.VOTE_RESULT, event_types)
         self.assertNotEqual(snapshot.phase, "VOTE")
 
-    def test_ai_advances_to_an_interactive_or_timed_boundary(self) -> None:
+    def test_ai_paces_night_phases_one_at_a_time(self) -> None:
         repository = InMemoryRoomRepository()
         created, session, _mutation = start_with_ai(repository)
         snapshot = repository.snapshot_for_access(
@@ -81,17 +84,19 @@ class AIControllerTests(TestCase):
 
         self.assertIn(
             snapshot.phase,
-            {"DAY_DISCUSSION", "SELF_DESTRUCT", "VOTE", "END"},
-        )
-        self.assertNotIn(
-            snapshot.phase,
             {
                 "NIGHT_WOLF_DISCUSSION_R1",
                 "NIGHT_WOLF_DISCUSSION_R2",
                 "NIGHT_WOLF_KILL",
                 "NIGHT_SEER_CHECK",
                 "NIGHT_WITCH_ACTION",
+                "NIGHT_RESOLUTION",
+                "DAY_ANNOUNCEMENT",
             },
+        )
+        self.assertIn(
+            snapshot.deadline_kind,
+            {"human_action", "phase_pace"},
         )
 
     def test_same_seed_and_action_sequence_are_deterministic(self) -> None:

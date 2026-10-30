@@ -14,6 +14,7 @@ from .game_engine import (
     EventType,
     GameState,
     HUMAN_ACTION_TIMEOUT_SECONDS,
+    NIGHT_PHASE_PACE_SECONDS,
     Phase,
     Player,
     Role,
@@ -44,6 +45,13 @@ HUMAN_TURN_TIMEOUT_PHASES = frozenset(
         Phase.DAY_HUNTER_SHOT,
     }
 )
+NIGHT_PACED_PHASES = frozenset(
+    NIGHT_ACTION_PHASES
+    | {
+        Phase.NIGHT_RESOLUTION,
+        Phase.DAY_ANNOUNCEMENT,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +62,8 @@ class AIControllerResult:
         "no_action",
         "step_limit",
         "action_failed",
+        "phase_advanced",
+        "phase_entered",
     ]
     previous_event_seq: int
     current_event_seq: int
@@ -87,12 +97,15 @@ class AIController:
         with room.lock:
             previous_event_seq = room.last_event_seq
             self._clear_phase_deadline(room.state)
+            start_phase = room.state.phase
             steps = 0
             reason: Literal[
                 "human_turn",
                 "no_action",
                 "step_limit",
                 "action_failed",
+                "phase_advanced",
+                "phase_entered",
             ] = "human_turn"
             while steps < self._max_steps:
                 if room.state.phase is Phase.END:
@@ -144,6 +157,14 @@ class AIController:
                     )
                     reason = "action_failed"
                     break
+                now_phase = room.state.phase
+                if start_phase in NIGHT_PACED_PHASES:
+                    if now_phase is not start_phase:
+                        reason = "phase_advanced"
+                        break
+                elif now_phase in NIGHT_PACED_PHASES:
+                    reason = "phase_entered"
+                    break
             else:
                 reason = "step_limit"
                 self._record_failure(
@@ -153,8 +174,8 @@ class AIController:
                     reason=f"AI推进超过{self._max_steps}步",
                 )
 
-            if reason == "human_turn":
-                self._ensure_human_turn_deadline(room.state, now)
+            if reason in {"human_turn", "phase_advanced", "phase_entered"}:
+                self._ensure_phase_deadline(room.state, now)
 
             return AIControllerResult(
                 steps=steps,
@@ -245,21 +266,29 @@ class AIController:
         state.phase_deadline_at = None
         state.phase_deadline_kind = None
 
-    def _ensure_human_turn_deadline(
+    def _ensure_phase_deadline(
         self,
         state: GameState,
         now: float | None,
     ) -> None:
-        """Start the idle timer when the game waits on a human action."""
+        """Start the countdown for a human turn or a paced night phase."""
 
-        if state.phase not in HUMAN_TURN_TIMEOUT_PHASES:
-            return
-        actor = self._next_role_actor(state, include_human=True)
-        if actor is None or not actor.is_human:
-            return
         reference = now if now is not None else time.time()
-        state.phase_deadline_at = reference + HUMAN_ACTION_TIMEOUT_SECONDS
-        state.phase_deadline_kind = "human_action"
+        actor = self._next_role_actor(state, include_human=True)
+        if (
+            state.phase in HUMAN_TURN_TIMEOUT_PHASES
+            and actor is not None
+            and actor.is_human
+        ):
+            state.phase_deadline_at = (
+                reference + HUMAN_ACTION_TIMEOUT_SECONDS
+            )
+            state.phase_deadline_kind = "human_action"
+        elif state.phase in NIGHT_PACED_PHASES:
+            state.phase_deadline_at = reference + NIGHT_PHASE_PACE_SECONDS
+            state.phase_deadline_kind = "phase_pace"
+        else:
+            self._clear_phase_deadline(state)
 
     @staticmethod
     def _system_action(

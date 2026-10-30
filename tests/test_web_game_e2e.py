@@ -104,14 +104,13 @@ class WebGameEndToEndTests(TestCase):
             if request is None:
                 room = self.repository._rooms[self.room_id]
                 with room.lock:
-                    deadline = (
-                        room.state.day_result.self_destruct_deadline
-                        if room.state.phase.value == "SELF_DESTRUCT"
-                        and room.state.day_result is not None
-                        else None
+                    active = InMemoryRoomRepository._active_deadline(
+                        room.state
                     )
-                if deadline is not None:
-                    self.repository.process_expired_deadlines(deadline)
+                if active is not None:
+                    self.repository.process_expired_deadlines(
+                        active[1] + 0.001
+                    )
 
                 # A completed AI/system turn should produce a fresh boundary.
                 next_snapshot = self.snapshot()

@@ -20,6 +20,7 @@ const labels: Record<DeadlineKind, string> = {
   speech: "公开发言倒计时",
   self_destruct: "自爆窗口",
   human_action: "行动倒计时",
+  phase_pace: "夜间推进",
 };
 
 const expired = computed(() => remainingMilliseconds.value <= 0);

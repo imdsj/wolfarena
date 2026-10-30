@@ -10,7 +10,8 @@ export type DeadlineKind =
   | "last_words"
   | "speech"
   | "self_destruct"
-  | "human_action";
+  | "human_action"
+  | "phase_pace";
 
 export interface ViewerIdentity {
   kind: "player" | "spectator";
