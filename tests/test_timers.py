@@ -148,6 +148,35 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
 
         self.assertIs(room.state.phase, Phase.END)
 
+    def test_late_begin_day_is_ignored_after_phase_advanced(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = repository.create_room(
+            seed=1,
+            human_count=1,
+            max_humans=3,
+            nickname="H",
+        )
+        room = repository._rooms[created.room_id]
+        access = ViewerAccess(
+            room_id=created.room_id,
+            kind="player",
+            player_id="p1",
+        )
+        with room.lock:
+            room.state.phase = Phase.END
+
+        mutation = repository.execute_action(
+            access,
+            ActionRequest(action="begin_day"),
+            now=0.0,
+        )
+
+        self.assertIs(room.state.phase, Phase.END)
+        self.assertEqual(
+            mutation.previous_event_seq,
+            mutation.current_event_seq,
+        )
+
 
 class TimerLifecycleTests(IsolatedAsyncioTestCase):
     async def test_app_lifespan_starts_and_stops_timer(self) -> None:

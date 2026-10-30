@@ -85,6 +85,34 @@ class UnsupportedActionError(ValueError):
     """Raised when the action name is not implemented."""
 
 
+# 系统推进类动作在定时器已经自动推进后会“迟到”。此时把它当作已完成，
+# 返回当前快照即可，避免给前端弹出无意义的“动作已失效”。
+SUPERSEDED_TRANSITION_PHASES: dict[str, frozenset[Phase]] = {
+    "begin_day": frozenset(
+        {
+            Phase.DAY_LAST_WORDS,
+            Phase.DAY_DISCUSSION,
+            Phase.SELF_DESTRUCT,
+            Phase.VOTE,
+            Phase.DAY_HUNTER_SHOT,
+            Phase.END,
+        }
+    ),
+    "resolve_night": frozenset(
+        {
+            Phase.NIGHT_HUNTER_SHOT,
+            Phase.DAY_ANNOUNCEMENT,
+            Phase.DAY_LAST_WORDS,
+            Phase.DAY_DISCUSSION,
+            Phase.SELF_DESTRUCT,
+            Phase.VOTE,
+            Phase.DAY_HUNTER_SHOT,
+            Phase.END,
+        }
+    ),
+}
+
+
 @dataclass(frozen=True, slots=True)
 class ViewerAccess:
     """Authenticated identity used to filter room events."""
@@ -373,6 +401,18 @@ class InMemoryRoomRepository:
             if access.kind != "player":
                 raise RoomPermissionError("观战者不能执行游戏动作")
             player = self._access_player(room, access)
+            superseded = SUPERSEDED_TRANSITION_PHASES.get(request.action)
+            if (
+                superseded is not None
+                and player.player_id == room.host_player_id
+                and room.state.phase in superseded
+            ):
+                previous_event_seq = room.last_event_seq
+                return RoomMutation(
+                    room=room,
+                    previous_event_seq=previous_event_seq,
+                    current_event_seq=room.last_event_seq,
+                )
             state_before = deepcopy(room.state)
             previous_event_seq = room.last_event_seq
             try:
