@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from "vue";
 
 import LobbyPanel from "./components/LobbyPanel.vue";
 import RoomPanel from "./components/RoomPanel.vue";
@@ -19,6 +26,14 @@ const events = ref<GameEvent[]>([]);
 const connectionState = ref<ConnectionState>("idle");
 const aiNotice = ref("");
 const actionNotice = ref("");
+
+const isNight = computed(() =>
+  (room.value?.phase ?? "").startsWith("NIGHT_"),
+);
+
+watch(isNight, (night) => {
+  document.body.classList.toggle("night-mode", night);
+});
 const session = reactive({
   kind: "" as "" | "player" | "spectator",
   roomId: "",
@@ -425,7 +440,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 onMounted(restoreRememberedSession);
-onBeforeUnmount(() => socket?.close());
+onBeforeUnmount(() => {
+  socket?.close();
+  document.body.classList.remove("night-mode");
+});
 </script>
 
 <template>

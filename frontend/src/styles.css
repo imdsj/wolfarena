@@ -732,3 +732,62 @@ h2 {
     width: 100%;
   }
 }
+
+/* 夜晚模式：进入 NIGHT_* 阶段整页转深色，白天自动恢复。 */
+body.night-mode {
+  color: #e6efe7;
+  background:
+    radial-gradient(circle at 50% -10%, #16211a 0, transparent 55%),
+    linear-gradient(160deg, #040605, #0a0f0c 55%, #050806);
+}
+
+body.night-mode .panel {
+  border-color: #263429;
+  background: rgba(13, 18, 15, 0.94);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.6);
+  color: #e6efe7;
+}
+
+body.night-mode h1,
+body.night-mode h2,
+body.night-mode strong {
+  color: #eef6ef;
+}
+
+body.night-mode .eyebrow,
+body.night-mode .lede,
+body.night-mode .muted,
+body.night-mode .lobby-note,
+body.night-mode .divider {
+  color: #93a597;
+}
+
+body.night-mode .field input,
+body.night-mode input,
+body.night-mode textarea,
+body.night-mode select {
+  border-color: #2d3a30;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6efe7;
+}
+
+body.night-mode input::placeholder,
+body.night-mode textarea::placeholder {
+  color: #6f8174;
+}
+
+body.night-mode .primary-button {
+  background: #3f6b4a;
+  color: #f4fbf5;
+}
+
+body.night-mode .secondary-button {
+  border-color: #33443a;
+  background: rgba(255, 255, 255, 0.04);
+  color: #cfe0d3;
+}
+
+body.night-mode .divider::before,
+body.night-mode .divider::after {
+  background: #29362d;
+}
