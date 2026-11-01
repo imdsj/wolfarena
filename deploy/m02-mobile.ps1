@@ -1,4 +1,4 @@
-# Open a 390x844 Chrome app window for the M-02 mobile acceptance check.
+# Open a 390x844 Chromium app window (Chrome or Edge) for the M-02 check.
 # Usage: powershell -ExecutionPolicy Bypass -File deploy\m02-mobile.ps1
 $ErrorActionPreference = "Stop"
 $base = "http://127.0.0.1:8000"
@@ -23,16 +23,21 @@ if (-not $online) {
     exit 1
 }
 
-$chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
-if (-not (Test-Path $chrome)) {
-    $chrome = "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
-}
-if (-not (Test-Path $chrome)) {
-    Write-Host "Chrome not found. Open $base/ manually." -ForegroundColor Yellow
+$candidates = @(
+    "C:\Program Files\Google\Chrome\Application\chrome.exe",
+    "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+)
+$browser = $candidates |
+    Where-Object { Test-Path $_ } |
+    Select-Object -First 1
+if (-not $browser) {
+    Write-Host "No Chrome or Edge found. Open $base/ manually." -ForegroundColor Yellow
     exit 1
 }
 
-Start-Process $chrome -ArgumentList @(
+Start-Process $browser -ArgumentList @(
     "--app=$base/",
     "--new-window",
     "--window-size=390,844",
@@ -40,7 +45,7 @@ Start-Process $chrome -ArgumentList @(
 )
 
 Write-Host ""
-Write-Host "Opened a 390x844 Chrome window." -ForegroundColor Green
+Write-Host "Opened a 390x844 Chromium window: $browser" -ForegroundColor Green
 Write-Host "1. Type a nickname, click the create-room button."
 Write-Host "2. Click the start button; night phases advance one by one."
 Write-Host "3. Speak and vote when it is your turn, until the game ends."

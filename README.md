@@ -289,7 +289,7 @@ python -m backend.strategy_library `
 - 训练版策略、策略版本切换和指标面板。
 - 对局日志的可视化指标页面；当前 JSONL 已可供后续脚本复算。
 - 在线部署和公网联调。
-- 真实 Chrome 双窗口录屏和 390px 最终截图仍需在允许启动浏览器进程的桌面环境
+- 真实浏览器（Chrome 或 Edge，Chromium 内核）双窗口录屏和 390px 最终截图仍需在允许启动浏览器进程的桌面环境
   复核；`happy-dom` 不能替代真实布局。
 
 完整白天与夜间引擎说明分别位于 `docs/10_day_engine.md` 和 `docs/08_night_engine.md`。
