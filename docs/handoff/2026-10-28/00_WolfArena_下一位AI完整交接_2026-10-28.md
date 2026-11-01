@@ -584,7 +584,7 @@ strategy_library/
 队友描述的 Chrome 截图目录是：
 
 ```text
-D:\传智杯\evidence-2026-10-28\
+<evidence-dir>\
 ```
 
 该目录不属于当前 E 盘仓库交付，必须后续验证并迁入合规证据位置。

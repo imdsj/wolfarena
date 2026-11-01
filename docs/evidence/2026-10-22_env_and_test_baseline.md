@@ -11,7 +11,7 @@
 ## 1. 测试命令与结果
 
 ```powershell
-cd D:\传智杯\wolfarena
+cd <work-dir>
 py -m unittest discover -s tests -v
 ```
 

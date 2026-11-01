@@ -4,7 +4,7 @@
 
 执行人：Hurry
 
-环境：`D:\传智杯\wolfarena` + `.venv`（Python 3.14.0）
+环境：`<work-dir>` + `.venv`（Python 3.14.0）
 
 ## 一、结论摘要
 
@@ -30,7 +30,7 @@ L0 / L1 指标     ：与 10-27 记录逐项一致，可继续使用
 ## 三、206 项测试
 
 ```powershell
-cd D:\传智杯\wolfarena
+cd <work-dir>
 .\.venv\Scripts\Activate.ps1
 python -m unittest discover -s tests
 ```

@@ -107,8 +107,8 @@ git clone --depth 1 https://github.com/imdsj/wolfarena.git
 
 | 内容 | 10-29 扫描 | 10-30 复查 |
 | --- | ---: | ---: |
-| `C:\Users\dings\…` | 31 | **13** |
-| `D:\传智杯\…` | 25 | **27 → 已清 13 处，剩余多为订书机文档中的记录** |
+| `<本机路径>…` | 31 | **13** |
+| `<工作目录>…` | 25 | **27 → 已清 13 处，剩余多为订书机文档中的记录** |
 
 我负责的三份 evidence 文档（`2026-10-25_hurry_web_acceptance.md`、`2026-10-27_training_ground_decision.md`、`2026-10-29_hurry_gate_and_security_check.md`）中的 13 处绝对路径已全部替换为 `<local-path>` 占位符。
 
