@@ -69,6 +69,10 @@ class DuplicateNicknameError(ValueError):
     """Raised when a nickname is already used in the game."""
 
 
+class SeatUnavailableError(ValueError):
+    """Raised when a requested seat is out of range or already occupied."""
+
+
 class JoinClosedError(RuntimeError):
     """Raised when a room no longer accepts new players."""
 
@@ -279,6 +283,8 @@ class InMemoryRoomRepository:
         self,
         room_id: str,
         nickname: str,
+        *,
+        seat: int | None = None,
     ) -> tuple[JoinedRoomResponse, RoomMutation]:
         room = self._get_room(room_id)
         with room.lock:
@@ -286,7 +292,10 @@ class InMemoryRoomRepository:
                 raise JoinClosedError("游戏开始后不能加入新玩家")
 
             previous_event_seq = room.last_event_seq
-            player = room.choose_join_seat()
+            if seat is None:
+                player = room.choose_join_seat()
+            else:
+                player = self._seat_player(room, seat)
             room.rename_player(player, nickname)
             token = room.claim_player(player.player_id)
             append_event(
@@ -314,6 +323,20 @@ class InMemoryRoomRepository:
                 current_event_seq=room.last_event_seq,
             )
             return response, mutation
+
+    @staticmethod
+    def _seat_player(room: "Room", seat: int) -> Player:
+        player = next(
+            (
+                candidate
+                for candidate in room.state.players
+                if candidate.seat == seat
+            ),
+            None,
+        )
+        if player is None or player.player_id in room.claimed_player_ids:
+            raise SeatUnavailableError(f"{seat} 号座位不可用")
+        return player
 
     def authenticate_player(
         self,
@@ -363,6 +386,15 @@ class InMemoryRoomRepository:
                 player_id=player.player_id,
             )
             return self.snapshot_for_access(room, access)
+
+    def available_seats(self, room_id: str) -> list[int]:
+        room = self._get_room(room_id)
+        with room.lock:
+            return sorted(
+                player.seat
+                for player in room.state.players
+                if player.player_id not in room.claimed_player_ids
+            )
 
     def ai_action_context(self, access: ViewerAccess) -> AIActionContext:
         room = self._get_room(access.room_id)
@@ -760,6 +792,11 @@ class InMemoryRoomRepository:
                 visible_events=[
                     self.serialize_event(event)
                     for event in visible_events
+                ],
+                available_seats=[
+                    player.seat
+                    for player in room.state.players
+                    if player.player_id not in room.claimed_player_ids
                 ],
                 available_actions=list(
                     available_actions_for_state(

@@ -1,5 +1,6 @@
 """Tests for AI growth records and the L0 policy."""
 
+from types import SimpleNamespace
 from unittest import TestCase
 
 from backend.ai_growth import (
@@ -8,8 +9,9 @@ from backend.ai_growth import (
     GrowthStage,
     L0Policy,
     StrategyRecord,
+    speech_content,
 )
-from backend.game_engine import Phase, Role
+from backend.game_engine import Phase, Role, create_game
 
 
 class GrowthStageTests(TestCase):
@@ -27,6 +29,58 @@ class GrowthStageTests(TestCase):
             len(GrowthStage),
             len({stage.value for stage in GrowthStage}),
         )
+
+
+class SpeechContentTests(TestCase):
+    def _view(self, action: str = "speech"):
+        return SimpleNamespace(requires_content=True, action=action)
+
+    def test_speech_is_non_empty_and_deterministic(self) -> None:
+        state = create_game(seed=7, human_count=0)
+        for actor in state.players:
+            view = self._view()
+            first = speech_content(state, actor, view)
+            second = speech_content(state, actor, view)
+            self.assertTrue(first)
+            self.assertEqual(first, second)
+
+    def test_wolf_public_speech_does_not_claim_a_role(self) -> None:
+        state = create_game(seed=7, human_count=0)
+        wolf = next(
+            player for player in state.players if player.role is Role.WEREWOLF
+        )
+        text = speech_content(state, wolf, self._view("speech"))
+        self.assertTrue(text)
+        for word in ("预言家", "女巫", "猎人", "村民"):
+            self.assertNotIn(word, text)
+
+    def test_hidden_roles_do_not_change_villager_speech(self) -> None:
+        state = create_game(seed=7, human_count=0)
+        actor = next(
+            player for player in state.players if player.role is Role.VILLAGER
+        )
+        before = speech_content(state, actor, self._view("speech"))
+        for player in state.players:
+            if player.player_id != actor.player_id:
+                player.role = Role.WEREWOLF
+        after = speech_content(state, actor, self._view("speech"))
+        self.assertEqual(before, after)
+
+    def test_role_aware_speech_matches_role(self) -> None:
+        state = create_game(seed=7, human_count=0)
+        for role, keyword in (
+            (Role.SEER, "预言家"),
+            (Role.WITCH, "用药"),
+            (Role.HUNTER, "猎人"),
+            (Role.VILLAGER, "村民"),
+        ):
+            actor = next(
+                player for player in state.players if player.role is role
+            )
+            self.assertIn(
+                keyword,
+                speech_content(state, actor, self._view("speech")),
+            )
 
 
 class DecisionRecordTests(TestCase):

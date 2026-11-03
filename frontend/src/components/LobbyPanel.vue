@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 
 defineProps<{
   busy: boolean;
@@ -7,7 +7,7 @@ defineProps<{
 
 const emit = defineEmits<{
   create: [nickname: string];
-  join: [payload: { roomId: string; nickname: string }];
+  join: [payload: { roomId: string; nickname: string; seat: number }];
   watch: [payload: { roomId: string; password: string }];
 }>();
 
@@ -16,6 +16,10 @@ const form = reactive({
   roomId: "",
   spectatorPassword: "",
 });
+const seats = ref<number[]>([]);
+const selectedSeat = ref<number | null>(null);
+const seatsLoading = ref(false);
+const seatsError = ref("");
 
 function createRoom(): void {
   const name = form.nickname.trim();
@@ -24,11 +28,48 @@ function createRoom(): void {
   }
 }
 
+async function loadSeats(): Promise<void> {
+  const code = form.roomId.trim();
+  if (!code) {
+    return;
+  }
+  seatsLoading.value = true;
+  seatsError.value = "";
+  try {
+    const response = await fetch(
+      `/api/rooms/${encodeURIComponent(code)}/seats`,
+    );
+    if (!response.ok) {
+      throw new Error("查询空座失败");
+    }
+    const payload = (await response.json()) as {
+      available_seats: number[];
+    };
+    seats.value = payload.available_seats ?? [];
+    if (
+      selectedSeat.value !== null &&
+      !seats.value.includes(selectedSeat.value)
+    ) {
+      selectedSeat.value = null;
+    }
+  } catch {
+    seats.value = [];
+    seatsError.value = "查不到这个房间或房间已满";
+  } finally {
+    seatsLoading.value = false;
+  }
+}
+
+function pickSeat(seat: number): void {
+  selectedSeat.value = seat;
+}
+
 function joinRoom(): void {
   const name = form.nickname.trim();
   const code = form.roomId.trim();
-  if (name && code) {
-    emit("join", { roomId: code, nickname: name });
+  const seat = selectedSeat.value ?? (seats.value[0] ?? null);
+  if (name && code && seat !== null) {
+    emit("join", { roomId: code, nickname: name, seat });
   }
 }
 
@@ -85,9 +126,44 @@ function watchRoom(): void {
       </label>
 
       <button
+        class="text-button"
+        type="button"
+        :disabled="busy || seatsLoading || !form.roomId.trim()"
+        @click="loadSeats"
+      >
+        {{ seatsLoading ? "查询中…" : "查询空座" }}
+      </button>
+
+      <div v-if="seats.length" class="seat-picker">
+        <span class="seat-picker-label">选择座位</span>
+        <div class="seat-grid">
+          <button
+            v-for="seat in 9"
+            :key="seat"
+            type="button"
+            class="seat-cell"
+            :class="{
+              'seat-taken': !seats.includes(seat),
+              'seat-selected': selectedSeat === seat,
+            }"
+            :disabled="!seats.includes(seat)"
+            @click="pickSeat(seat)"
+          >
+            {{ seat }}
+          </button>
+        </div>
+      </div>
+      <p v-if="seatsError" class="muted">{{ seatsError }}</p>
+
+      <button
         class="secondary-button"
         type="button"
-        :disabled="busy || !form.nickname.trim() || !form.roomId.trim()"
+        :disabled="
+          busy ||
+          !form.nickname.trim() ||
+          !form.roomId.trim() ||
+          selectedSeat === null
+        "
         @click="joinRoom"
       >
         加入房间

@@ -227,6 +227,60 @@ class RoomJoinTests(unittest.TestCase):
             json={"nickname": nickname},
         )
 
+    def join_seat(
+        self,
+        room_id: str,
+        nickname: str,
+        seat: int,
+    ) -> object:
+        return self.client.post(
+            f"/api/rooms/{room_id}/join",
+            json={"nickname": nickname, "seat": seat},
+        )
+
+    def test_seat_list_and_explicit_seat_join(self) -> None:
+        created = self.create_room()
+        room_id = created["room_id"]
+
+        seats = self.client.get(f"/api/rooms/{room_id}/seats")
+        self.assertEqual(seats.status_code, 200, seats.text)
+        self.assertEqual(
+            sorted(seats.json()["available_seats"]),
+            list(range(2, 10)),
+        )
+
+        joined = self.join_seat(room_id, "Hurry", 5)
+        self.assertEqual(joined.status_code, 200, joined.text)
+        self.assertEqual(joined.json()["room"]["viewer"]["seat"], 5)
+
+        remaining = self.client.get(
+            f"/api/rooms/{room_id}/seats"
+        ).json()["available_seats"]
+        self.assertNotIn(5, remaining)
+
+    def test_occupied_and_illegal_seat_are_rejected(self) -> None:
+        created = self.create_room()
+        room_id = created["room_id"]
+
+        host_seat = self.join_seat(room_id, "Hurry", 1)
+        self.assertEqual(host_seat.status_code, 409)
+        self.assertEqual(
+            host_seat.json()["detail"]["code"],
+            "SEAT_UNAVAILABLE",
+        )
+
+        first = self.join_seat(room_id, "甲", 3)
+        self.assertEqual(first.status_code, 200, first.text)
+        duplicate = self.join_seat(room_id, "乙", 3)
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(
+            duplicate.json()["detail"]["code"],
+            "SEAT_UNAVAILABLE",
+        )
+
+        illegal = self.join_seat(room_id, "丙", 99)
+        self.assertEqual(illegal.status_code, 422)
+
     def test_default_room_allows_three_humans_and_rejects_the_fourth(self) -> None:
         created = self.create_room()
         room_id = created["room_id"]
