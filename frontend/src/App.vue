@@ -120,6 +120,7 @@ async function createRoom(nickname: string): Promise<void> {
 async function joinRoom(payload: {
   roomId: string;
   nickname: string;
+  seat: number;
 }): Promise<void> {
   busy.value = true;
   errorMessage.value = "";
@@ -129,7 +130,10 @@ async function joinRoom(payload: {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: payload.nickname }),
+        body: JSON.stringify({
+          nickname: payload.nickname,
+          seat: payload.seat,
+        }),
       },
     );
     applySession({

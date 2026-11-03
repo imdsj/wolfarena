@@ -38,10 +38,12 @@ from .rooms import (
     RoomFullError,
     RoomNotFoundError,
     RoomPermissionError,
+    SeatUnavailableError,
 )
 from .timers import RoomTimerService
 from .schemas import (
     ActionRequest,
+    AvailableSeatsResponse,
     CreateRoomRequest,
     CreatedRoomResponse,
     HealthResponse,
@@ -173,6 +175,7 @@ def create_app(
             joined, mutation = room_repository.join_room(
                 room_id,
                 payload.nickname,
+                seat=payload.seat,
             )
         except RoomNotFoundError as error:
             raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
@@ -182,8 +185,23 @@ def create_app(
             raise _error(409, "JOIN_CLOSED", str(error)) from error
         except DuplicateNicknameError as error:
             raise _error(409, "DUPLICATE_NICKNAME", str(error)) from error
+        except SeatUnavailableError as error:
+            raise _error(409, "SEAT_UNAVAILABLE", str(error)) from error
         await application.state.realtime.broadcast_mutation(mutation)
         return joined
+
+    @application.get(
+        "/api/rooms/{room_id}/seats",
+        response_model=AvailableSeatsResponse,
+    )
+    def room_seats(room_id: str) -> AvailableSeatsResponse:
+        try:
+            return AvailableSeatsResponse(
+                room_id=room_id,
+                available_seats=room_repository.available_seats(room_id),
+            )
+        except RoomNotFoundError as error:
+            raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
 
     @application.get(
         "/api/rooms/{room_id}",

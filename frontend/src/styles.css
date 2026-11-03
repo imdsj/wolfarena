@@ -955,3 +955,65 @@ body.night-mode .speech-speaker {
 body.night-mode .speech-kind {
   color: #93a597;
 }
+
+.seat-picker {
+  margin: 10px 0 4px;
+}
+
+.seat-picker-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #59665b;
+}
+
+.seat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.seat-cell {
+  min-height: 38px;
+  border: 1px solid #aeb9b0;
+  border-radius: 8px;
+  background: #fbfcfa;
+  color: #274b31;
+  font-weight: 700;
+}
+
+.seat-cell.seat-taken {
+  border-color: #d9ded9;
+  background: #f1f3f0;
+  color: #aab3ab;
+  cursor: not-allowed;
+}
+
+.seat-cell.seat-selected {
+  border-color: #325b3c;
+  background: #274b31;
+  color: #fff;
+}
+
+body.night-mode .seat-picker-label {
+  color: #93a597;
+}
+
+body.night-mode .seat-cell {
+  border-color: #2d3a30;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cfe0d3;
+}
+
+body.night-mode .seat-cell.seat-taken {
+  border-color: #222c25;
+  background: rgba(255, 255, 255, 0.02);
+  color: #5d6b61;
+}
+
+body.night-mode .seat-cell.seat-selected {
+  border-color: #3f6b4a;
+  background: #3f6b4a;
+  color: #f4fbf5;
+}

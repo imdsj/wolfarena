@@ -35,6 +35,7 @@ class CreateRoomRequest(ApiModel):
 
 class JoinRoomRequest(ApiModel):
     nickname: str = Field(min_length=1, max_length=32)
+    seat: int | None = Field(default=None, ge=1, le=9)
 
     @field_validator("nickname")
     @classmethod
@@ -115,6 +116,12 @@ class RoomSnapshot(ApiModel):
     players: list[PublicPlayer]
     visible_events: list[PublicEvent]
     available_actions: list[ActionView] = Field(default_factory=list)
+    available_seats: list[int] = Field(default_factory=list)
+
+
+class AvailableSeatsResponse(ApiModel):
+    room_id: str
+    available_seats: list[int]
 
 
 class CreatedRoomResponse(ApiModel):
