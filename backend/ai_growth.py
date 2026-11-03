@@ -33,6 +33,58 @@ GROWTH_STAGE_ORDER: Final[tuple[GrowthStage, ...]] = (
 )
 
 
+def speech_content(state: GameState, actor, view) -> str | None:
+    """Role-aware, deterministic speech that only uses public information.
+
+    It never reads another player's hidden role. It uses the actor's own role,
+    seat, the public list of living players, the day/phase and the current event
+    count, so swapping every other player's role leaves the text unchanged.
+    """
+
+    if not view.requires_content:
+        return None
+    rng = Random(
+        f"{state.seed}:speech:{len(state.events)}:"
+        f"{actor.player_id}:{view.action}"
+    )
+    seat = actor.seat
+    others = [
+        player
+        for player in state.players
+        if player.is_alive and player.player_id != actor.player_id
+    ]
+    pick = rng.choice(others) if others else None
+
+    if view.action == "wolf_speech":
+        if pick is not None:
+            return f"狼队频道 {seat} 号：我建议今晚处理 {pick.seat} 号，白天我跟票。"
+        return f"狼队频道 {seat} 号：今晚按队长意见行动，白天我跟票。"
+
+    if view.action == "last_words":
+        return f"我是 {seat} 号，遗言：注意票型反常的人，好人别分票。"
+
+    role = actor.role
+    if role is Role.SEER:
+        if pick is not None:
+            return f"我是预言家，今晚我会查验 {pick.seat} 号，白天公布结论。"
+        return "我是预言家，今晚会优先查验最可疑的对象。"
+
+    if role is Role.WITCH:
+        return "我会谨慎用药，在没把握时不公开行动，避免暴露身份。"
+
+    if role is Role.HUNTER:
+        return "我是猎人，谁票我我带走谁，好人别乱投。"
+
+    if role is Role.WEREWOLF:
+        if pick is not None:
+            return f"我 {seat} 号觉得 {pick.seat} 号发言有点虚，大家留意。"
+        return f"我 {seat} 号先听一轮再表态。"
+
+    if pick is not None:
+        return f"我是村民，我怀疑 {pick.seat} 号，他的投票和发言对不上。"
+    return f"我 {seat} 号目前没有明确怀疑对象。"
+
+
 @dataclass(slots=True)
 class DecisionRecord:
     """One auditable action choice made by a player or agent."""
@@ -339,14 +391,8 @@ class L1RulePolicy:
         return view.target_ids[0]
 
     @staticmethod
-    def choose_content(actor, view) -> str | None:
-        if not view.requires_content:
-            return None
-        if view.action == "wolf_speech":
-            return f"L1规则狼{actor.seat}号发言"
-        if view.action == "last_words":
-            return f"L1规则{actor.seat}号遗言"
-        return f"我是{actor.seat}号，先听后续发言。"
+    def choose_content(state, actor, view) -> str | None:
+        return speech_content(state, actor, view)
 
     @staticmethod
     def _claimed_god_ids(state: GameState, actor) -> set[str]:

@@ -9,7 +9,7 @@ from random import Random
 from typing import TYPE_CHECKING, Literal
 
 from .actions import available_actions_for_state
-from .ai_growth import L1RulePolicy
+from .ai_growth import L1RulePolicy, speech_content
 from .game_engine import (
     EventType,
     GameState,
@@ -450,7 +450,7 @@ class AIController:
             return ActionRequest(
                 action=view.action,
                 target_id=target_id,
-                content=policy.choose_content(actor, view),
+                content=policy.choose_content(state, actor, view),
                 choice=choice,
             )
 
@@ -471,14 +471,7 @@ class AIController:
             if view.allow_no_target:
                 candidates.append(None)
             target_id = rng.choice(candidates)
-        content = None
-        if view.requires_content:
-            if view.action == "wolf_speech":
-                content = f"AI{actor.seat}号狼队发言"
-            elif view.action == "last_words":
-                content = f"AI{actor.seat}号遗言"
-            else:
-                content = f"我是{actor.seat}号，先听后续发言。"
+        content = speech_content(state, actor, view)
         return ActionRequest(
             action=view.action,
             target_id=target_id,

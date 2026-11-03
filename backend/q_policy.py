@@ -22,7 +22,7 @@ from pathlib import Path
 from random import Random
 from typing import Any, Sequence
 
-from .ai_growth import L1RulePolicy
+from .ai_growth import L1RulePolicy, speech_content
 from .game_engine import GameState, Role
 
 
@@ -383,8 +383,8 @@ class QTablePolicy:
         )
 
     @staticmethod
-    def choose_content(actor, view) -> str | None:
-        return L1RulePolicy.choose_content(actor, view)
+    def choose_content(state, actor, view) -> str | None:
+        return speech_content(state, actor, view)
 
     # -- learning -----------------------------------------------------------
 

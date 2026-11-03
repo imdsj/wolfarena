@@ -45,6 +45,29 @@ const isDeadPlayer = computed(
   () => !isSpectator.value && props.room.viewer.is_alive === false,
 );
 const gameEnded = computed(() => props.room.phase === "END");
+const speechEventTypes = new Set([
+  "PUBLIC_SPEECH",
+  "WOLF_SPEECH",
+  "LAST_WORDS",
+]);
+const speechEvents = computed(() =>
+  props.events.filter((event) => speechEventTypes.has(event.event_type)),
+);
+const playerById = computed(() =>
+  new Map(props.room.players.map((player) => [player.player_id, player])),
+);
+function speechText(event: GameEvent): string {
+  const content = event.data.content;
+  return typeof content === "string" ? content : "";
+}
+function speakerLabel(event: GameEvent): string {
+  const player = event.actor_id
+    ? playerById.value.get(event.actor_id)
+    : undefined;
+  const name = player ? player.name : (event.actor_id ?? "系统");
+  const seat = player ? `${player.seat} 号` : "";
+  return `${seat} ${name}`.trim();
+}
 const roleLabels: Record<string, string> = {
   werewolf: "狼人",
   villager: "村民",
@@ -353,6 +376,39 @@ async function copyRoomId(): Promise<void> {
       :events="events"
       :players="room.players"
     />
+
+    <section class="panel speech-panel">
+      <div class="section-heading">
+        <h2>发言记录</h2>
+        <span v-if="isSpectator" class="muted">上帝视角 · 可见全部发言</span>
+        <span v-else>{{ speechEvents.length }} 条</span>
+      </div>
+      <ol v-if="speechEvents.length" class="speech-list">
+        <li
+          v-for="event in speechEvents"
+          :key="event.event_seq"
+          class="speech-bubble"
+          :class="{
+            'speech-wolf': event.event_type === 'WOLF_SPEECH',
+            'speech-last-words': event.event_type === 'LAST_WORDS',
+            'speech-own': event.actor_id === room.viewer.player_id,
+          }"
+        >
+          <div class="speech-meta">
+            <span class="speech-speaker">{{ speakerLabel(event) }}</span>
+            <span class="speech-kind">{{
+              event.event_type === "WOLF_SPEECH"
+                ? "狼队频道"
+                : event.event_type === "LAST_WORDS"
+                  ? "遗言"
+                  : "公开发言"
+            }}</span>
+          </div>
+          <p class="speech-text">{{ speechText(event) }}</p>
+        </li>
+      </ol>
+      <p v-else class="muted">还没有发言记录。</p>
+    </section>
 
     <section class="panel">
       <div class="section-heading">

@@ -874,3 +874,84 @@ body.night-mode .copy-room-id,
 body.night-mode .room-code {
   color: #9fd0ad;
 }
+
+.speech-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.speech-bubble {
+  border: 1px solid #d3dad3;
+  border-radius: 11px;
+  background: #f8faf7;
+  padding: 11px 13px;
+}
+
+.speech-bubble.speech-own {
+  border-color: #8da9c4;
+  background: #eff5fa;
+}
+
+.speech-bubble.speech-wolf {
+  border-color: #c2a1b8;
+  background: #faf2f7;
+}
+
+.speech-bubble.speech-last-words {
+  border-color: #c7b08a;
+  background: #faf6ec;
+}
+
+.speech-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: #5f6961;
+}
+
+.speech-speaker {
+  font-weight: 700;
+  color: #274b31;
+}
+
+.speech-kind {
+  color: #7d8f81;
+}
+
+.speech-text {
+  margin: 6px 0 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+body.night-mode .speech-bubble {
+  border-color: #263429;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body.night-mode .speech-bubble.speech-own {
+  border-color: #2d4b62;
+  background: rgba(50, 90, 120, 0.18);
+}
+
+body.night-mode .speech-bubble.speech-wolf {
+  border-color: #4a2f43;
+  background: rgba(110, 50, 90, 0.15);
+}
+
+body.night-mode .speech-bubble.speech-last-words {
+  border-color: #4a412f;
+  background: rgba(120, 100, 50, 0.15);
+}
+
+body.night-mode .speech-speaker {
+  color: #9fd0ad;
+}
+
+body.night-mode .speech-kind {
+  color: #93a597;
+}
