@@ -18,14 +18,12 @@ class ApiHealthTests(unittest.TestCase):
         response = self.client.get("/health")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json(),
-            {
-                "status": "ok",
-                "service": "wolfarena-api",
-                "version": "0.6.0",
-            },
-        )
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["service"], "wolfarena-api")
+        self.assertEqual(body["version"], "0.6.0")
+        self.assertIsInstance(body["commit"], str)
+        self.assertTrue(body["commit"])
         lowered = response.text.lower()
         for forbidden in ("api_key", "secret", "password", "c:\\"):
             self.assertNotIn(forbidden, lowered)

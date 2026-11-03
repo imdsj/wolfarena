@@ -57,31 +57,73 @@ def speech_content(state: GameState, actor, view) -> str | None:
 
     if view.action == "wolf_speech":
         if pick is not None:
-            return f"狼队频道 {seat} 号：我建议今晚处理 {pick.seat} 号，白天我跟票。"
+            return rng.choice(
+                [
+                    f"狼队频道 {seat} 号：我建议今晚处理 {pick.seat} 号，白天我跟票。",
+                    f"狼队频道 {seat} 号：我倾向刀 {pick.seat} 号，白天我带节奏。",
+                    f"狼队频道 {seat} 号：{pick.seat} 号威胁大，今晚优先。",
+                ]
+            )
         return f"狼队频道 {seat} 号：今晚按队长意见行动，白天我跟票。"
 
     if view.action == "last_words":
-        return f"我是 {seat} 号，遗言：注意票型反常的人，好人别分票。"
+        return rng.choice(
+            [
+                f"我是 {seat} 号，遗言：注意票型反常的人，好人别分票。",
+                f"我是 {seat} 号，遗言：我票投给最可疑的人，别跟风。",
+                f"我是 {seat} 号，遗言：好人看清投票，别被带节奏。",
+            ]
+        )
 
     role = actor.role
     if role is Role.SEER:
         if pick is not None:
-            return f"我是预言家，今晚我会查验 {pick.seat} 号，白天公布结论。"
+            return rng.choice(
+                [
+                    f"我是预言家，今晚我会查验 {pick.seat} 号，白天公布结论。",
+                    f"我是预言家，本轮计划验 {pick.seat} 号，好人跟我的票。",
+                    f"我是预言家，先验 {pick.seat} 号，有结果我会说清楚。",
+                ]
+            )
         return "我是预言家，今晚会优先查验最可疑的对象。"
 
     if role is Role.WITCH:
-        return "我会谨慎用药，在没把握时不公开行动，避免暴露身份。"
+        return rng.choice(
+            [
+                "我会谨慎用药，在没把握时不公开行动，避免暴露身份。",
+                "用药我会留到关键时刻，没把握之前不公开说。",
+                "我会根据今晚的刀口决定用药，先不暴露。",
+            ]
+        )
 
     if role is Role.HUNTER:
-        return "我是猎人，谁票我我带走谁，好人别乱投。"
+        return rng.choice(
+            [
+                "我是猎人，谁票我我带走谁，好人别乱投。",
+                "我是猎人，别急着票我，不然我开枪带走一个。",
+                "我是猎人，我的枪还在，投票前想清楚。",
+            ]
+        )
 
     if role is Role.WEREWOLF:
         if pick is not None:
-            return f"我 {seat} 号觉得 {pick.seat} 号发言有点虚，大家留意。"
+            return rng.choice(
+                [
+                    f"我 {seat} 号觉得 {pick.seat} 号发言有点虚，大家留意。",
+                    f"我 {seat} 号先听一轮，{pick.seat} 号我再观察。",
+                    f"我 {seat} 号目前比较怀疑 {pick.seat} 号，理由先听后置位。",
+                ]
+            )
         return f"我 {seat} 号先听一轮再表态。"
 
     if pick is not None:
-        return f"我是村民，我怀疑 {pick.seat} 号，他的投票和发言对不上。"
+        return rng.choice(
+            [
+                f"我是村民，我怀疑 {pick.seat} 号，他的投票和发言对不上。",
+                f"我是村民，我看 {pick.seat} 号有点问题，先记着。",
+                f"我是村民，目前最怀疑 {pick.seat} 号，等下看他怎么解释。",
+            ]
+        )
     return f"我 {seat} 号目前没有明确怀疑对象。"
 
 

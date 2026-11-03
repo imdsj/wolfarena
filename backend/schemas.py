@@ -17,6 +17,7 @@ class HealthResponse(ApiModel):
     status: Literal["ok"]
     service: str
     version: str
+    commit: str = "unknown"
 
 
 class CreateRoomRequest(ApiModel):

@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from pathlib import Path
 from secrets import randbits
+import subprocess
 from typing import Any
 
 from fastapi import (
@@ -63,6 +64,25 @@ from .schemas import (
 
 
 APP_VERSION = "0.6.0"
+
+
+def _resolve_commit() -> str:
+    """Best-effort commit id so /health can prove which build is running."""
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).resolve().parent.parent,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        return result.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+APP_COMMIT = _resolve_commit()
 
 WS_CLOSE_AUTH_REQUIRED = 4400
 WS_CLOSE_INVALID_TOKEN = 4401
@@ -156,6 +176,7 @@ def create_app(
             status="ok",
             service="wolfarena-api",
             version=APP_VERSION,
+            commit=APP_COMMIT,
         )
 
     @application.post(
