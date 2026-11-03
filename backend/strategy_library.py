@@ -302,6 +302,72 @@ def evidence_from_file(path: Path) -> PromotionEvidence:
         raise StrategyError(f"晋升证据无效：{path}: {exc}") from exc
 
 
+STRATEGY_TOOL_ROLES: frozenset[str] = frozenset(role.value for role in Role)
+STRATEGY_TOOL_PHASES: frozenset[str] = frozenset(
+    phase.value for phase in PHASE_ORDER
+) | {"ANY"}
+STRATEGY_TOOL_MAX_QUERY = 200
+STRATEGY_TOOL_MAX_LIMIT = 20
+
+
+class StrategyToolError(ValueError):
+    """Raised when a search_strategy request violates the tool contract."""
+
+
+def search_strategy(
+    *,
+    root: Path,
+    query: str = "",
+    role: str | None = None,
+    phase: str | None = None,
+    limit: int = 5,
+) -> dict[str, object]:
+    """Read-only keyword search over seed/validated tactics.
+
+    The tool never opens arbitrary paths, never runs a shell, never makes a
+    network request and never reads another player's hidden role. Every input
+    is validated against a strict allow-list first.
+    """
+
+    if not isinstance(query, str):
+        raise StrategyToolError("query 必须是字符串")
+    if len(query) > STRATEGY_TOOL_MAX_QUERY:
+        raise StrategyToolError("query 过长")
+    if role is not None and role not in STRATEGY_TOOL_ROLES:
+        raise StrategyToolError(f"未知角色：{role}")
+    if phase is not None and phase not in STRATEGY_TOOL_PHASES:
+        raise StrategyToolError(f"未知阶段：{phase}")
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise StrategyToolError("limit 必须是整数")
+    if not 1 <= limit <= STRATEGY_TOOL_MAX_LIMIT:
+        raise StrategyToolError("limit 越界")
+
+    library = StrategyLibrary(root)
+    matches = library.search(query, role=role, phase=phase, limit=limit)
+    return {
+        "query": query,
+        "role": role,
+        "phase": phase,
+        "count": len(matches),
+        "matches": [
+            {
+                "strategy_id": match.card.strategy_id,
+                "title": match.card.title,
+                "role": match.card.role,
+                "phase": match.card.phase,
+                "action": match.card.action,
+                "trigger": match.card.trigger,
+                "recommendation": match.card.recommendation,
+                "risk": match.card.risk,
+                "evidence_level": match.card.evidence_level,
+                "source_type": match.card.source_type,
+                "source": match.card.source,
+            }
+            for match in matches
+        ],
+    }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="WolfArena local strategy library",

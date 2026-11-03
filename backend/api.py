@@ -28,6 +28,7 @@ from .ai_provider import (
     DeepSeekSettings,
 )
 from .realtime import RealtimeHub
+from .strategy_library import StrategyToolError, search_strategy
 from .rooms import (
     AuthenticatedSession,
     DuplicateNicknameError,
@@ -50,6 +51,7 @@ from .schemas import (
     JoinedRoomResponse,
     JoinRoomRequest,
     RoomSnapshot,
+    StrategySearchRequest,
 )
 
 
@@ -111,10 +113,14 @@ def _authenticate_websocket(
 def create_app(
     repository: InMemoryRoomRepository | None = None,
     ai_provider: CandidateProvider | None = None,
+    strategy_root: Path | None = None,
 ) -> FastAPI:
     room_repository = repository or InMemoryRoomRepository()
     realtime = RealtimeHub(room_repository)
     timer_service = RoomTimerService(room_repository, realtime)
+    resolved_strategy_root = strategy_root or (
+        Path(__file__).resolve().parent.parent / "strategy_library"
+    )
 
     @asynccontextmanager
     async def lifespan(_application: FastAPI):
@@ -202,6 +208,23 @@ def create_app(
             )
         except RoomNotFoundError as error:
             raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
+
+    @application.post("/api/strategy/search")
+    def strategy_search_tool(payload: StrategySearchRequest):
+        try:
+            return search_strategy(
+                root=resolved_strategy_root,
+                query=payload.query,
+                role=payload.role,
+                phase=payload.phase,
+                limit=payload.limit,
+            )
+        except StrategyToolError as error:
+            raise _error(
+                422,
+                "STRATEGY_TOOL_REJECTED",
+                str(error),
+            ) from error
 
     @application.get(
         "/api/rooms/{room_id}",

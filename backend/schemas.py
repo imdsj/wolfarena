@@ -124,6 +124,13 @@ class AvailableSeatsResponse(ApiModel):
     available_seats: list[int]
 
 
+class StrategySearchRequest(ApiModel):
+    query: str = Field(default="", max_length=200)
+    role: Literal["werewolf", "villager", "seer", "witch", "hunter"] | None = None
+    phase: str | None = Field(default=None, max_length=64)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
 class CreatedRoomResponse(ApiModel):
     room_id: str
     player_token: str
