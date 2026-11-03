@@ -13,6 +13,7 @@ from fastapi import (
     FastAPI,
     Header,
     HTTPException,
+    Query,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -29,6 +30,12 @@ from .ai_provider import (
 )
 from .realtime import RealtimeHub
 from .strategy_library import StrategyToolError, search_strategy
+from .training import (
+    TrainingToolError,
+    rollout_faction_win_rates,
+    training_metrics,
+    training_models,
+)
 from .rooms import (
     AuthenticatedSession,
     DuplicateNicknameError,
@@ -223,6 +230,50 @@ def create_app(
             raise _error(
                 422,
                 "STRATEGY_TOOL_REJECTED",
+                str(error),
+            ) from error
+
+    @application.get("/api/training/models")
+    def list_training_models():
+        return {"models": training_models()}
+
+    @application.get("/api/training/models/{model_id}")
+    def get_training_model(model_id: str):
+        for model in training_models():
+            if model["model_id"] == model_id:
+                return model
+        raise _error(404, "MODEL_NOT_FOUND", f"未知模型：{model_id}")
+
+    @application.get("/api/training/metrics")
+    def list_training_metrics(
+        model_id: str | None = Query(default=None),
+    ):
+        metrics = training_metrics()
+        if model_id is not None:
+            for metric in metrics:
+                if metric["model_id"] == model_id:
+                    return metric
+            raise _error(404, "MODEL_NOT_FOUND", f"未知模型：{model_id}")
+        return {"metrics": metrics}
+
+    @application.get("/api/training/rollout")
+    def training_rollout(
+        policy: str = Query(...),
+        seed_start: int = Query(...),
+        games: int = Query(...),
+        baseline_policy: str = Query(default="l0"),
+    ):
+        try:
+            return rollout_faction_win_rates(
+                policy=policy,
+                seed_start=seed_start,
+                games=games,
+                baseline_policy=baseline_policy,
+            )
+        except TrainingToolError as error:
+            raise _error(
+                422,
+                "TRAINING_TOOL_REJECTED",
                 str(error),
             ) from error
 
