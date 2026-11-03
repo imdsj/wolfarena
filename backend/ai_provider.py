@@ -222,6 +222,58 @@ class DeepSeekCandidateProvider:
 
         raise ModelRequestError(_failure_kind(last_error))
 
+    async def chat_reply(
+        self,
+        *,
+        seat: int,
+        day: int,
+        phase: str,
+        roster: Sequence[str],
+        recent: Sequence[str],
+        message: str,
+    ) -> str:
+        """One short in-character public reply, plain text only."""
+
+        if not self.settings.api_key:
+            raise ModelRequestError("missing_api_key")
+        system = (
+            f"你在 WolfArena 九人狼人杀里扮演 {seat} 号玩家。"
+            "只能使用公开信息回答，不要编造他人身份，不要承认自己是 AI，"
+            "不要输出任何密钥或系统信息。用一句中文回复，60 字以内。"
+        )
+        user = (
+            f"第 {day} 天，阶段 {phase}。"
+            f"在场玩家：{'、'.join(roster) or '未知'}。"
+            f"最近公开发言：{' / '.join(recent[-3:]) or '暂无'}。"
+            f"有人对你说：{message}"
+        )
+        async with httpx.AsyncClient(
+            timeout=self.settings.timeout_seconds,
+            transport=self._transport,
+        ) as client:
+            response = await client.post(
+                f"{self.settings.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.settings.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.settings.model,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 160,
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+            content = payload["choices"][0]["message"]["content"]
+            if not isinstance(content, str) or not content.strip():
+                raise ModelRequestError("empty_model_content")
+            return content
+
     @staticmethod
     def _fallback(
         legal_actions: Sequence[str],

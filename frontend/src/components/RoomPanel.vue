@@ -25,16 +25,28 @@ const props = defineProps<{
   busy: boolean;
   aiNotice: string;
   actionNotice: string;
+  chatLog: { role: "me" | "ai"; text: string; seat: number | null }[];
 }>();
 
 const emit = defineEmits<{
   action: [action: ActionSubmission];
   aiAction: [];
+  chat: [message: string];
   reconnect: [];
   leave: [];
 }>();
 
 const copyLabel = ref("复制房间号");
+const chatInput = ref("");
+
+function submitChat(): void {
+  const text = chatInput.value.trim();
+  if (!text) {
+    return;
+  }
+  emit("chat", text);
+  chatInput.value = "";
+}
 
 const humanCount = computed(
   () => props.room.players.filter((player) => player.is_human).length,
@@ -408,6 +420,47 @@ async function copyRoomId(): Promise<void> {
         </li>
       </ol>
       <p v-else class="muted">还没有发言记录。</p>
+    </section>
+
+    <section class="panel chat-panel">
+      <div class="section-heading">
+        <h2>与 AI 对话</h2>
+        <span class="muted">只使用公开信息</span>
+      </div>
+      <ol v-if="chatLog.length" class="chat-list">
+        <li
+          v-for="(item, index) in chatLog"
+          :key="index"
+          class="chat-line"
+          :class="item.role === 'me' ? 'chat-me' : 'chat-ai'"
+        >
+          <span class="chat-who">{{
+            item.role === "me"
+              ? "我"
+              : item.seat
+                ? `${item.seat} 号`
+                : "AI"
+          }}</span>
+          <p class="chat-text">{{ item.text }}</p>
+        </li>
+      </ol>
+      <p v-else class="muted">
+        问 AI 一句，比如“你怎么看 5 号？”
+      </p>
+      <form class="chat-form" @submit.prevent="submitChat">
+        <input
+          v-model="chatInput"
+          maxlength="200"
+          placeholder="对 AI 说点什么…"
+        />
+        <button
+          class="primary-button"
+          type="submit"
+          :disabled="!chatInput.trim()"
+        >
+          发送
+        </button>
+      </form>
     </section>
 
     <section class="panel">

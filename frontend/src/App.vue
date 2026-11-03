@@ -26,6 +26,9 @@ const events = ref<GameEvent[]>([]);
 const connectionState = ref<ConnectionState>("idle");
 const aiNotice = ref("");
 const actionNotice = ref("");
+const chatLog = ref<
+  { role: "me" | "ai"; text: string; seat: number | null }[]
+>([]);
 
 const isNight = computed(() =>
   (room.value?.phase ?? "").startsWith("NIGHT_"),
@@ -91,6 +94,7 @@ function applySession(payload: RoomSessionResponse): void {
   session.accessPassword = "";
   room.value = payload.room;
   events.value = payload.room.visible_events;
+  chatLog.value = [];
   errorMessage.value = "";
   persistSession();
   connectSocket();
@@ -161,6 +165,7 @@ function watchRoom(payload: {
   session.accessPassword = payload.password;
   room.value = null;
   events.value = [];
+  chatLog.value = [];
   aiNotice.value = "";
   errorMessage.value = "";
   busy.value = true;
@@ -335,6 +340,39 @@ async function runAiAction(): Promise<void> {
   }
 }
 
+async function sendChat(message: string): Promise<void> {
+  if (!session.roomId || !session.playerToken) {
+    return;
+  }
+  chatLog.value.push({ role: "me", text: message, seat: null });
+  try {
+    const payload = await requestJson<{
+      seat: number;
+      name: string;
+      reply: string;
+      source: string;
+    }>(`/api/rooms/${encodeURIComponent(session.roomId)}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Player-Token": session.playerToken,
+      },
+      body: JSON.stringify({ message }),
+    });
+    chatLog.value.push({
+      role: "ai",
+      text: payload.reply,
+      seat: payload.seat,
+    });
+  } catch (error) {
+    chatLog.value.push({
+      role: "ai",
+      text: errorMessageFrom(error),
+      seat: null,
+    });
+  }
+}
+
 function resetSession(): void {
   socket?.close();
   socket = null;
@@ -461,8 +499,10 @@ onBeforeUnmount(() => {
       :busy="busy"
       :ai-notice="aiNotice"
       :action-notice="actionNotice"
+      :chat-log="chatLog"
       @action="runAction"
       @ai-action="runAiAction"
+      @chat="sendChat"
       @reconnect="connectSocket"
       @leave="leaveRoom"
     />

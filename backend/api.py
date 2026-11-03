@@ -8,6 +8,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from secrets import randbits
 import subprocess
+import time
 from typing import Any
 
 from fastapi import (
@@ -53,6 +54,7 @@ from .timers import RoomTimerService
 from .schemas import (
     ActionRequest,
     AvailableSeatsResponse,
+    ChatRequest,
     CreateRoomRequest,
     CreatedRoomResponse,
     HealthResponse,
@@ -169,6 +171,8 @@ def create_app(
     application.state.ai_provider = ai_provider or DeepSeekCandidateProvider(
         DeepSeekSettings.from_environment()
     )
+    application.state.chat_times = {}
+    application.state.chat_min_interval = 3.0
 
     @application.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
@@ -253,6 +257,85 @@ def create_app(
                 "STRATEGY_TOOL_REJECTED",
                 str(error),
             ) from error
+
+    @application.post("/api/rooms/{room_id}/chat")
+    async def room_chat(
+        room_id: str,
+        payload: ChatRequest,
+        player_token: str | None = Header(default=None, alias="X-Player-Token"),
+    ):
+        try:
+            session = room_repository.authenticate_player(room_id, player_token)
+        except RoomNotFoundError as error:
+            raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
+        except InvalidPlayerTokenError as error:
+            raise _error(401, "INVALID_PLAYER_TOKEN", str(error)) from error
+
+        now = time.time()
+        chat_times = application.state.chat_times
+        if now - chat_times.get(room_id, 0.0) < application.state.chat_min_interval:
+            raise _error(429, "CHAT_RATE_LIMITED", "发言太快，稍等一下")
+        chat_times[room_id] = now
+
+        snapshot = room_repository.snapshot_for_access(
+            session.room,
+            session.access,
+        )
+        ai_seats = [
+            player
+            for player in snapshot.players
+            if not player.is_human and player.is_alive
+        ]
+        if not ai_seats:
+            raise _error(409, "NO_AI_PLAYER", "当前没有可对话的 AI 玩家")
+        target = next(
+            (
+                player
+                for player in ai_seats
+                if payload.seat is not None and player.seat == payload.seat
+            ),
+            ai_seats[0],
+        )
+        roster = [
+            f"{player.seat}号{player.name}"
+            for player in snapshot.players
+            if player.is_alive
+        ]
+        recent = [
+            str(event.data.get("content", ""))
+            for event in snapshot.visible_events
+            if event.event_type == "PUBLIC_SPEECH"
+            and event.data.get("content")
+        ][-3:]
+
+        reply = f"{target.seat} 号：我先记住你的说法，后面投票再判断。"
+        source = "fallback"
+        provider = application.state.ai_provider
+        chat_reply = getattr(provider, "chat_reply", None)
+        if callable(chat_reply):
+            try:
+                text = await chat_reply(
+                    seat=target.seat,
+                    day=snapshot.day,
+                    phase=snapshot.phase,
+                    roster=roster,
+                    recent=recent,
+                    message=payload.message,
+                )
+                cleaned = " ".join(str(text).split())[:140]
+                if cleaned:
+                    reply = cleaned
+                    source = "deepseek"
+            except Exception:
+                source = "fallback"
+
+        return {
+            "room_id": room_id,
+            "seat": target.seat,
+            "name": target.name,
+            "reply": reply,
+            "source": source,
+        }
 
     @application.get("/api/training/models")
     def list_training_models():

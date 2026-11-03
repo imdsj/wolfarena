@@ -1017,3 +1017,73 @@ body.night-mode .seat-cell.seat-selected {
   background: #3f6b4a;
   color: #f4fbf5;
 }
+
+.chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.chat-line {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #f4f7f3;
+}
+
+.chat-me {
+  background: #e8f0ea;
+}
+
+.chat-who {
+  font-size: 12px;
+  font-weight: 700;
+  color: #274b31;
+}
+
+.chat-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chat-form input {
+  flex: 1;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #aeb9b0;
+  border-radius: 9px;
+  background: #fbfcfa;
+}
+
+.chat-form .primary-button {
+  width: auto;
+  padding: 0 18px;
+}
+
+body.night-mode .chat-line {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.night-mode .chat-me {
+  background: rgba(50, 90, 120, 0.18);
+}
+
+body.night-mode .chat-who {
+  color: #9fd0ad;
+}
+
+body.night-mode .chat-form input {
+  border-color: #2d3a30;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6efe7;
+}

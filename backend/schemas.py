@@ -132,6 +132,11 @@ class StrategySearchRequest(ApiModel):
     limit: int = Field(default=5, ge=1, le=20)
 
 
+class ChatRequest(ApiModel):
+    message: str = Field(min_length=1, max_length=200)
+    seat: int | None = Field(default=None, ge=1, le=9)
+
+
 class CreatedRoomResponse(ApiModel):
     room_id: str
     player_token: str
