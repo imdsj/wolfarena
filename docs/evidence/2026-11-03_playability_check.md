@@ -28,6 +28,27 @@
 
 部署后上述两项均恢复正常，详见下节。
 
+## 二之二、部署记录核对（订书机提供，Hurry 复核）
+
+订书机说明：20:34 左右完成部署，服务器 HEAD `25adc0d`，工作区干净，部署前备份在 `/www/backup/wolfarena-dist-predeploy-196dc4e.tgz`；使用 `merge --ff-only` 而非 `reset --mixed`；`requirements.txt` 在 `0881724..196dc4e` 之间未变化，故未执行 `pip install`。
+
+逐条复核结果：
+
+| 说法 | 复核方式 | 结论 |
+| --- | --- | --- |
+| `requirements.txt` 未变 | 本地 `git diff --stat 0881724 196dc4e -- requirements.txt` | **无输出，属实** |
+| `25adc0d` 只多一条部署记录文档 | `git log -1 25adc0d` | `docs: record public deployment update to 196dc4e`，属实 |
+| 记录字段 `deadline_kind` | 公网快照 | 存在，值为 `human_action`，另有 `deadline_at`、`remaining_ms` |
+
+> 关于我此前提出的三点提醒：`reset --mixed` 与 `pip install` 两项针对的是截图里那段通用命令，实际采用的是 `merge --ff-only` 且依赖未变，因此两项均不适用；第三点「验证太弱」订书机称已跑四类验证。**提醒本身不必照做，但保留在文档里，供下次部署时对照。**
+
+本轮快照新增可见字段（此前未记录）：
+
+```text
+deadline_at, deadline_kind, remaining_ms
+available_seats, witch_kill_target_id, witch_kill_target_visible
+```
+
 ## 三、部署后验证（本轮正式结论）
 
 ### 3.1 版本与接口
@@ -141,7 +162,8 @@ GET /api/training/models → 200，4 个模型
 
 1. **占座冲突与非法 seat 拒绝未测**：只验了「指定空座成功」，没验「指定已占座」和「seat=0 / seat=10 / seat 非数字」。建议补测，这是权限类缺陷的高发点。
 2. **无 Key 时 AI 发言质量**：本轮未抓取发言内容。若仍走模板兜底，九个座位可能说同一句话，影响 3-5 分钟成片观感。
-3. **部署一致性**：`/health` 仍只返回 `0.6.0`，无法自证 commit。建议后续加入构建信息，避免再次出现「本地好、公网坏」却要靠参数探针反推的情况。
+3. **部署一致性**：`/health` 仍只返回 `0.6.0`，无法自证 commit。本次靠「选座参数被拒」反推出版本落后，耗时约 15 分钟。建议后续加入构建信息（commit 短哈希 + 构建时间），把这类排查从「反推」变成「一查」。
+4. **首次计时偏差**：我测得夜间自动推进为 20 秒（2 秒轮询粒度），订书机记录约 24 秒。两者均说明兜底生效，差异可能来自轮询精度与 deadline 起算点，不影响判定。
 
 ## 七、本次未做的事
 
