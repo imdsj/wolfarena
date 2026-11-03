@@ -43,3 +43,15 @@
 - 服务器 git 提示 dubious ownership，已按标准做法把项目目录加入
   `safe.directory`，未改动仓库内容。
 - 回滚方式：`/www/backup` 下的 dist 备份，或把代码回退到 `0881724` 后重建前端。
+
+## 后续更新（同日）
+
+首次部署后又追加了一次后端更新，公网升到 `a71ffd5`：
+
+- AI 发言增加同义变体（每个角色 3 种说法），减少九个座位说同一句话。
+- `/health` 增加 `commit` 字段，可直接自证运行中的版本，不再靠参数探针反推。
+- 选座负例在公网复测：房主座位 1 → 409 `SEAT_UNAVAILABLE`；重复座位 → 409；
+  `seat=0`、`seat=10`、`seat="abc"` → 422。
+- 服务器端 2 局模拟：54 条发言中 48 条唯一。
+
+`/health` 现在返回 `{"status":"ok","service":"wolfarena-api","version":"0.6.0","commit":"a71ffd5"}`。
