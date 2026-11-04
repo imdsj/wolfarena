@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Literal
 
 from .actions import available_actions_for_state
 from .ai_growth import L1RulePolicy, speech_content
+from .speech_composer import compose_speech, llm_speech_enabled
 from .game_engine import (
     EventType,
     GameState,
@@ -450,7 +451,7 @@ class AIController:
             return ActionRequest(
                 action=view.action,
                 target_id=target_id,
-                content=policy.choose_content(state, actor, view),
+                content=self._speech_content(state, actor, view, policy),
                 choice=choice,
             )
 
@@ -471,13 +472,23 @@ class AIController:
             if view.allow_no_target:
                 candidates.append(None)
             target_id = rng.choice(candidates)
-        content = speech_content(state, actor, view)
+        content = self._speech_content(state, actor, view, policy)
         return ActionRequest(
             action=view.action,
             target_id=target_id,
             content=content,
             choice=choice,
         )
+
+    @staticmethod
+    def _speech_content(state, actor, view, policy) -> str | None:
+        if llm_speech_enabled():
+            text = compose_speech(state=state, actor=actor, view=view)
+            if text:
+                return text
+        if isinstance(policy, L1RulePolicy):
+            return policy.choose_content(state, actor, view)
+        return speech_content(state, actor, view)
 
     @staticmethod
     def _host_id(state: GameState) -> str:
