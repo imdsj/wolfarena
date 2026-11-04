@@ -254,6 +254,39 @@ class PublicSpeechTests(TestCase):
         self.assertEqual(state.day_result.speech_order[0], "p1")
         self.assertEqual(state.day_result.speech_order[-1], "p8")
 
+    def test_fifth_death_wraps_from_ninth_back_to_first_speaker(self) -> None:
+        # 用户报告场景：1 号真人、5 号夜里死亡。
+        # 发言应从 6 号开始，顺序 6,7,8,9,1,2,3,4；
+        # 9 号说完后必须轮到 1 号，而不是直接进入投票。
+        state = make_day(day=1, death_ids=["p5"])
+
+        order = list(state.day_result.speech_order)
+        self.assertEqual(
+            order,
+            ["p6", "p7", "p8", "p9", "p1", "p2", "p3", "p4"],
+        )
+
+        # 第一天有死亡先进入遗言，5 号遗言结束后才进入讨论发言。
+        self.assertEqual(state.phase, Phase.DAY_LAST_WORDS)
+        submit_last_words(state, "p5", "我是好人")
+        self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
+
+        # 前 4 位（6,7,8,9）依次发言后，仍是讨论阶段，且下一位是 1 号。
+        for player_id in order[:4]:
+            record_public_speech(state, player_id, f"发言-{player_id}")
+
+        self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
+        self.assertEqual(
+            state.day_result.speech_order[state.day_result.next_speaker_index],
+            "p1",
+        )
+
+        # 1 号（真人）发言后继续，最后才进入投票。
+        for player_id in order[4:]:
+            record_public_speech(state, player_id, f"发言-{player_id}")
+
+        self.assertEqual(state.phase, Phase.VOTE)
+
     def test_peaceful_first_day_starts_at_first_seat(self) -> None:
         state = make_day(day=1)
 

@@ -8,6 +8,7 @@ from unittest import TestCase
 from backend.ai_provider import DeepSeekSettings
 from backend.game_engine import (
     EventType,
+    Phase,
     Role,
     Visibility,
     append_event,
@@ -18,6 +19,7 @@ from backend.speech_composer import (
     llm_speech_enabled,
     private_context,
     public_history,
+    tactics_context,
 )
 
 
@@ -95,3 +97,13 @@ class SpeechComposerTests(TestCase):
         context = private_context(state, wolves[0])
         self.assertIn(f"{wolves[1].seat} 号", context)
         self.assertIn("伪装", context)
+
+    def test_tactics_context_grounds_seer_in_night_check(self) -> None:
+        state = create_game(seed=5, human_count=0)
+        seer = next(
+            player for player in state.players if player.role is Role.SEER
+        )
+        state.phase = Phase.NIGHT_SEER_CHECK
+        context = tactics_context(state, seer)
+        self.assertIn("战术库参考", context)
+        self.assertIn("预言家", context)

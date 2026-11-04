@@ -9,11 +9,15 @@ speaker's own role; it never reads another player's hidden identity.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import httpx
 
 from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
+from .strategy_library import StrategyLibrary
+
+STRATEGY_ROOT = Path(__file__).resolve().parent.parent / "strategy_library"
 
 ROLE_LABELS = {
     "werewolf": "狼人",
@@ -111,6 +115,29 @@ def night_summary(state: GameState) -> str:
     return "昨晚是平安夜。"
 
 
+def tactics_context(state: GameState, actor) -> str:
+    """Ground the speaker in the curated strategy library for its role/phase."""
+
+    try:
+        library = StrategyLibrary(STRATEGY_ROOT)
+        matches = library.search(
+            "",
+            role=actor.role.value,
+            phase=state.phase.value,
+            limit=3,
+        )
+    except Exception:
+        matches = []
+    if not matches:
+        return ""
+    lines = [
+        f"- {match.card.title}：{match.card.recommendation}"
+        f"（风险：{match.card.risk}）"
+        for match in matches
+    ]
+    return "战术库参考（沉淀自过往经验，供你借鉴，不是强制指令）：\n" + "\n".join(lines)
+
+
 def compose_speech(
     *,
     state: GameState,
@@ -136,6 +163,7 @@ def compose_speech(
     history = public_history(state, actor)[-8:]
     private_info = private_context(state, actor)
     public_result = night_summary(state)
+    tactics = tactics_context(state, actor)
     system = (
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
         "你的目标是用自然的中文发言帮助你的阵营获胜。规则：只使用公开信息；"
@@ -146,6 +174,7 @@ def compose_speech(
         f"第 {state.day} 天，当前阶段 {state.phase.value}。"
         f"昨晚结果：{public_result}"
         f"你的私密信息：{private_info}"
+        f"战术参考：{tactics or '无'}"
         f"在场玩家：{'、'.join(roster)}。"
         f"最近的公开发言：{' / '.join(history) if history else '暂无'}。"
         f"请以 {actor.seat} 号的身份发表本轮发言。"
