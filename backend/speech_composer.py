@@ -13,7 +13,7 @@ import os
 import httpx
 
 from .ai_provider import DeepSeekSettings
-from .game_engine import EventType, GameState, get_visible_events
+from .game_engine import EventType, GameState, Role, get_visible_events
 
 ROLE_LABELS = {
     "werewolf": "狼人",
@@ -47,6 +47,70 @@ def public_history(state: GameState, actor) -> list[str]:
     return lines
 
 
+def private_context(state: GameState, actor) -> str:
+    """The speaker's own knowledge, mirroring the reference GameMaster prompt."""
+
+    role = actor.role
+    if role is Role.SEER:
+        checks: list[str] = []
+        for event in get_visible_events(state, actor):
+            if event.event_type is not EventType.SEER_CHECKED or not event.target_id:
+                continue
+            target = next(
+                (
+                    player
+                    for player in state.players
+                    if player.player_id == event.target_id
+                ),
+                None,
+            )
+            seat = target.seat if target else "?"
+            result = event.data.get("result")
+            checks.append(
+                f"{seat} 号是{'狼人' if result == 'wolf' else '好人'}"
+            )
+        if checks:
+            return (
+                "你的查验历史：" + "；".join(checks) + "。"
+                "只能陈述这些真实查验结果，不得编造。"
+            )
+        return "你还没有查验过任何人，不要声称查验结果。"
+
+    if role is Role.WITCH:
+        antidote = "可用" if state.antidote_available else "已用"
+        poison = "可用" if state.poison_available else "已用"
+        return f"你的药剂：解药[{antidote}]，毒药[{poison}]。"
+
+    if role is Role.WEREWOLF:
+        teammates = [
+            player.seat
+            for player in state.players
+            if player.role is Role.WEREWOLF
+            and player.player_id != actor.player_id
+        ]
+        names = "、".join(f"{seat} 号" for seat in teammates) or "已无"
+        return f"你的狼人队友是：{names}。白天必须伪装，不能承认狼人身份。"
+
+    if role is Role.HUNTER:
+        return "你是猎人，出局时可以开枪带走一人。"
+
+    return "你是普通村民，没有额外信息。"
+
+
+def night_summary(state: GameState) -> str:
+    if state.day == 0:
+        return "首夜，尚无公开结果。"
+    day_result = state.day_result
+    if day_result is not None and day_result.announced_death_ids:
+        seats = [
+            player.seat
+            for player in state.players
+            if player.player_id in day_result.announced_death_ids
+        ]
+        return "昨晚 " + "、".join(f"{seat} 号" for seat in seats) + " 死亡。"
+    return "昨晚是平安夜。"
+
+
 def compose_speech(
     *,
     state: GameState,
@@ -70,6 +134,8 @@ def compose_speech(
         if player.is_alive
     ]
     history = public_history(state, actor)[-8:]
+    private_info = private_context(state, actor)
+    public_result = night_summary(state)
     system = (
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
         "你的目标是用自然的中文发言帮助你的阵营获胜。规则：只使用公开信息；"
@@ -78,6 +144,8 @@ def compose_speech(
     )
     user = (
         f"第 {state.day} 天，当前阶段 {state.phase.value}。"
+        f"昨晚结果：{public_result}"
+        f"你的私密信息：{private_info}"
         f"在场玩家：{'、'.join(roster)}。"
         f"最近的公开发言：{' / '.join(history) if history else '暂无'}。"
         f"请以 {actor.seat} 号的身份发表本轮发言。"

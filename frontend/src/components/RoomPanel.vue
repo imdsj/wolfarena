@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import type {
   ActionSubmission,
@@ -77,6 +77,57 @@ const feedEventTypes = new Set([
 ]);
 const feedItems = computed(() =>
   props.events.filter((event) => feedEventTypes.has(event.event_type)),
+);
+const revealedCount = ref(0);
+const feedExpanded = ref(false);
+const feedList = ref<HTMLElement | null>(null);
+let revealTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  revealedCount.value = feedItems.value.length;
+});
+
+watch(
+  () => feedItems.value.length,
+  (length) => {
+    if (length <= revealedCount.value) {
+      revealedCount.value = length;
+      return;
+    }
+    if (revealTimer !== null) {
+      return;
+    }
+    revealTimer = setInterval(() => {
+      if (revealedCount.value < feedItems.value.length) {
+        revealedCount.value += 1;
+      } else if (revealTimer !== null) {
+        clearInterval(revealTimer);
+        revealTimer = null;
+      }
+    }, 2200);
+  },
+);
+
+watch(
+  () => revealedCount.value,
+  async () => {
+    await nextTick();
+    const element = feedList.value;
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
+  },
+);
+
+onBeforeUnmount(() => {
+  if (revealTimer !== null) {
+    clearInterval(revealTimer);
+    revealTimer = null;
+  }
+});
+
+const visibleFeed = computed(() =>
+  feedItems.value.slice(0, revealedCount.value),
 );
 function isSpeech(event: GameEvent): boolean {
   return speechEventTypes.has(event.event_type);
@@ -308,10 +359,22 @@ async function copyRoomId(): Promise<void> {
       <div class="section-heading">
         <h2>对局直播</h2>
         <span v-if="isSpectator" class="muted">上帝视角</span>
-        <span v-else class="muted">{{ feedItems.length }} 条</span>
+        <span v-else class="muted">{{ visibleFeed.length }}/{{ feedItems.length }} 条</span>
+        <button
+          class="text-button"
+          type="button"
+          @click="feedExpanded = !feedExpanded"
+        >
+          {{ feedExpanded ? "折叠" : "展开全部" }}
+        </button>
       </div>
-      <ol v-if="feedItems.length" class="speech-list">
-        <template v-for="event in feedItems" :key="event.event_seq">
+      <ol
+        v-if="feedItems.length"
+        ref="feedList"
+        class="speech-list"
+        :class="{ 'feed-collapsed': !feedExpanded }"
+      >
+        <template v-for="event in visibleFeed" :key="event.event_seq">
           <li
             v-if="isSpeech(event)"
             class="speech-bubble"

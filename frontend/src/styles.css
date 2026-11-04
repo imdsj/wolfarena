@@ -1104,6 +1104,12 @@ body.night-mode .chat-form input {
   color: #8a968c;
 }
 
+.feed-collapsed {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 body.night-mode .feed-system {
   border-left-color: #33443a;
   color: #cfe0d3;

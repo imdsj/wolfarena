@@ -16,6 +16,7 @@ from backend.game_engine import (
 from backend.speech_composer import (
     compose_speech,
     llm_speech_enabled,
+    private_context,
     public_history,
 )
 
@@ -64,3 +65,33 @@ class SpeechComposerTests(TestCase):
         history = public_history(state, villager)
         self.assertIn("1 号：公开", history)
         self.assertNotIn("狼聊", " ".join(history))
+
+    def test_seer_private_context_uses_real_check_history(self) -> None:
+        state = create_game(seed=5, human_count=0)
+        seer = next(
+            player for player in state.players if player.role is Role.SEER
+        )
+        wolf = next(
+            player for player in state.players if player.role is Role.WEREWOLF
+        )
+        append_event(
+            state,
+            EventType.SEER_CHECKED,
+            actor_id=seer.player_id,
+            target_id=wolf.player_id,
+            visibility=Visibility.PLAYER,
+            visible_to=(seer.player_id,),
+            data={"result": "wolf"},
+        )
+        context = private_context(state, seer)
+        self.assertIn(f"{wolf.seat} 号是狼人", context)
+        self.assertIn("不得编造", context)
+
+    def test_wolf_private_context_lists_teammates(self) -> None:
+        state = create_game(seed=5, human_count=0)
+        wolves = [
+            player for player in state.players if player.role is Role.WEREWOLF
+        ]
+        context = private_context(state, wolves[0])
+        self.assertIn(f"{wolves[1].seat} 号", context)
+        self.assertIn("伪装", context)
