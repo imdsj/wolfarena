@@ -75,6 +75,7 @@ export interface RoomSnapshot {
   players: PublicPlayer[];
   visible_events: GameEvent[];
   available_actions: AvailableAction[];
+  announcements: string[];
 }
 
 export interface RoomSessionResponse {

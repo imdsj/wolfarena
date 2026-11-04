@@ -1112,3 +1112,22 @@ body.night-mode .feed-system {
 body.night-mode .feed-tag {
   color: #7d8f81;
 }
+
+.narrator-panel {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-left: 4px solid #325b3c;
+  background: #f4f9f4;
+}
+
+.narrator-line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+body.night-mode .narrator-panel {
+  border-left-color: #3f6b4a;
+  background: rgba(255, 255, 255, 0.05);
+}

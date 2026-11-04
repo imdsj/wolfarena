@@ -282,6 +282,16 @@ async function copyRoomId(): Promise<void> {
       <span>页面仍保持玩家视角，只能看到服务端允许你看到的信息。</span>
     </section>
 
+    <section v-if="room.announcements.length" class="panel narrator-panel">
+      <p
+        v-for="(line, index) in room.announcements"
+        :key="index"
+        class="narrator-line"
+      >
+        {{ line }}
+      </p>
+    </section>
+
     <PhaseCountdown
       v-if="
         room.deadline_kind !== null &&

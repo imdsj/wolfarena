@@ -705,6 +705,86 @@ class InMemoryRoomRepository:
                 if event.event_seq > after_event_seq
             )
 
+    @staticmethod
+    def _announcements(state: GameState, access: ViewerAccess) -> list[str]:
+        """Narrator lines plus the viewer's own role prompts, never hidden roles."""
+
+        lines: list[str] = []
+        phase = state.phase
+        night = state.night_result
+        day_result = state.day_result
+
+        night_phases = {
+            Phase.NIGHT_WOLF_DISCUSSION_R1,
+            Phase.NIGHT_WOLF_DISCUSSION_R2,
+            Phase.NIGHT_WOLF_KILL,
+            Phase.NIGHT_SEER_CHECK,
+            Phase.NIGHT_WITCH_ACTION,
+            Phase.NIGHT_HUNTER_SHOT,
+            Phase.NIGHT_RESOLUTION,
+        }
+        if phase is Phase.INIT:
+            lines.append("等待房主开始夜晚。")
+        elif phase in night_phases:
+            lines.append("天黑请闭眼，夜间行动进行中。")
+        elif phase is Phase.DAY_ANNOUNCEMENT:
+            if day_result is not None and day_result.announced_death_ids:
+                names = "、".join(
+                    f"{player.seat} 号"
+                    for player in state.players
+                    if player.player_id in day_result.announced_death_ids
+                )
+                lines.append(f"天亮了，昨晚 {names} 被淘汰。")
+            else:
+                lines.append("天亮了，昨晚是平安夜。")
+        elif phase is Phase.DAY_LAST_WORDS:
+            lines.append("进入遗言环节。")
+        elif phase is Phase.DAY_DISCUSSION:
+            lines.append("进入自由发言环节，请依次发言。")
+        elif phase is Phase.VOTE:
+            lines.append("进入投票环节，请投票选出狼人，也可以弃权。")
+        elif phase is Phase.DAY_HUNTER_SHOT:
+            lines.append("猎人请选择是否开枪。")
+        elif phase is Phase.END:
+            lines.append("对局结束。")
+
+        if access.kind == "player" and access.player_id is not None:
+            player = get_player(state, access.player_id)
+            role = player.role
+            if (
+                role is Role.SEER
+                and night is not None
+                and night.seer_target_id is not None
+            ):
+                target = get_player(state, night.seer_target_id)
+                team = "狼人" if night.seer_result == "wolf" else "好人"
+                lines.append(f"查验结果：{target.seat} 号是{team}。")
+            if (
+                role is Role.WITCH
+                and phase is Phase.NIGHT_WITCH_ACTION
+            ):
+                items = []
+                if state.antidote_available:
+                    items.append("解药可用")
+                if state.poison_available:
+                    items.append("毒药可用")
+                if items:
+                    lines.append("你（女巫）还有：" + "、".join(items) + "。")
+            if role is Role.HUNTER:
+                if (
+                    phase is Phase.NIGHT_HUNTER_SHOT
+                    and night is not None
+                    and night.hunter_can_shoot
+                ):
+                    lines.append("你（猎人）夜间可以开枪。")
+                if (
+                    phase is Phase.DAY_HUNTER_SHOT
+                    and day_result is not None
+                    and day_result.day_hunter_can_shoot
+                ):
+                    lines.append("你（猎人）白天可以开枪。")
+        return lines
+
     def snapshot_for_access(
         self,
         room: Room,
@@ -798,6 +878,7 @@ class InMemoryRoomRepository:
                     for player in room.state.players
                     if player.player_id not in room.claimed_player_ids
                 ],
+                announcements=self._announcements(room.state, access),
                 available_actions=list(
                     available_actions_for_state(
                         room.state,
