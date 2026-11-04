@@ -1087,3 +1087,28 @@ body.night-mode .chat-form input {
   background: rgba(255, 255, 255, 0.05);
   color: #e6efe7;
 }
+
+.feed-system {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 10px;
+  border-left: 3px solid #c7cec7;
+  color: #4f5b52;
+  font-size: 13px;
+}
+
+.feed-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a968c;
+}
+
+body.night-mode .feed-system {
+  border-left-color: #33443a;
+  color: #cfe0d3;
+}
+
+body.night-mode .feed-tag {
+  color: #7d8f81;
+}
