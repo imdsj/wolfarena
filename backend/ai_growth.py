@@ -100,17 +100,29 @@ def speech_content(state: GameState, actor, view) -> str | None:
 
     role = actor.role
     if role is Role.SEER:
-        if pick is not None:
-            return with_reference(
-                rng.choice(
-                    [
-                        f"我是预言家，今晚我会查验 {pick.seat} 号，白天公布结论。",
-                        f"我是预言家，本轮计划验 {pick.seat} 号，好人跟我的票。",
-                        f"我是预言家，先验 {pick.seat} 号，有结果我会说清楚。",
-                    ]
-                )
+        # Announcing "I am the seer" every day is suicidal: the wolf kill
+        # heuristic hunts public god claims. Only claim once there is a wolf
+        # result worth acting on.
+        reports: list[tuple[int, str]] = []
+        for event in get_visible_events(state, actor):
+            if event.event_type is not EventType.SEER_CHECKED:
+                continue
+            target = next(
+                (
+                    player
+                    for player in state.players
+                    if player.player_id == event.target_id
+                ),
+                None,
             )
-        return "我是预言家，今晚会优先查验最可疑的对象。"
+            if target is not None:
+                reports.append((target.seat, str(event.data.get("result"))))
+        wolf_seats = [seat for seat, result in reports if result == "wolf"]
+        if wolf_seats:
+            return f"我是预言家，{wolf_seats[-1]} 号是狼，今天票 {wolf_seats[-1]} 号。"
+        if reports:
+            return "我这边有信息，先听完再决定要不要明身份。"
+        return f"我 {seat} 号先听一轮。"
 
     if role is Role.WITCH:
         return rng.choice(

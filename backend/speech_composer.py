@@ -15,6 +15,8 @@ import httpx
 
 from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
+from .llm_budget import LEDGER
+from .rulebook import rules_brief
 from .strategy_library import StrategyLibrary
 
 STRATEGY_ROOT = Path(__file__).resolve().parent.parent / "strategy_library"
@@ -168,7 +170,8 @@ def compose_speech(
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
         "你的目标是用自然的中文发言帮助你的阵营获胜。规则：只使用公开信息；"
         "狼人必须伪装成好人，不得暴露身份；可以引用其他玩家的座位号和发言；"
-        "不要承认自己是 AI。输出一句到两句，80 字以内。"
+        "必须回应或评价在场其他玩家的发言，不能只自言自语；"
+        "不要承认自己是 AI。输出一句到两句，80 字以内。\n" + rules_brief()
     )
     user = (
         f"第 {state.day} 天，当前阶段 {state.phase.value}。"
@@ -198,8 +201,18 @@ def compose_speech(
                 },
             )
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            body = response.json()
+            LEDGER.record(
+                source="speech",
+                usage=body.get("usage"),
+                prompt_chars=len(system) + len(user),
+                completion_chars=len(
+                    str(body["choices"][0]["message"]["content"])
+                ),
+            )
+            content = body["choices"][0]["message"]["content"]
     except Exception:
+        LEDGER.record_failure()
         return None
     cleaned = " ".join(str(content).split())[:140]
     return cleaned or None

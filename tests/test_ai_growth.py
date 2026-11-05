@@ -69,7 +69,6 @@ class SpeechContentTests(TestCase):
     def test_role_aware_speech_matches_role(self) -> None:
         state = create_game(seed=7, human_count=0)
         for role, keyword in (
-            (Role.SEER, "预言家"),
             (Role.WITCH, "用药"),
             (Role.HUNTER, "猎人"),
             (Role.VILLAGER, "村民"),
@@ -81,6 +80,15 @@ class SpeechContentTests(TestCase):
                 keyword,
                 speech_content(state, actor, self._view("speech")),
             )
+
+    def test_seer_does_not_claim_before_any_check(self) -> None:
+        state = create_game(seed=7, human_count=0)
+        seer = next(
+            player for player in state.players if player.role is Role.SEER
+        )
+        text = speech_content(state, seer, self._view("speech"))
+        self.assertTrue(text)
+        self.assertNotIn("预言家", text)
 
 
 class DecisionRecordTests(TestCase):

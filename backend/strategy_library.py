@@ -12,6 +12,7 @@ from typing import Literal, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .directives import DIRECTIVE_ACTIONS, DIRECTIVES
 from .game_engine import PHASE_ORDER, Role
 
 
@@ -28,6 +29,8 @@ EvidenceLevel = Literal[
     "simulated",
     "human_validated",
 ]
+
+AUTO_GATE_REVIEWER = "auto-gate.v1"
 
 
 class StrategyError(ValueError):
@@ -63,12 +66,20 @@ class StrategyCard(BaseModel):
     created_by: str = Field(min_length=1, max_length=64)
     created_at: str = Field(min_length=1, max_length=64)
     evaluation: dict[str, object] | None = None
+    directive: str | None = Field(default=None, max_length=64)
 
     @model_validator(mode="after")
     def validate_metrics_and_phase(self):
         phase_values = {phase.value for phase in PHASE_ORDER}
         if self.phase != "ANY" and self.phase not in phase_values:
             raise ValueError(f"未知阶段：{self.phase}")
+        if self.directive is not None:
+            if self.directive not in DIRECTIVES:
+                raise ValueError(f"未知指令：{self.directive}")
+            if self.action not in DIRECTIVE_ACTIONS[self.directive]:
+                raise ValueError(
+                    f"指令 {self.directive} 不能用于动作 {self.action}"
+                )
         if self.win_rate is not None and self.samples <= 0:
             raise ValueError("没有真实样本时不能填写 win_rate")
         if self.interval is not None:
@@ -116,13 +127,21 @@ class PromotionEvidence(BaseModel):
         pattern=r"^[a-fA-F0-9]{64}$",
     )
     notes: str = Field(min_length=1, max_length=1000)
+    decision_mode: Literal["human_review", "auto_gate"] = "human_review"
 
     @model_validator(mode="after")
     def validate_review(self):
         if not self.approved:
             raise ValueError("未批准的评测不能晋升策略")
-        if self.reviewer.strip().lower() in {"ai", "agent", "model"}:
+        lowered = self.reviewer.strip().lower()
+        if lowered in {"ai", "agent", "model"}:
             raise ValueError("晋升必须由人工审核者确认")
+        if self.decision_mode == "auto_gate" and lowered != AUTO_GATE_REVIEWER:
+            raise ValueError(
+                f"自动晋级的审核人必须是 {AUTO_GATE_REVIEWER}"
+            )
+        if self.decision_mode == "human_review" and lowered == AUTO_GATE_REVIEWER:
+            raise ValueError("自动闸门不能冒充人工审核")
         if self.seed_end < self.seed_start:
             raise ValueError("seed_end 不能小于 seed_start")
         if self.sample_size < self.seed_end - self.seed_start + 1:
@@ -284,6 +303,67 @@ class StrategyLibrary:
         )
         source.unlink()
         return card
+
+    def reject_candidate(self, strategy_id: str, reason: str) -> Path:
+        """Move a failed candidate to ``rejected`` so it never resurfaces."""
+
+        source = (
+            self.root / self.folders["candidate"] / f"{strategy_id}.json"
+        )
+        if not source.is_file():
+            raise StrategyError(f"候选策略不存在：{strategy_id}")
+        card = StrategyCard.model_validate_json(
+            source.read_text(encoding="utf-8")
+        )
+        rejected = card.model_copy(
+            update={
+                "status": "rejected",
+                "evaluation": {
+                    "rejected_reason": reason[:400],
+                    "rejected_at": datetime.now(UTC).isoformat(),
+                },
+            }
+        )
+        target = self.root / self.folders["rejected"] / f"{strategy_id}.json"
+        target.write_text(
+            rejected.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+        source.unlink()
+        return target
+
+    def rollback(self, strategy_id: str, reason: str) -> Path:
+        """Demote a validated card back to candidate so play stops using it."""
+
+        source = (
+            self.root / self.folders["validated"] / f"{strategy_id}.json"
+        )
+        if not source.is_file():
+            raise StrategyError(f"已验证策略不存在：{strategy_id}")
+        card = StrategyCard.model_validate_json(
+            source.read_text(encoding="utf-8")
+        )
+        evaluation = dict(card.evaluation or {})
+        evaluation["rollback_reason"] = reason[:400]
+        evaluation["rolled_back_at"] = datetime.now(UTC).isoformat()
+        demoted = card.model_copy(
+            update={"status": "candidate", "evaluation": evaluation}
+        )
+        target = (
+            self.root / self.folders["candidate"] / f"{strategy_id}.json"
+        )
+        target.write_text(
+            demoted.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+        source.unlink()
+        return target
+
+    def counts(self) -> dict[str, int]:
+        return {
+            status: len(list((self.root / folder).glob("*.json")))
+            for status, folder in self.folders.items()
+        }
 
 
 def card_from_file(path: Path) -> StrategyCard:

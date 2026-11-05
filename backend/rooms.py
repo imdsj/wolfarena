@@ -18,6 +18,7 @@ from .actions import (
 )
 from .ai_controller import AIController, AIControllerResult
 from .ai_growth import L1RulePolicy
+from .tactic_policy import DirectivePolicy, load_validated_directives
 from .game_engine import (
     Event,
     EventType,
@@ -172,7 +173,11 @@ class Room:
     ai_policy: L1RulePolicy = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.ai_policy = L1RulePolicy(seed=self.state.seed)
+        try:
+            cards = load_validated_directives()
+        except Exception:
+            cards = ()
+        self.ai_policy = DirectivePolicy(seed=self.state.seed, cards=cards)
 
     @property
     def human_count(self) -> int:
