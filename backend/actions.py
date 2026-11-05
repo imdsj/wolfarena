@@ -361,7 +361,7 @@ def execute_engine_action(
     elif action == "resolve_vote":
         resolve_vote(state)
     elif action == "begin_banishment_last_words":
-        begin_banishment_last_words(state)
+        begin_banishment_last_words(state, now=action_now)
     elif action == "day_hunter_shot":
         submit_day_hunter_shot(state, actor_id, request.target_id)
     else:

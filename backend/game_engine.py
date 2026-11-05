@@ -1328,7 +1328,11 @@ def resolve_vote(state: GameState) -> GameState:
     return state
 
 
-def begin_banishment_last_words(state: GameState) -> GameState:
+def begin_banishment_last_words(
+    state: GameState,
+    *,
+    now: float | None = None,
+) -> GameState:
     """Open last words for the player banished by the resolved vote."""
 
     if state.phase is not Phase.VOTE:
@@ -1346,6 +1350,9 @@ def begin_banishment_last_words(state: GameState) -> GameState:
     else:
         day_result.after_last_words_phase = None
     day_result.last_words_queue = [banished.player_id]
+    day_result.last_words_deadline = (
+        None if now is None else now + LAST_WORDS_TIMEOUT_SECONDS
+    )
     day_result.banishment_pending = False
     state.phase = Phase.DAY_LAST_WORDS
     append_event(

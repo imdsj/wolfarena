@@ -140,7 +140,7 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
         realtime = FakeRealtime()
         timer = RoomTimerService(repository, realtime)
         now = 0.0
-        for _ in range(600):
+        for _ in range(2000):
             now += 21.0
             await timer.tick(now=now)
             if room.state.phase is Phase.END:

@@ -17,7 +17,7 @@ from .actions import (
     execute_engine_action,
 )
 from .ai_controller import AIController, AIControllerResult
-from .ai_growth import L0Policy
+from .ai_growth import L1RulePolicy
 from .game_engine import (
     Event,
     EventType,
@@ -169,10 +169,10 @@ class Room:
     tokens_by_player: dict[str, str] = field(default_factory=dict)
     player_by_token: dict[str, str] = field(default_factory=dict)
     lock: RLock = field(default_factory=RLock, repr=False)
-    ai_policy: L0Policy = field(init=False, repr=False)
+    ai_policy: L1RulePolicy = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.ai_policy = L0Policy(seed=self.state.seed)
+        self.ai_policy = L1RulePolicy(seed=self.state.seed)
 
     @property
     def human_count(self) -> int:
