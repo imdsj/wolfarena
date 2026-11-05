@@ -16,9 +16,37 @@ from typing import Any, Sequence
 import httpx
 
 from .ai_provider import DeepSeekSettings
-from .strategy_library import StrategyCard, StrategyLibrary
+from .strategy_library import (
+    STRATEGY_TOOL_PHASES,
+    StrategyCard,
+    StrategyLibrary,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ALLOWED_ROLES = {"werewolf", "villager", "seer", "witch", "hunter"}
+
+
+def _clip(value: object, limit: int) -> str:
+    return " ".join(str(value or "").split())[:limit]
+
+
+def _sanitize_lesson(lesson: dict[str, Any]) -> dict[str, Any]:
+    role = lesson.get("role")
+    if role not in ALLOWED_ROLES:
+        role = "villager"
+    phase = lesson.get("phase")
+    if phase not in STRATEGY_TOOL_PHASES:
+        phase = "ANY"
+    return {
+        "title": _clip(lesson.get("title"), 120) or "复盘教训",
+        "role": role,
+        "phase": phase,
+        "action": _clip(lesson.get("action"), 64) or "vote",
+        "trigger": _clip(lesson.get("trigger"), 600),
+        "recommendation": _clip(lesson.get("recommendation"), 600),
+        "rationale": _clip(lesson.get("rationale"), 1000),
+        "risk": _clip(lesson.get("risk"), 600),
+    }
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -138,7 +166,9 @@ def card_from_review(
     actions: Sequence[dict[str, Any]],
     settings: DeepSeekSettings | None = None,
 ) -> StrategyCard:
-    lesson = review_game(game=game, actions=actions, settings=settings)
+    lesson = _sanitize_lesson(
+        review_game(game=game, actions=actions, settings=settings)
+    )
     seed = game.get("seed", 0)
     winner = game.get("winner", "unknown")
     digest = hashlib.sha1(f"{seed}:{winner}".encode()).hexdigest()[:8]
