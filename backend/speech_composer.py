@@ -38,6 +38,7 @@ ROLE_PERSONA = {
     "seer": (
         "你是预言家。白天要用巧妙的方式把查验信息传递给好人，避免过早暴露而被狼人夜间刀掉；"
         "情况危急时可以跳身份报出查验结果来争取信任。你的发言要能带领好人正确归票。"
+        "如果有人也声称是预言家，那个人一定是狼人在悍跳，要立刻指认对方、报清你的查验历史，号召好人票他。"
     ),
     "witch": (
         "你是女巫。白天要隐藏身份，可以暗示你昨晚救过人，但不要轻易暴露自己是女巫，"
@@ -50,6 +51,8 @@ ROLE_PERSONA = {
     "villager": (
         "你是村民，没有任何技能，只能靠白天的发言和投票。要仔细分析每句话里的漏洞，"
         "清晰说出你怀疑谁、为什么，不要情绪化，不要轻信任何人。"
+        "如果场上出现两个预言家，必然一真一假，要对比两人的查验和状态，不要盲目跟风。"
+        "预言家每晚查验一个不同的人是正常规则，不要因此说他逻辑混乱或前后矛盾。"
     ),
 }
 
@@ -81,6 +84,20 @@ def public_history(state: GameState, actor) -> list[str]:
                 None,
             )
             seat = speaker.seat if speaker else "?"
+            lines.append(f"{seat} 号：{content}")
+    return lines
+
+
+def wolf_history(state: GameState, actor) -> list[str]:
+    """The wolf-team private channel, only readable by wolves."""
+
+    lines: list[str] = []
+    for event in get_visible_events(state, actor):
+        if event.event_type is not EventType.WOLF_SPEECH:
+            continue
+        content = event.data.get("content")
+        if event.actor_id and isinstance(content, str):
+            seat = _seat_of(state, event.actor_id)
             lines.append(f"{seat} 号：{content}")
     return lines
 
@@ -271,7 +288,11 @@ def compose_speech(
 ) -> str | None:
     """Return an LLM speech, or None so the caller falls back to templates."""
 
-    if not view.requires_content or view.action not in {"speech", "last_words"}:
+    if not view.requires_content or view.action not in {
+        "speech",
+        "last_words",
+        "wolf_speech",
+    }:
         return None
     config = settings or DeepSeekSettings.from_environment()
     if not config.api_key:
@@ -291,10 +312,30 @@ def compose_speech(
     timeline = game_timeline(state, actor)
     order_info = speaking_order(state, actor)
     is_last_words = view.action == "last_words"
+    is_wolf_speech = view.action == "wolf_speech"
     death_line = dead_notice(state, actor) if is_last_words else ""
     tactics_block = ("=== 战术参考 ===\n" + tactics) if tactics else ""
     history_block = "\n".join(history) if history else "你是第一个发言。"
-    system = (
+    if is_wolf_speech:
+        wolf_lines = wolf_history(state, actor)[-10:]
+        wolf_history_block = (
+            "\n".join(wolf_lines) if wolf_lines else "还没有狼队讨论。"
+        )
+        system = (
+            f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，身份是狼人。"
+            "现在是狼人私密频道，只有狼人能看到，好人和预言家都看不到这里。"
+            "要听懂队友（尤其是真人玩家）的战术安排，并给出可执行的回应："
+            "今晚刀谁、白天谁去悍跳预言家、谁去跟票、谁去踩人。"
+            "不能暴露狼人身份。只输出一句到两句中文，80 字以内。\n" + rules_brief()
+        )
+        user = (
+            f"第 {state.day} 天夜晚，狼队讨论环节。\n"
+            f"=== 你的私密信息 ===\n{private_info}\n\n"
+            f"=== 最近的狼队频道发言 ===\n{wolf_history_block}\n"
+            f"请以 {actor.seat} 号的身份回应队友，给出你的建议。"
+        )
+    else:
+        system = (
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
         f"{ROLE_PERSONA.get(role, '')}"
         "发言要求：必须回应或评价在场其他玩家的发言，不能自说自话；"
@@ -303,8 +344,8 @@ def compose_speech(
         "只输出一句到两句中文发言，90 字以内。"
         + ("你现在已经出局，只能留遗言。" if is_last_words else "")
         + "\n" + rules_brief()
-    )
-    user = (
+        )
+        user = (
         f"现在是第 {state.day} 天的{'遗言' if is_last_words else '白天发言'}环节。"
         f"{order_info}\n"
         f"{death_line}"
@@ -318,7 +359,7 @@ def compose_speech(
         + "\n"
         f"{tactics_block}"
         f"请以 {actor.seat} 号的身份发表本轮发言。"
-    )
+        )
     try:
         with httpx.Client(timeout=8.0) as client:
             response = client.post(

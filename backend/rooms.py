@@ -616,6 +616,16 @@ class InMemoryRoomRepository:
             room = self._get_room(room_id)
             with room.lock:
                 if room.continue_gate:
+                    if not any(
+                        player.is_human and player.is_alive
+                        for player in room.state.players
+                    ):
+                        # No living human left to acknowledge the pause, so
+                        # the AI-only remainder of the game plays itself out.
+                        room.continue_gate = False
+                        room.state.phase_deadline_at = None
+                        room.state.phase_deadline_kind = None
+                        self.advance_ai(room_id, now=now)
                     continue
                 timeout_kind = self._expired_timeout_kind(room.state, now)
                 if timeout_kind is None:

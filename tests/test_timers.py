@@ -111,9 +111,13 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
         ]
         self.assertEqual(len(timeout_events), 1)
 
-        events_after = len(room.state.events)
         await timer.tick(now=deadline)
-        self.assertEqual(len(room.state.events), events_after)
+        timeout_after = [
+            event
+            for event in room.state.events
+            if event.event_type is EventType.LAST_WORDS_TIMEOUT
+        ]
+        self.assertEqual(len(timeout_after), 1)
 
     async def test_idle_human_night_role_waits_for_the_human(self) -> None:
         repository = InMemoryRoomRepository()
