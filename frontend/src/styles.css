@@ -1228,3 +1228,27 @@ body.night-mode .narrator-panel {
 .feed-more .primary-button {
   flex: 1;
 }
+
+.build-tag {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #e7ece7;
+  font-size: 11px;
+  color: #4a5a4e;
+}
+
+.turn-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #d9a520;
+  background: #fff4d6;
+  color: #6b4b00;
+}
+
+.turn-banner strong {
+  font-size: 16px;
+}

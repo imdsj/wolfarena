@@ -37,6 +37,9 @@ const emit = defineEmits<{
 
 const copyLabel = ref("复制房间号");
 const chatInput = ref("");
+const buildId =
+  (globalThis as { __WOLFARENA_BUILD__?: string }).__WOLFARENA_BUILD__ ??
+  "dev";
 
 function submitChat(): void {
   const text = chatInput.value.trim();
@@ -293,6 +296,7 @@ async function copyRoomId(): Promise<void> {
         <div class="room-identity">
           <div class="eyebrow room-code">
             房间 <code>{{ room.room_id }}</code>
+            <span class="build-tag">build {{ buildId }}</span>
           </div>
           <button class="text-button copy-room-id" type="button" @click="copyRoomId">
             {{ copyLabel }}
@@ -336,6 +340,17 @@ async function copyRoomId(): Promise<void> {
     >
       <span class="night-result-label">天亮公告</span>
       <strong>{{ room.last_night_summary }}</strong>
+    </section>
+
+    <section
+      v-if="!isSpectator && !gameEnded && room.available_actions.length"
+      class="turn-banner"
+      data-testid="your-turn"
+    >
+      <strong>轮到你行动</strong>
+      <span>
+        {{ room.available_actions.map((item) => item.label).join("、") }}
+      </span>
     </section>
 
     <section v-if="room.announcements.length" class="panel narrator-panel">

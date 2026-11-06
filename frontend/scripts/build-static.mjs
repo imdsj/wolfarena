@@ -9,6 +9,8 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const frontendDirectory = path.resolve(scriptDirectory, "..");
 const sourceDirectory = path.join(frontendDirectory, "src");
 const outputDirectory = path.join(frontendDirectory, "dist");
+const buildId =
+  process.env.WOLFARENA_BUILD ?? Date.now().toString(36);
 
 async function readSource(relativePath) {
   return readFile(path.join(sourceDirectory, relativePath), "utf8");
@@ -32,11 +34,13 @@ function rewriteModulePaths(source) {
   return source
     .replace(
       /(["'])(\.{0,2}\/[^"']+)\.vue\1/g,
-      (_match, quote, modulePath) => `${quote}${modulePath}.js${quote}`,
+      (_match, quote, modulePath) =>
+        `${quote}${modulePath}.js?v=${buildId}${quote}`,
     )
     .replace(
       /(["'])(\.{0,2}\/[^"']+)\.ts\1/g,
-      (_match, quote, modulePath) => `${quote}${modulePath}.js${quote}`,
+      (_match, quote, modulePath) =>
+        `${quote}${modulePath}.js?v=${buildId}${quote}`,
     );
 }
 
@@ -150,7 +154,8 @@ await writeFile(
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="WolfArena 九人局最小联机入口" />
     <title>WolfArena 狼域</title>
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/styles.css?v=${buildId}" />
+    <script>window.__WOLFARENA_BUILD__ = "${buildId}";</script>
     <script type="importmap">
       {
         "imports": {
@@ -161,7 +166,7 @@ await writeFile(
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.js?v=${buildId}"></script>
   </body>
 </html>
 `,

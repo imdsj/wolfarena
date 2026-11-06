@@ -16,6 +16,7 @@ from .game_engine import (
     GameState,
     HUMAN_ACTION_TIMEOUT_SECONDS,
     NIGHT_PHASE_PACE_SECONDS,
+    NIGHT_HUMAN_ACTION_TIMEOUT_SECONDS,
     Phase,
     Player,
     Role,
@@ -281,9 +282,12 @@ class AIController:
             and actor is not None
             and actor.is_human
         ):
-            state.phase_deadline_at = (
-                reference + HUMAN_ACTION_TIMEOUT_SECONDS
+            limit = (
+                NIGHT_HUMAN_ACTION_TIMEOUT_SECONDS
+                if state.phase in NIGHT_ACTION_PHASES
+                else HUMAN_ACTION_TIMEOUT_SECONDS
             )
+            state.phase_deadline_at = reference + limit
             state.phase_deadline_kind = "human_action"
         elif state.phase in NIGHT_PACED_PHASES:
             state.phase_deadline_at = reference + NIGHT_PHASE_PACE_SECONDS
