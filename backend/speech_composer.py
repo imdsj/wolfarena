@@ -285,6 +285,8 @@ def compose_speech(
     order_info = speaking_order(state, actor)
     is_last_words = view.action == "last_words"
     death_line = dead_notice(state, actor) if is_last_words else ""
+    tactics_block = ("=== 战术参考 ===\n" + tactics) if tactics else ""
+    history_block = "\n".join(history) if history else "你是第一个发言。"
     system = (
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
         f"{ROLE_PERSONA.get(role, '')}"
@@ -304,9 +306,9 @@ def compose_speech(
         f"- 昨晚结果：{public_result}\n"
         f"- 存活玩家：{'、'.join(roster)}\n"
         f"- 今日发言：\n"
-        + ("\n".join(history) if history else "你是第一个发言。")
+        + history_block
         + "\n"
-        f"{('=== 战术参考 ===\n' + tactics) if tactics else ''}"
+        f"{tactics_block}"
         f"请以 {actor.seat} 号的身份发表本轮发言。"
     )
     try:
