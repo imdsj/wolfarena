@@ -98,6 +98,41 @@ function applySession(payload: RoomSessionResponse): void {
   errorMessage.value = "";
   persistSession();
   connectSocket();
+  startPolling();
+}
+
+let pollTimer: number | null = null;
+
+function startPolling(): void {
+  if (pollTimer !== null) {
+    return;
+  }
+  pollTimer = window.setInterval(async () => {
+    if (
+      !session.roomId ||
+      session.kind !== "player" ||
+      !session.playerToken
+    ) {
+      return;
+    }
+    try {
+      const snapshot = await requestJson<RoomSnapshot>(
+        `/api/rooms/${encodeURIComponent(session.roomId)}`,
+        { headers: { "X-Player-Token": session.playerToken } },
+      );
+      room.value = snapshot;
+      mergeEvents(snapshot.visible_events);
+    } catch {
+      // Polling is only a fallback; WebSocket remains the fast path.
+    }
+  }, 2500);
+}
+
+function stopPolling(): void {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
 }
 
 async function createRoom(nickname: string): Promise<void> {
@@ -374,6 +409,7 @@ async function sendChat(message: string): Promise<void> {
 }
 
 function resetSession(): void {
+  stopPolling();
   socket?.close();
   socket = null;
   session.kind = "";

@@ -20,6 +20,9 @@ const seats = ref<number[]>([]);
 const selectedSeat = ref<number | null>(null);
 const seatsLoading = ref(false);
 const seatsError = ref("");
+const buildId =
+  (globalThis as { __WOLFARENA_BUILD__?: string }).__WOLFARENA_BUILD__ ??
+  "dev";
 
 function createRoom(): void {
   const name = form.nickname.trim();
@@ -196,5 +199,7 @@ function watchRoom(): void {
         进入观战
       </button>
     </section>
+
+    <p class="lobby-build">build {{ buildId }}</p>
   </section>
 </template>
