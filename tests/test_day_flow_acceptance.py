@@ -77,8 +77,8 @@ class LastWordsTimeoutTests(TestCase):
     """补充规则第 5 条：每名玩家遗言固定 30 秒，完成或超时后自动推进。"""
 
     def test_timeout_constants_are_thirty_seconds(self) -> None:
-        self.assertEqual(LAST_WORDS_TIMEOUT_SECONDS, 120.0)
-        self.assertEqual(PUBLIC_SPEECH_TIMEOUT_SECONDS, 180.0)
+        self.assertEqual(LAST_WORDS_TIMEOUT_SECONDS, 3600.0)
+        self.assertEqual(PUBLIC_SPEECH_TIMEOUT_SECONDS, 3600.0)
 
     def test_speech_timer_is_armed_after_last_words_timeout(self) -> None:
         """遗言超时推进到公共发言时，必须同时设定发言截止时间。

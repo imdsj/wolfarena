@@ -77,6 +77,7 @@ export interface RoomSnapshot {
   available_actions: AvailableAction[];
   announcements: string[];
   last_night_summary: string | null;
+  awaiting_continue: boolean;
 }
 
 export interface RoomSessionResponse {

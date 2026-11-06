@@ -183,6 +183,7 @@ class Room:
     claimed_player_ids: set[str] = field(default_factory=set)
     tokens_by_player: dict[str, str] = field(default_factory=dict)
     player_by_token: dict[str, str] = field(default_factory=dict)
+    continue_gate: bool = False
     lock: RLock = field(default_factory=RLock, repr=False)
     ai_policy: L1RulePolicy = field(init=False, repr=False)
 
@@ -477,6 +478,15 @@ class InMemoryRoomRepository:
             except Exception:
                 room.state = state_before
                 raise
+            day_result = room.state.day_result
+            if (
+                room.state.phase is Phase.VOTE
+                and day_result is not None
+                and day_result.vote_resolved
+            ):
+                # Freeze the room so humans can read the vote board before
+                # the game moves on to the night.
+                room.continue_gate = True
             return RoomMutation(
                 room=room,
                 previous_event_seq=previous_event_seq,
@@ -506,7 +516,39 @@ class InMemoryRoomRepository:
         *,
         now: float | None = None,
     ) -> AIControllerResult:
+        room = self._get_room(room_id)
+        if room.continue_gate:
+            return AIControllerResult(
+                steps=0,
+                stopped_reason="human_turn",
+                previous_event_seq=room.last_event_seq,
+                current_event_seq=room.last_event_seq,
+            )
         return self.ai_controller.advance(room_id, now=now)
+
+    def request_continue(
+        self,
+        room_id: str,
+        access: "ViewerAccess",
+        *,
+        now: float | None = None,
+    ) -> RoomMutation:
+        """Release the post-vote freeze so the game can enter the night."""
+
+        room = self._get_room(room_id)
+        with room.lock:
+            if access.kind != "player":
+                raise RoomPermissionError("观战者不能推进流程")
+            previous_event_seq = room.last_event_seq
+            room.continue_gate = False
+            room.state.phase_deadline_at = None
+            room.state.phase_deadline_kind = None
+            self.advance_ai(room_id, now=now)
+            return RoomMutation(
+                room=room,
+                previous_event_seq=previous_event_seq,
+                current_event_seq=room.last_event_seq,
+            )
 
     def auto_play_human_turn(
         self,
@@ -560,6 +602,8 @@ class InMemoryRoomRepository:
         for room_id in room_ids:
             room = self._get_room(room_id)
             with room.lock:
+                if room.continue_gate:
+                    continue
                 timeout_kind = self._expired_timeout_kind(room.state, now)
                 if timeout_kind is None:
                     continue
@@ -744,13 +788,24 @@ class InMemoryRoomRepository:
             return None
         day = state.day or 1
         if day_result.announced_death_ids:
-            seats = [
-                player.seat
-                for player in sorted(state.players, key=lambda item: item.seat)
-                if player.player_id in day_result.announced_death_ids
-            ]
-            names = "、".join(f"{seat} 号" for seat in seats)
-            return f"第 {day} 天 · 昨晚 {names} 出局"
+            cause_labels = {
+                "wolf_kill": "狼人击杀",
+                "poisoned": "女巫毒杀",
+                "hunter_shot": "猎人开枪",
+                "banished": "投票放逐",
+                "self_destruct": "自爆",
+            }
+            parts: list[str] = []
+            for player in sorted(state.players, key=lambda item: item.seat):
+                if player.player_id not in day_result.announced_death_ids:
+                    continue
+                causes = day_result.death_causes.get(player.player_id) or []
+                labels = [
+                    cause_labels.get(cause, cause) for cause in causes
+                ]
+                suffix = f"（{'、'.join(labels)}）" if labels else ""
+                parts.append(f"{player.seat} 号{suffix}")
+            return f"第 {day} 天 · 昨晚 {'、'.join(parts)} 出局"
         return f"第 {day} 天 · 昨晚是平安夜"
 
     @staticmethod
@@ -928,6 +983,7 @@ class InMemoryRoomRepository:
                 ],
                 announcements=self._announcements(room.state, access),
                 last_night_summary=self._last_night_summary(room.state),
+                awaiting_continue=room.continue_gate,
                 available_actions=list(
                     action
                     for action in available_actions_for_state(

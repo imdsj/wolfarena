@@ -100,6 +100,14 @@ class WebGameEndToEndTests(TestCase):
         for _step in range(2000):
             if snapshot["phase"] == "END":
                 break
+            if snapshot.get("awaiting_continue"):
+                self.client.post(
+                    f"/api/rooms/{self.room_id}/continue",
+                    headers={"X-Player-Token": self.token},
+                )
+                snapshot = self.snapshot()
+                phases.append(snapshot["phase"])
+                continue
             request = self.choose_action(snapshot)
             if request is None:
                 room = self.repository._rooms[self.room_id]

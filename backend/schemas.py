@@ -120,6 +120,7 @@ class RoomSnapshot(ApiModel):
     available_seats: list[int] = Field(default_factory=list)
     announcements: list[str] = Field(default_factory=list)
     last_night_summary: str | None = None
+    awaiting_continue: bool = False
 
 
 class AvailableSeatsResponse(ApiModel):

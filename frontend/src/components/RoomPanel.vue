@@ -31,6 +31,7 @@ const emit = defineEmits<{
   action: [action: ActionSubmission];
   aiAction: [];
   chat: [message: string];
+  continue: [];
   reconnect: [];
   leave: [];
 }>();
@@ -137,7 +138,15 @@ function systemText(event: GameEvent): string {
     ? `${target.seat} 号 ${target.name}`
     : (event.target_id ?? "");
   if (event.event_type === "PLAYER_DIED") {
-    return `${label} 出局`;
+    const causes = Array.isArray(event.data.causes)
+      ? event.data.causes.filter(
+          (cause): cause is string => typeof cause === "string",
+        )
+      : [];
+    const causeText = causes
+      .map((cause) => deathCauseLabels[cause] ?? cause)
+      .join("、");
+    return `${label} 出局${causeText ? `（${causeText}）` : ""}`;
   }
   if (event.event_type === "VOTE_RESULT") {
     const banishedId = event.data.banished_id;
@@ -431,6 +440,25 @@ async function copyRoomId(): Promise<void> {
           {{ item.seat }} 号 · {{ item.count }} 票
         </span>
       </div>
+    </section>
+
+    <section
+      v-if="room.awaiting_continue"
+      class="continue-banner"
+      data-testid="continue-banner"
+    >
+      <div>
+        <strong>投票已结束</strong>
+        <span>看完票型再继续。你不点，游戏不会进入黑夜。</span>
+      </div>
+      <button
+        class="primary-button"
+        type="button"
+        :disabled="busy"
+        @click="emit('continue')"
+      >
+        继续进入黑夜
+      </button>
     </section>
 
     <section v-if="room.announcements.length" class="panel narrator-panel">

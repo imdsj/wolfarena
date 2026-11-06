@@ -375,6 +375,28 @@ async function runAiAction(): Promise<void> {
   }
 }
 
+async function continueRoom(): Promise<void> {
+  if (!session.roomId || !session.playerToken) {
+    return;
+  }
+  busy.value = true;
+  try {
+    const snapshot = await requestJson<RoomSnapshot>(
+      `/api/rooms/${encodeURIComponent(session.roomId)}/continue`,
+      {
+        method: "POST",
+        headers: { "X-Player-Token": session.playerToken },
+      },
+    );
+    room.value = snapshot;
+    mergeEvents(snapshot.visible_events);
+  } catch (error) {
+    errorMessage.value = errorMessageFrom(error);
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function sendChat(message: string): Promise<void> {
   if (!session.roomId || !session.playerToken) {
     return;
@@ -539,6 +561,7 @@ onBeforeUnmount(() => {
       @action="runAction"
       @ai-action="runAiAction"
       @chat="sendChat"
+      @continue="continueRoom"
       @reconnect="connectSocket"
       @leave="leaveRoom"
     />

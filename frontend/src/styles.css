@@ -1308,3 +1308,28 @@ body.night-mode .narrator-panel {
   background: #eef2ee;
   font-size: 13px;
 }
+
+.continue-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid #3f6b4a;
+  background: #eef6ef;
+}
+
+.continue-banner div {
+  display: grid;
+  gap: 4px;
+}
+
+.continue-banner strong {
+  font-size: 16px;
+}
+
+.continue-banner span {
+  font-size: 13px;
+  color: #4a5a4e;
+}
