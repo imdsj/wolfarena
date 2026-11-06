@@ -32,7 +32,7 @@ OK
 | Git 身份 | `hurry114514 <345704669+hurry114514@users.noreply.github.com>`（GitHub 匿名邮箱） | 已配置 |
 | 凭据 | Git Credential Manager 2.9.1，GitHub 账号已登录并缓存 | 可用，push 免重复登录 |
 | Python | `py --version` → **3.14.0** | 可用 |
-| `python` 命令 | 原为 Microsoft Store 占位别名；已将 `Python314` 与 `Python314\Scripts` 加入用户 PATH，现指向 `C:\Users\hanrui\AppData\Local\Programs\Python\Python314\python.exe` | **已修复** |
+| `python` 命令 | 原为 Microsoft Store 占位别名；已将 `Python314` 与 `Python314\Scripts` 加入用户 PATH，现指向 `C:\Users\<user>\AppData\Local\Programs\Python\Python314\python.exe` | **已修复** |
 | pip | `pip 25.2`（随 Python 3.14 安装） | 可用 |
 | Node | `v24.22.1`，系统安装于 `D:\Edge\node.exe`，已在 PATH | **已修复** |
 | npm | `11.19.1`（随 Node 安装） | **已修复** |
