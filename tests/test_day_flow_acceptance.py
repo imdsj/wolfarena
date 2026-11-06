@@ -77,26 +77,27 @@ class LastWordsTimeoutTests(TestCase):
     """补充规则第 5 条：每名玩家遗言固定 30 秒，完成或超时后自动推进。"""
 
     def test_timeout_constants_are_thirty_seconds(self) -> None:
-        self.assertEqual(LAST_WORDS_TIMEOUT_SECONDS, 30.0)
-        self.assertEqual(PUBLIC_SPEECH_TIMEOUT_SECONDS, 30.0)
+        self.assertEqual(LAST_WORDS_TIMEOUT_SECONDS, 120.0)
+        self.assertEqual(PUBLIC_SPEECH_TIMEOUT_SECONDS, 180.0)
 
     def test_speech_timer_is_armed_after_last_words_timeout(self) -> None:
-        """遗言超时推进到公共发言时，必须同时设定 30 秒发言截止时间。
+        """遗言超时推进到公共发言时，必须同时设定发言截止时间。
 
         订书机既有测试已覆盖遗言队列推进与阶段切换，本条只补「交接计时器」
         这一处：若此处漏设，首个发言者会没有倒计时，出现无限等待。
         """
 
         state = make_day(day=1, death_ids=["p4"], now=100.0)
-        self.assertEqual(state.day_result.last_words_deadline, 130.0)
+        deadline = 100.0 + LAST_WORDS_TIMEOUT_SECONDS
+        self.assertEqual(state.day_result.last_words_deadline, deadline)
 
-        timeout_last_words(state, 130.0)
+        timeout_last_words(state, deadline)
 
         self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
         self.assertIsNotNone(state.day_result.speech_deadline)
         self.assertEqual(
             state.day_result.speech_deadline,
-            130.0 + PUBLIC_SPEECH_TIMEOUT_SECONDS,
+            deadline + PUBLIC_SPEECH_TIMEOUT_SECONDS,
         )
 
 

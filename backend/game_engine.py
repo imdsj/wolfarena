@@ -108,9 +108,9 @@ PHASE_ORDER: Final[tuple[Phase, ...]] = (
 )
 
 SPECTATOR_VIEW: Final[str] = "spectator"
-PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 30.0
-LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 30.0
-HUMAN_ACTION_TIMEOUT_SECONDS: Final[float] = 20.0
+PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 180.0
+LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 120.0
+HUMAN_ACTION_TIMEOUT_SECONDS: Final[float] = 120.0
 NIGHT_PHASE_PACE_SECONDS: Final[float] = 4.0
 
 

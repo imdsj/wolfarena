@@ -1215,3 +1215,16 @@ body.night-mode .narrator-panel {
     max-height: 60vh;
   }
 }
+
+.feed-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #c7cec7;
+}
+
+.feed-more .primary-button {
+  flex: 1;
+}

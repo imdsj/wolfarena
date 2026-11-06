@@ -754,9 +754,18 @@ def create_app(
         Path(__file__).resolve().parent.parent / "frontend" / "dist"
     )
     if frontend_dist.is_dir():
+
+        class NoCacheStaticFiles(StaticFiles):
+            """Force revalidation so a deploy is visible without hard refresh."""
+
+            async def get_response(self, path, scope):
+                response = await super().get_response(path, scope)
+                response.headers["Cache-Control"] = "no-cache, must-revalidate"
+                return response
+
         application.mount(
             "/",
-            StaticFiles(directory=frontend_dist, html=True),
+            NoCacheStaticFiles(directory=frontend_dist, html=True),
             name="frontend",
         )
 

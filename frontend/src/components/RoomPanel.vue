@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import type {
   ActionSubmission,
@@ -79,50 +79,46 @@ const feedItems = computed(() =>
 );
 const revealedCount = ref(0);
 const feedList = ref<HTMLElement | null>(null);
-let revealTimer: ReturnType<typeof setInterval> | null = null;
+const stickToBottom = ref(true);
+const pendingFeedCount = computed(() =>
+  Math.max(0, feedItems.value.length - revealedCount.value),
+);
 
 onMounted(() => {
   revealedCount.value = feedItems.value.length;
 });
 
-watch(
-  () => feedItems.value.length,
-  (length) => {
-    if (length <= revealedCount.value) {
-      revealedCount.value = length;
-      return;
-    }
-    if (revealTimer !== null) {
-      return;
-    }
-    revealTimer = setInterval(() => {
-      if (revealedCount.value < feedItems.value.length) {
-        revealedCount.value += 1;
-      } else if (revealTimer !== null) {
-        clearInterval(revealTimer);
-        revealTimer = null;
-      }
-    }, 2200);
-  },
-);
+function revealNext(): void {
+  if (pendingFeedCount.value > 0) {
+    stickToBottom.value = true;
+    revealedCount.value += 1;
+  }
+}
+
+function revealAll(): void {
+  stickToBottom.value = true;
+  revealedCount.value = feedItems.value.length;
+}
+
+function onFeedScroll(): void {
+  const element = feedList.value;
+  if (!element) {
+    return;
+  }
+  stickToBottom.value =
+    element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+}
 
 watch(
   () => revealedCount.value,
   async () => {
     await nextTick();
     const element = feedList.value;
-    if (element) {
+    if (element && stickToBottom.value) {
       element.scrollTop = element.scrollHeight;
     }
   },
 );
-
-onBeforeUnmount(() => {
-  if (revealTimer !== null) {
-    clearInterval(revealTimer);
-    revealTimer = null;
-  }
-});
 
 const visibleFeed = computed(() =>
   feedItems.value.slice(0, revealedCount.value),
@@ -566,6 +562,7 @@ async function copyRoomId(): Promise<void> {
             v-if="feedItems.length"
             ref="feedList"
             class="speech-list feed-scroll"
+            @scroll="onFeedScroll"
           >
             <template v-for="event in visibleFeed" :key="event.event_seq">
               <li
@@ -596,6 +593,14 @@ async function copyRoomId(): Promise<void> {
             </template>
           </ol>
           <p v-else class="muted">还没有对局事件。</p>
+          <div v-if="pendingFeedCount" class="feed-more">
+            <button class="primary-button" type="button" @click="revealNext">
+              继续 · 还有 {{ pendingFeedCount }} 条
+            </button>
+            <button class="text-button" type="button" @click="revealAll">
+              全部显示
+            </button>
+          </div>
         </section>
       </aside>
     </div>

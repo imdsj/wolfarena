@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from backend.game_engine import DayResult, Phase, create_game
+from backend.game_engine import (
+    DayResult,
+    Phase,
+    _public_speech_order,
+    create_game,
+)
 from backend.rooms import InMemoryRoomRepository, ViewerAccess
 from backend.speech_composer import dead_notice
 
@@ -77,3 +82,29 @@ class DeadLastWordsTests(TestCase):
         self.assertIn("已经出局", text)
         self.assertIn("猎人", text)
         self.assertIn("遗言", text)
+
+
+class SpeechOrderTests(TestCase):
+    """平安夜从 1 号开始；有人死亡从最大死者座位的下一位开始。"""
+
+    def test_peaceful_night_starts_at_seat_one(self) -> None:
+        state = create_game(seed=9, human_count=1)
+        state.day = 1
+        order = _public_speech_order(state, [])
+        self.assertEqual(order[0], "p1")
+        self.assertEqual(order, [f"p{seat}" for seat in range(1, 10)])
+
+    def test_death_at_seat_three_starts_at_seat_four(self) -> None:
+        state = create_game(seed=9, human_count=1)
+        state.day = 1
+        state.players[2].is_alive = False
+        order = _public_speech_order(state, [state.players[2].player_id])
+        self.assertEqual(order[0], "p4")
+        self.assertEqual(order[-1], "p2")
+
+    def test_death_at_seat_nine_wraps_to_seat_one(self) -> None:
+        state = create_game(seed=9, human_count=1)
+        state.day = 1
+        state.players[8].is_alive = False
+        order = _public_speech_order(state, [state.players[8].player_id])
+        self.assertEqual(order[0], "p1")
