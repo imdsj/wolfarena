@@ -1,0 +1,127 @@
+# 11 月 6 日数据修复验收
+
+日期：2026-11-06
+
+执行人：Hurry
+
+公网：`http://106.14.113.216:8080`，`/health` 返回 `commit: 96ec39f8`
+
+本地核对基线：GitHub API 快照 `imdsj-wolfarena-96ec39f`（`git pull` 被网络阻断，三次均 502）
+
+## 一、结论
+
+```text
+全量测试     ：通过（310 项 OK，公网 smoke ALL CHECKS PASSED）
+L1 复算      ：不通过（32/168 vs manifest 73/127）
+指标接口     ：不通过（仍返回 73/200，commit b1234e9）
+rollout 性能 ：不通过，且比昨天更差（1 局 500，2 局 504）
+```
+
+任务单今日四项要求，**一项通过、三项未通过**。其中 rollout 属于**退步**：11-05 是「1 局 200 但 34.8 秒」，今天变成「1 局 500 错误」。
+
+## 二、全量测试（通过）
+
+```text
+python -m unittest discover -s tests
+Ran 310 tests in 4.340s
+OK
+```
+
+310 项，高于任务单要求的 276 项。注意：测试过程中会打印 `round 1: seeds=60000…` 这类自博弈日志，`tail` 取最后几行时会看不到 `Ran` 统计，需用 `grep "^Ran "` 提取。
+
+公网冒烟：
+
+```text
+health: ok {'version':'0.6.0','commit':'96ec39f8'}
+home: ok bytes=641    create_room: ok 201
+ws_player: ok    ws_spectator: ok    ws_bad_token: ok (rejected)
+ALL CHECKS PASSED
+```
+
+## 三、L1 复算（不通过）
+
+重跑 200 局（seed 1000–1199）：
+
+| 项 | manifest 记录 | 本轮复算 |
+| --- | --- | --- |
+| 好人 / 狼人 | **73 / 127** | **32 / 168** |
+| 好人胜率 | 36.5% | **16.0%** |
+| 失败局 | 0 | 0 |
+| 记录 commit | `b1234e9` | `96ec39f8` |
+
+**仍不一致，且与昨天又不同**：11-05 我测得 34/166（17.0%），今天 32/168（16.0%）。
+
+原因：`c9b98a2..96ec39f` 之间有 **19 个提交**，其中多项会改变 L1 的决策行为：
+
+```text
+3b5296d fix: use L1 decisions in live rooms and time out banished last words
+256d0df feat: promote first human-approved tactics (vote follows public suspicion)
+9ffd2cf feat: self-play experience loop with directive tactics and auto gate
+1ce05c5 feat: continuous AI-vs-AI self-play loop with automatic review
+```
+
+「投票跟随公开怀疑」这类战术被提升进策略后，L1 的投票目标就变了。
+
+**这说明一个结构性问题：只要 AI 行为持续演进，`b1234e9` 那次记录的 L1 基准就永远对不上。** 按现在的做法，「L1 复算与 manifest 一致」这条验收标准每改一次 AI 就必然失败。
+
+## 四、指标接口（不通过）
+
+```text
+GET /api/training/metrics
+  l0.random.v1   168/200 = 0.840   commit b1234e9
+  l1.rules.v1     73/200 = 0.365   commit b1234e9   ← 与实际 32/200 不符
+  l2.qtable.v1    63/200 = 0.315   commit b1234e9
+  l2.qtable.v2    70/200 = 0.350   commit efeb66e
+```
+
+L1 仍返回 `73/200（36.5%）`，而当前代码实测 `32/200（16.0%）`，**相差 20 个百分点**。
+
+接口读的是历史 summary 文件，不是当前代码的运行结果。评审查这个接口会看到与系统实际行为矛盾的数字。
+
+## 五、rollout 性能（不通过，且退步）
+
+| 请求 | 11-05 结果 | 11-06 结果 |
+| --- | --- | --- |
+| `games=1` | `200`，34.8 秒 | **`500 Internal Server Error`，54.7 秒** |
+| `games=2` | `504`（60 秒 nginx 超时） | `504`（60.1 秒） |
+| `games=3` | 客户端超时 | — |
+
+任务单要求「2 局 10 秒内返回，无 504」，实际 **2 局仍然 504，1 局直接 500**。
+
+**500 是新出现的错误**，说明服务端抛异常，不是单纯慢。响应体只有 `Internal Server Error`，无细节，需要看服务器日志。
+
+推测：新增的 self-play / review / tactic 逻辑在 rollout 路径上被触发，或 LLM 发言调用失败抛异常。**这一项必须看服务端 traceback 才能定位。**
+
+### 5.1 本地对照
+
+本地同版本（`96ec39f` 快照）跑 `--games 2 --policy l1` 只需数秒，rollout 接口在 11-05 本地实测 **0.1 秒**。
+
+因此问题仍在公网环境或部署配置，不在算法本身。
+
+## 六、逐项对照任务单
+
+| 11-06 任务 | 通过标准 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| L1 复算 | 与 manifest 一致 | 32/168 vs 73/127 | **不通过** |
+| 指标接口 | 与当前代码一致 | 仍报 b1234e9 的 73/200 | **不通过** |
+| rollout 性能 | 公网 2 局 10 秒内 | 1 局 500（54.7s），2 局 504 | **不通过** |
+| 全量测试 | 276 项以上 | 310 项 OK + smoke 通过 | **通过** |
+
+## 七、给订书机的四条
+
+**1. rollout 的 500 要优先查服务端日志。** 昨天是慢，今天是报错，方向变坏了。如果和新增的 self-play / LLM 发言有关，rollout 内部应强制走纯算法路径，不触发任何外部调用。
+
+**2. 「与 manifest 一致」这条标准本身需要改。** 只要 AI 行为在变，旧 manifest 就永远对不上。建议二选一：
+   - 冻结行为后重跑全部基准，并在 manifest 里写明「此后 AI 行为变更需重跑」；
+   - 或把验收标准改成「与**最近一次同版本**重跑结果一致」，由 CI 在每次提交后自动重跑并生成 manifest。
+
+**3. 指标接口不应读历史文件。** 现在它把 `b1234e9` 的数字当成当前能力展示，L1 差了 20 个百分点。建议接口返回 `measured_at` 与 `code_commit` 并且在页面上明确标注「该数字测于 X 提交」，或者改成实时跑（配合缓存）。
+
+**4. 文档口径要跟着改。** 现在文档里「L2 35.0% 未超 L1 36.5%」已经和现实相反（L1 实测 16.0%）。**G-06 仍应维持 No-Go，但理由必须换成「L1 基准失效，需同版本重跑后比较」，不能沿用旧结论。**
+
+## 八、本次未做的事
+
+- 未登录服务器查 rollout 的 500 traceback（无访问权限）。
+- 未重新训练 L2（只复算，避免产生与文档不一致的新数据）。
+- 未修改任何业务代码、模型或既有文档结论。
+- 因 `git pull` 三次均被代理阻断（502），本地核对改用 API 快照，本地工作区仍停在 `c9b98a2`。
