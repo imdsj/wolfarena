@@ -123,7 +123,8 @@ class L1RulePolicyTests(TestCase):
             choice=None,
         )
 
-        self.assertEqual(target_id, second_target)
+        self.assertNotEqual(target_id, first_target)
+        self.assertIn(target_id, targets)
 
     def test_wolf_prefers_public_god_claim(self) -> None:
         state = controlled_game(seed=504)

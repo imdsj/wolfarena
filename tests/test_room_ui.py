@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 
 from backend.ai_growth import L1RulePolicy
+from backend.actions import available_actions_for_state
 from backend.game_engine import (
     DayResult,
     Phase,
@@ -190,3 +191,63 @@ class TieVoteGateTests(TestCase):
             room.state.day_result = day_result
         repository.execute_action(access, ActionRequest(action="resolve_vote"))
         self.assertTrue(room.continue_gate)
+
+    def test_banished_human_gets_last_words_after_continue(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = repository.create_room(
+            seed=5, human_count=1, max_humans=3, nickname="t"
+        )
+        room = repository._rooms[created.room_id]
+        access = ViewerAccess(
+            room_id=created.room_id, kind="player", player_id="p1"
+        )
+        with room.lock:
+            room.state.day = 1
+            room.state.phase = Phase.VOTE
+            living = [p for p in room.state.players if p.is_alive]
+            day_result = DayResult()
+            for player in living:
+                day_result.votes[player.player_id] = (
+                    "p1" if player.player_id != "p1" else "p2"
+                )
+            day_result.votes_closed = True
+            room.state.day_result = day_result
+        repository.execute_action(access, ActionRequest(action="resolve_vote"))
+        self.assertTrue(room.continue_gate)
+        repository.request_continue(created.room_id, access)
+        self.assertIs(room.state.phase, Phase.DAY_LAST_WORDS)
+        views = available_actions_for_state(
+            room.state,
+            room.state.players[0],
+            host_player_id="p1",
+            now=1.0,
+        )
+        self.assertIn("last_words", [view.action for view in views])
+
+
+class SeerCheckTargetTests(TestCase):
+    def test_seer_checks_vary_and_never_self(self) -> None:
+        state = create_game(seed=21, human_count=0)
+        state.day = 1
+        seer = next(p for p in state.players if p.role is Role.SEER)
+        ids = [
+            p.player_id
+            for p in state.players
+            if p.is_alive and p.player_id != seer.player_id
+        ]
+        view = SimpleNamespace(
+            action="seer_check",
+            target_ids=ids,
+            choices=[],
+            requires_target=True,
+            allow_no_target=False,
+            requires_content=False,
+        )
+        picks = {
+            L1RulePolicy(seed=seed).choose_target(
+                state, seer, view, choice=None
+            )
+            for seed in range(10)
+        }
+        self.assertGreater(len(picks), 1)
+        self.assertNotIn(seer.player_id, picks)

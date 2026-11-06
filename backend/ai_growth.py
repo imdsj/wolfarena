@@ -450,19 +450,7 @@ class L1RulePolicy:
         if view.action == "wolf_kill":
             return self._wolf_kill_target(state, actor, view)
         if view.action == "seer_check":
-            checked = {
-                event.target_id
-                for event in get_visible_events(state, actor)
-                if event.event_type is EventType.SEER_CHECKED
-            }
-            return next(
-                (
-                    target_id
-                    for target_id in view.target_ids
-                    if target_id not in checked
-                ),
-                view.target_ids[0],
-            )
+            return self._seer_check_target(state, actor, view)
         if view.action == "vote":
             return self._vote_target(state, actor, view)
         return view.target_ids[0]
@@ -530,6 +518,39 @@ class L1RulePolicy:
         rng = Random(f"{self.seed}:kill:{state.day}:{actor.player_id}")
         choices = [player_id for player_id in prey if player_id != actor.player_id]
         return rng.choice(choices or prey)
+
+    def _seer_check_target(self, state, actor, view) -> str:
+        """Check a suspicious, not-yet-checked player, never just seat 1."""
+
+        from .public_signals import build_signals
+
+        checked = {
+            event.target_id
+            for event in get_visible_events(state, actor)
+            if event.event_type is EventType.SEER_CHECKED
+        }
+        candidates = [
+            player_id
+            for player_id in view.target_ids
+            if player_id not in checked
+        ] or list(view.target_ids)
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            seat = signals.top_accused(exclude=actor.seat)
+            if seat is not None:
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in candidates
+                    ):
+                        return player.player_id
+
+        rng = Random(f"{self.seed}:check:{state.day}:{actor.player_id}")
+        return rng.choice(candidates)
 
     @staticmethod
     def choose_content(state, actor, view) -> str | None:

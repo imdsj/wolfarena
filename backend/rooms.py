@@ -502,6 +502,17 @@ class InMemoryRoomRepository:
         room = self._get_room(access.room_id)
         with room.lock:
             mutation = self.execute_action(access, request, now=now)
+            if request.action in {"speech", "last_words"}:
+                # Publish the human's own words immediately instead of
+                # blocking the response while eight AI speeches are prepared.
+                reference = time() if now is None else now
+                room.state.phase_deadline_at = reference + 0.2
+                room.state.phase_deadline_kind = "phase_pace"
+                return RoomMutation(
+                    room=mutation.room,
+                    previous_event_seq=mutation.previous_event_seq,
+                    current_event_seq=mutation.current_event_seq,
+                )
             controller_result = self.advance_ai(access.room_id, now=now)
             return RoomMutation(
                 room=mutation.room,
