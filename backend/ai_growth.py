@@ -471,7 +471,35 @@ class L1RulePolicy:
                 ),
                 view.target_ids[0],
             )
+        if view.action == "vote":
+            return self._vote_target(state, actor, view)
         return view.target_ids[0]
+
+    def _vote_target(self, state, actor, view) -> str:
+        """Follow public suspicion; never collapse onto seat 1 by default."""
+
+        from .public_signals import build_signals
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            seat = signals.top_accused(exclude=actor.seat)
+            if seat is not None:
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in view.target_ids
+                    ):
+                        return player.player_id
+        rng = Random(f"{self.seed}:vote:{state.day}:{actor.player_id}")
+        choices = [
+            player_id
+            for player_id in view.target_ids
+            if player_id != actor.player_id
+        ]
+        return rng.choice(choices or list(view.target_ids))
 
     @staticmethod
     def choose_content(state, actor, view) -> str | None:

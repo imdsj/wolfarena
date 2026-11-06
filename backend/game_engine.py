@@ -1298,6 +1298,7 @@ def resolve_vote(state: GameState) -> GameState:
     append_event(
         state,
         EventType.VOTE_RESULT,
+        target_id=banished_id,
         visibility=Visibility.PUBLIC,
         data={
             "votes": dict(final_votes),

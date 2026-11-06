@@ -140,7 +140,17 @@ function systemText(event: GameEvent): string {
     return `${label} 出局`;
   }
   if (event.event_type === "VOTE_RESULT") {
-    return `投票结果：${label || "无人出局"}`;
+    const banishedId = event.data.banished_id;
+    const banishedSeat =
+      typeof banishedId === "string"
+        ? playerById.value.get(banishedId)?.seat
+        : null;
+    if (banishedSeat) {
+      return `投票结果：${banishedSeat} 号被放逐`;
+    }
+    return String(event.data.reason ?? "") === "tie"
+      ? "投票结果：平票，无人出局"
+      : "投票结果：无人出局";
   }
   if (event.event_type === "BANISHMENT") {
     return `${label} 被放逐`;
@@ -205,6 +215,48 @@ const visibleDeathCauses = computed(() => {
     causes.set(event.target_id, values);
   }
   return causes;
+});
+const latestVoteResult = computed(() => {
+  const results = props.events.filter(
+    (event) => event.event_type === "VOTE_RESULT",
+  );
+  return results.length ? results[results.length - 1] : null;
+});
+const voteRows = computed(() => {
+  const data = latestVoteResult.value?.data;
+  const votes = data?.votes;
+  if (!votes || typeof votes !== "object") {
+    return [];
+  }
+  const seatOf = (playerId: unknown): number | null => {
+    if (typeof playerId !== "string") {
+      return null;
+    }
+    return playerById.value.get(playerId)?.seat ?? null;
+  };
+  return Object.entries(votes as Record<string, string | null>)
+    .map(([voter, target]) => ({
+      voter,
+      voterSeat: seatOf(voter),
+      targetSeat: seatOf(target),
+    }))
+    .sort((left, right) => (left.voterSeat ?? 0) - (right.voterSeat ?? 0));
+});
+const voteTally = computed(() => {
+  const data = latestVoteResult.value?.data;
+  const tally = data?.tally;
+  if (!tally || typeof tally !== "object") {
+    return [];
+  }
+  return Object.entries(tally as Record<string, number>)
+    .map(([playerId, count]) => {
+      const seat = playerById.value.get(playerId)?.seat;
+      return seat === undefined ? null : { seat, count };
+    })
+    .filter(
+      (item): item is { seat: number; count: number } => item !== null,
+    )
+    .sort((left, right) => right.count - left.count);
 });
 const witchKillTarget = computed(() => {
   if (!props.room.witch_kill_target_visible) {
@@ -351,6 +403,34 @@ async function copyRoomId(): Promise<void> {
       <span>
         {{ room.available_actions.map((item) => item.label).join("、") }}
       </span>
+    </section>
+
+    <section
+      v-if="latestVoteResult && voteRows.length"
+      class="panel vote-board"
+      data-testid="vote-board"
+    >
+      <div class="section-heading">
+        <h2>票型</h2>
+        <span>第 {{ latestVoteResult.day }} 天</span>
+      </div>
+      <div class="vote-rows">
+        <div v-for="row in voteRows" :key="row.voter" class="vote-row">
+          <span class="vote-voter">{{ row.voterSeat }} 号</span>
+          <span class="vote-arrow">→</span>
+          <span
+            class="vote-target"
+            :class="{ 'vote-abstain': !row.targetSeat }"
+          >
+            {{ row.targetSeat ? row.targetSeat + " 号" : "弃权" }}
+          </span>
+        </div>
+      </div>
+      <div class="vote-tally">
+        <span v-for="item in voteTally" :key="item.seat" class="vote-chip">
+          {{ item.seat }} 号 · {{ item.count }} 票
+        </span>
+      </div>
     </section>
 
     <section v-if="room.announcements.length" class="panel narrator-panel">

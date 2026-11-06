@@ -52,16 +52,32 @@ const needsSelectedTarget = computed(() => {
   return form.choice === "antidote" || form.choice === "poison";
 });
 
+const actionSignature = computed(() =>
+  [
+    props.action.action,
+    props.action.requires_target,
+    props.action.allow_no_target,
+    props.action.requires_content,
+    props.action.target_ids.join(","),
+    props.action.choices.join(","),
+  ].join("|"),
+);
+
+let lastActionName = "";
+
 watch(
-  () => props.action,
-  (action) => {
-    form.targetId = action.requires_target
+  actionSignature,
+  () => {
+    if (props.action.action !== lastActionName) {
+      form.content = "";
+      lastActionName = props.action.action;
+    }
+    form.targetId = props.action.requires_target
       ? aliveTargetIds.value[0] ?? ""
-      : action.allow_no_target
+      : props.action.allow_no_target
         ? "__none__"
         : aliveTargetIds.value[0] ?? "";
-    form.content = "";
-    form.choice = action.choices[0] ?? "";
+    form.choice = props.action.choices[0] ?? "";
   },
   { immediate: true },
 );

@@ -104,10 +104,9 @@ class DirectivePolicyTests(TestCase):
             cards=[card("vote_most_accused", actor.role.value, "vote")],
         )
         view = self._view(state, "vote")
-        self.assertEqual(
-            policy.choose_target(state, actor, view),
-            view.target_ids[0],
-        )
+        picked = policy.choose_target(state, actor, view)
+        self.assertIn(picked, view.target_ids)
+        self.assertNotEqual(picked, actor.player_id)
 
     def test_hunter_can_hold_the_shot(self) -> None:
         state = create_game(seed=23, human_count=0)

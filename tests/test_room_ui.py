@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest import TestCase
 
+from backend.ai_growth import L1RulePolicy
 from backend.game_engine import (
     DayResult,
     Phase,
@@ -108,3 +110,27 @@ class SpeechOrderTests(TestCase):
         state.players[8].is_alive = False
         order = _public_speech_order(state, [state.players[8].player_id])
         self.assertEqual(order[0], "p1")
+
+
+class L1VoteTargetTests(TestCase):
+    def test_votes_are_spread_and_never_self(self) -> None:
+        state = create_game(seed=42, human_count=0)
+        state.day = 2
+        ids = [p.player_id for p in state.players if p.is_alive]
+        view = SimpleNamespace(
+            action="vote",
+            target_ids=ids,
+            choices=[],
+            requires_target=False,
+            allow_no_target=True,
+            requires_content=False,
+        )
+        picks = {
+            player.player_id: L1RulePolicy(seed=42).choose_target(
+                state, player, view, choice=None
+            )
+            for player in state.players
+        }
+        self.assertGreater(len(set(picks.values())), 1)
+        for actor_id, target in picks.items():
+            self.assertNotEqual(actor_id, target)

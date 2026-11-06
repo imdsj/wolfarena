@@ -1259,3 +1259,52 @@ body.night-mode .narrator-panel {
   font-size: 12px;
   color: #7a867b;
 }
+
+.vote-board {
+  display: grid;
+  gap: 12px;
+}
+
+.vote-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.vote-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.vote-voter {
+  font-weight: 600;
+}
+
+.vote-arrow {
+  color: #8a968b;
+}
+
+.vote-target {
+  font-weight: 600;
+  color: #b3541e;
+}
+
+.vote-abstain {
+  color: #8a968b;
+  font-weight: 400;
+}
+
+.vote-tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vote-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ee;
+  font-size: 13px;
+}
