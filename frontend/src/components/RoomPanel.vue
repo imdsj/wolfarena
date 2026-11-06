@@ -389,7 +389,7 @@ async function copyRoomId(): Promise<void> {
       data-testid="dead-player-mode"
     >
       <strong>你已出局</strong>
-      <span>页面仍保持玩家视角，只能看到服务端允许你看到的信息。</span>
+      <span>本局继续，你现在是观战视角：能看所有公开信息（天亮公告、票型、发言、死亡），但不能发言和投票。</span>
     </section>
 
     <div class="room-layout">
