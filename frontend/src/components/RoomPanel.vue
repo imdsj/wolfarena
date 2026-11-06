@@ -448,8 +448,8 @@ async function copyRoomId(): Promise<void> {
       data-testid="continue-banner"
     >
       <div>
-        <strong>投票已结束</strong>
-        <span>看完票型再继续。你不点，游戏不会进入黑夜。</span>
+        <strong>{{ room.phase === "VOTE" ? "投票已结束" : "本阶段结束" }}</strong>
+        <span>看完票型和遗言再继续。你不点，游戏不会往下走。</span>
       </div>
       <button
         class="primary-button"
@@ -457,7 +457,11 @@ async function copyRoomId(): Promise<void> {
         :disabled="busy"
         @click="emit('continue')"
       >
-        继续进入黑夜
+        {{
+          room.phase.startsWith("NIGHT_") || room.phase === "VOTE"
+            ? "继续进入黑夜"
+            : "继续游戏"
+        }}
       </button>
     </section>
 

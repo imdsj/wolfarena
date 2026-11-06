@@ -9,6 +9,7 @@ from backend.ai_growth import L1RulePolicy
 from backend.actions import available_actions_for_state
 from backend.game_engine import (
     DayResult,
+    EventType,
     Phase,
     Role,
     _public_speech_order,
@@ -87,6 +88,16 @@ class DeadLastWordsTests(TestCase):
         self.assertIn("已经出局", text)
         self.assertIn("猎人", text)
         self.assertIn("遗言", text)
+
+    def test_wolf_last_words_must_not_concede(self) -> None:
+        state = create_game(seed=5, human_count=0)
+        wolf = next(p for p in state.players if p.role is Role.WEREWOLF)
+        state.day_result = DayResult(
+            death_causes={wolf.player_id: ["banished"]}
+        )
+        text = dead_notice(state, wolf)
+        self.assertIn("绝对不能承认自己是狼", text)
+        self.assertIn("反咬", text)
 
 
 class SpeechOrderTests(TestCase):
@@ -223,6 +234,37 @@ class TieVoteGateTests(TestCase):
             now=1.0,
         )
         self.assertIn("last_words", [view.action for view in views])
+
+    def test_last_words_pause_before_night(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = repository.create_room(
+            seed=7, human_count=1, max_humans=3, nickname="t"
+        )
+        room = repository._rooms[created.room_id]
+        access = ViewerAccess(
+            room_id=created.room_id, kind="player", player_id="p1"
+        )
+        with room.lock:
+            room.state.day = 1
+            room.state.phase = Phase.VOTE
+            living = [p for p in room.state.players if p.is_alive]
+            day_result = DayResult()
+            for player in living:
+                day_result.votes[player.player_id] = (
+                    "p8" if player.player_id != "p8" else "p2"
+                )
+            day_result.votes_closed = True
+            room.state.day_result = day_result
+        repository.execute_action(access, ActionRequest(action="resolve_vote"))
+        self.assertTrue(room.continue_gate)
+        repository.request_continue(created.room_id, access)
+        self.assertTrue(room.continue_gate)
+        self.assertTrue(
+            any(
+                event.event_type is EventType.LAST_WORDS
+                for event in room.state.events
+            )
+        )
 
 
 class SeerCheckTargetTests(TestCase):

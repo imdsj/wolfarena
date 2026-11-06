@@ -171,6 +171,13 @@ def dead_notice(state: GameState, actor) -> str:
         raw = day_result.death_causes.get(actor.player_id) or []
         causes = [DEATH_CAUSE_LABELS.get(cause, cause) for cause in raw]
     reason = f"（{'、'.join(causes)}）" if causes else ""
+    if actor.role is Role.WEREWOLF:
+        return (
+            f"你已经出局{reason}，现在只能发表遗言。"
+            "你是狼人，绝对不能承认自己是狼，也不要认输、不要夸好人站对边。"
+            "要反咬预言家是假预言家、质疑他的查杀是编的，尽量把水搅浑，"
+            "保护还活着的狼队友。不要说“我后面听你说”“下一轮再说”这类话。"
+        )
     return (
         f"你已经出局{reason}，现在只能发表遗言。"
         "你不能再参与后续的发言、投票、开枪或任何行动，也不会再回到游戏里。"

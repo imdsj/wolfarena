@@ -486,6 +486,9 @@ class InMemoryRoomRepository:
                 # Freeze right after the vote result, even on a tie that
                 # already advanced the phase, so humans can read the board.
                 room.continue_gate = True
+            if request.action == "last_words":
+                # Freeze again after last words so nobody misses them.
+                room.continue_gate = True
             return RoomMutation(
                 room=room,
                 previous_event_seq=previous_event_seq,
