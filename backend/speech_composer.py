@@ -29,6 +29,14 @@ ROLE_LABELS = {
     "hunter": "猎人",
 }
 
+DEATH_CAUSE_LABELS = {
+    "wolf_kill": "被狼人刀",
+    "poisoned": "被女巫毒",
+    "vote": "被投票放逐",
+    "hunter_shot": "被猎人开枪带走",
+    "self_destruct": "自爆",
+}
+
 
 def llm_speech_enabled() -> bool:
     return os.getenv("WOLFARENA_LLM_SPEECH", "0") == "1"
@@ -117,6 +125,23 @@ def night_summary(state: GameState) -> str:
     return "昨晚是平安夜。"
 
 
+def dead_notice(state: GameState, actor) -> str:
+    """Tell a last-words speaker that they are out of the game for good."""
+
+    causes: list[str] = []
+    day_result = state.day_result
+    if day_result is not None:
+        raw = day_result.death_causes.get(actor.player_id) or []
+        causes = [DEATH_CAUSE_LABELS.get(cause, cause) for cause in raw]
+    reason = f"（{'、'.join(causes)}）" if causes else ""
+    return (
+        f"你已经出局{reason}，现在只能发表遗言。"
+        "你不能再参与后续的发言、投票、开枪或任何行动，也不会再回到游戏里。"
+        "绝对不要说“我后面听你说”“下一轮我再解释”“等我再观察”这类话。"
+        "请交代你掌握的信息，并给还活着的队友留下明确建议。"
+    )
+
+
 def tactics_context(state: GameState, actor) -> str:
     """Ground the speaker in the curated strategy library for its role/phase."""
 
@@ -166,16 +191,21 @@ def compose_speech(
     private_info = private_context(state, actor)
     public_result = night_summary(state)
     tactics = tactics_context(state, actor)
+    is_last_words = view.action == "last_words"
+    death_line = dead_notice(state, actor) if is_last_words else ""
     system = (
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
         "你的目标是用自然的中文发言帮助你的阵营获胜。规则：只使用公开信息；"
         "狼人必须伪装成好人，不得暴露身份；可以引用其他玩家的座位号和发言；"
         "必须回应或评价在场其他玩家的发言，不能只自言自语；"
-        "不要承认自己是 AI。输出一句到两句，80 字以内。\n" + rules_brief()
+        "不要承认自己是 AI。输出一句到两句，80 字以内。"
+        + ("你现在已经出局，只能留遗言。" if is_last_words else "")
+        + "\n" + rules_brief()
     )
     user = (
         f"第 {state.day} 天，当前阶段 {state.phase.value}。"
         f"昨晚结果：{public_result}"
+        f"{death_line}"
         f"你的私密信息：{private_info}"
         f"战术参考：{tactics or '无'}"
         f"在场玩家：{'、'.join(roster)}。"

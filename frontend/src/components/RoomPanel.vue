@@ -9,7 +9,6 @@ import type {
 import ActionForm from "./ActionForm.vue";
 import ConnectionStatus from "./ConnectionStatus.vue";
 import GameResultPanel from "./GameResultPanel.vue";
-import PhaseCountdown from "./PhaseCountdown.vue";
 
 const props = defineProps<{
   room: RoomSnapshot;
@@ -79,7 +78,6 @@ const feedItems = computed(() =>
   props.events.filter((event) => feedEventTypes.has(event.event_type)),
 );
 const revealedCount = ref(0);
-const feedExpanded = ref(false);
 const feedList = ref<HTMLElement | null>(null);
 let revealTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -333,6 +331,17 @@ async function copyRoomId(): Promise<void> {
       <span>页面仍保持玩家视角，只能看到服务端允许你看到的信息。</span>
     </section>
 
+    <div class="room-layout">
+      <main class="room-main">
+    <section
+      v-if="room.last_night_summary"
+      class="night-result-banner"
+      data-testid="night-result"
+    >
+      <span class="night-result-label">天亮公告</span>
+      <strong>{{ room.last_night_summary }}</strong>
+    </section>
+
     <section v-if="room.announcements.length" class="panel narrator-panel">
       <p
         v-for="(line, index) in room.announcements"
@@ -341,68 +350,6 @@ async function copyRoomId(): Promise<void> {
       >
         {{ line }}
       </p>
-    </section>
-
-    <PhaseCountdown
-      v-if="
-        room.deadline_kind !== null &&
-        room.deadline_at !== null &&
-        room.remaining_ms !== null
-      "
-      :deadline-kind="room.deadline_kind"
-      :remaining-ms="room.remaining_ms"
-      :server-time="room.server_time"
-      :deadline-at="room.deadline_at"
-    />
-
-    <section class="panel feed-panel">
-      <div class="section-heading">
-        <h2>对局直播</h2>
-        <span v-if="isSpectator" class="muted">上帝视角</span>
-        <span v-else class="muted">{{ visibleFeed.length }}/{{ feedItems.length }} 条</span>
-        <button
-          class="text-button"
-          type="button"
-          @click="feedExpanded = !feedExpanded"
-        >
-          {{ feedExpanded ? "折叠" : "展开全部" }}
-        </button>
-      </div>
-      <ol
-        v-if="feedItems.length"
-        ref="feedList"
-        class="speech-list"
-        :class="{ 'feed-collapsed': !feedExpanded }"
-      >
-        <template v-for="event in visibleFeed" :key="event.event_seq">
-          <li
-            v-if="isSpeech(event)"
-            class="speech-bubble"
-            :class="{
-              'speech-wolf': event.event_type === 'WOLF_SPEECH',
-              'speech-last-words': event.event_type === 'LAST_WORDS',
-              'speech-own': event.actor_id === room.viewer.player_id,
-            }"
-          >
-            <div class="speech-meta">
-              <span class="speech-speaker">{{ speakerLabel(event) }}</span>
-              <span class="speech-kind">{{
-                event.event_type === "WOLF_SPEECH"
-                  ? "狼队频道"
-                  : event.event_type === "LAST_WORDS"
-                    ? "遗言"
-                    : "公开发言"
-              }}</span>
-            </div>
-            <p class="speech-text">{{ speechText(event) }}</p>
-          </li>
-          <li v-else class="feed-system">
-            <span class="feed-tag">系统</span>
-            <span>{{ systemText(event) }}</span>
-          </li>
-        </template>
-      </ol>
-      <p v-else class="muted">还没有对局事件。</p>
     </section>
 
     <div class="metric-grid">
@@ -604,5 +551,53 @@ async function copyRoomId(): Promise<void> {
       </ol>
       <p v-if="!events.length" class="muted">还没有收到事件。</p>
     </section>
+      </main>
+
+      <aside class="room-side">
+        <section class="panel feed-panel">
+          <div class="section-heading">
+            <h2>对局直播</h2>
+            <span v-if="isSpectator" class="muted">上帝视角</span>
+            <span v-else class="muted">
+              {{ visibleFeed.length }}/{{ feedItems.length }} 条
+            </span>
+          </div>
+          <ol
+            v-if="feedItems.length"
+            ref="feedList"
+            class="speech-list feed-scroll"
+          >
+            <template v-for="event in visibleFeed" :key="event.event_seq">
+              <li
+                v-if="isSpeech(event)"
+                class="speech-bubble"
+                :class="{
+                  'speech-wolf': event.event_type === 'WOLF_SPEECH',
+                  'speech-last-words': event.event_type === 'LAST_WORDS',
+                  'speech-own': event.actor_id === room.viewer.player_id,
+                }"
+              >
+                <div class="speech-meta">
+                  <span class="speech-speaker">{{ speakerLabel(event) }}</span>
+                  <span class="speech-kind">{{
+                    event.event_type === "WOLF_SPEECH"
+                      ? "狼队频道"
+                      : event.event_type === "LAST_WORDS"
+                        ? "遗言"
+                        : "公开发言"
+                  }}</span>
+                </div>
+                <p class="speech-text">{{ speechText(event) }}</p>
+              </li>
+              <li v-else class="feed-system">
+                <span class="feed-tag">系统</span>
+                <span>{{ systemText(event) }}</span>
+              </li>
+            </template>
+          </ol>
+          <p v-else class="muted">还没有对局事件。</p>
+        </section>
+      </aside>
+    </div>
   </section>
 </template>

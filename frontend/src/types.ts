@@ -76,6 +76,7 @@ export interface RoomSnapshot {
   visible_events: GameEvent[];
   available_actions: AvailableAction[];
   announcements: string[];
+  last_night_summary: string | null;
 }
 
 export interface RoomSessionResponse {

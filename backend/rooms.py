@@ -49,6 +49,20 @@ from .schemas import (
 
 logger = logging.getLogger(__name__)
 
+# Host-only transitions the server now performs on its own. They stay legal
+# at the engine/API level (the AI controller and tests use them) but are not
+# offered as buttons, so a human host never has to click the game forward.
+SYSTEM_ONLY_ACTIONS = frozenset(
+    {
+        "begin_day",
+        "resolve_night",
+        "resolve_vote",
+        "begin_banishment_last_words",
+        "close_self_destruct_window",
+        "close_vote",
+    }
+)
+
 
 class RoomNotFoundError(LookupError):
     """Raised when a room does not exist."""
@@ -711,6 +725,35 @@ class InMemoryRoomRepository:
             )
 
     @staticmethod
+    def _last_night_summary(state: GameState) -> str | None:
+        """A stable, front-and-center line about the previous night."""
+
+        if state.phase in {
+            Phase.INIT,
+            Phase.NIGHT_WOLF_DISCUSSION_R1,
+            Phase.NIGHT_WOLF_DISCUSSION_R2,
+            Phase.NIGHT_WOLF_KILL,
+            Phase.NIGHT_SEER_CHECK,
+            Phase.NIGHT_WITCH_ACTION,
+            Phase.NIGHT_RESOLUTION,
+            Phase.NIGHT_HUNTER_SHOT,
+        }:
+            return None
+        day_result = state.day_result
+        if day_result is None:
+            return None
+        day = state.day or 1
+        if day_result.announced_death_ids:
+            seats = [
+                player.seat
+                for player in sorted(state.players, key=lambda item: item.seat)
+                if player.player_id in day_result.announced_death_ids
+            ]
+            names = "、".join(f"{seat} 号" for seat in seats)
+            return f"第 {day} 天 · 昨晚 {names} 出局"
+        return f"第 {day} 天 · 昨晚是平安夜"
+
+    @staticmethod
     def _announcements(state: GameState, access: ViewerAccess) -> list[str]:
         """Narrator lines plus the viewer's own role prompts, never hidden roles."""
 
@@ -884,13 +927,16 @@ class InMemoryRoomRepository:
                     if player.player_id not in room.claimed_player_ids
                 ],
                 announcements=self._announcements(room.state, access),
+                last_night_summary=self._last_night_summary(room.state),
                 available_actions=list(
-                    available_actions_for_state(
+                    action
+                    for action in available_actions_for_state(
                         room.state,
                         viewer,
                         host_player_id=room.host_player_id,
                         now=server_time,
                     )
+                    if action.action not in SYSTEM_ONLY_ACTIONS
                 ),
             )
 
