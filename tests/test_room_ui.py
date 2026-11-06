@@ -10,6 +10,7 @@ from backend.actions import available_actions_for_state
 from backend.game_engine import (
     DayResult,
     EventType,
+    NightResult,
     Phase,
     Role,
     _public_speech_order,
@@ -293,3 +294,31 @@ class SeerCheckTargetTests(TestCase):
         }
         self.assertGreater(len(picks), 1)
         self.assertNotIn(seer.player_id, picks)
+
+
+class DayStartAIStallTests(TestCase):
+    def test_first_ai_speaker_gets_scheduled_after_begin_day(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = repository.create_room(
+            seed=3, human_count=1, max_humans=3, nickname="h"
+        )
+        room = repository._rooms[created.room_id]
+        with room.lock:
+            room.state.day = 2
+            room.state.phase = Phase.DAY_ANNOUNCEMENT
+            room.state.night_result = NightResult(death_ids=["p2"])
+            room.state.players[1].is_alive = False
+
+        repository.advance_ai(created.room_id, now=100.0)
+        self.assertIs(room.state.phase, Phase.DAY_DISCUSSION)
+        self.assertIsNotNone(room.state.phase_deadline_at)
+
+        repository.process_expired_deadlines(
+            room.state.phase_deadline_at + 0.01
+        )
+        speeches = [
+            event
+            for event in room.state.events
+            if event.event_type is EventType.PUBLIC_SPEECH
+        ]
+        self.assertTrue(speeches)

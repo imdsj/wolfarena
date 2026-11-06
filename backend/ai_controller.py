@@ -299,6 +299,12 @@ class AIController:
         elif state.phase in NIGHT_PACED_PHASES:
             state.phase_deadline_at = reference + NIGHT_PHASE_PACE_SECONDS
             state.phase_deadline_kind = "phase_pace"
+        elif actor is not None and not actor.is_human:
+            # An AI still owes this phase an action (e.g. the first daytime
+            # speaker right after begin_day). Nudge the timer once so the
+            # game can never sit idle with nobody scheduled to move.
+            state.phase_deadline_at = reference + 0.1
+            state.phase_deadline_kind = "phase_pace"
         else:
             self._clear_phase_deadline(state)
 
