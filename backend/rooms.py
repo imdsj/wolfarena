@@ -17,7 +17,8 @@ from .actions import (
     execute_engine_action,
 )
 from .ai_controller import AIController, AIControllerResult
-from .ai_growth import L0Policy
+from .ai_growth import L1RulePolicy
+from .tactic_policy import DirectivePolicy, load_validated_directives
 from .game_engine import (
     Event,
     EventType,
@@ -47,6 +48,20 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Host-only transitions the server now performs on its own. They stay legal
+# at the engine/API level (the AI controller and tests use them) but are not
+# offered as buttons, so a human host never has to click the game forward.
+SYSTEM_ONLY_ACTIONS = frozenset(
+    {
+        "begin_day",
+        "resolve_night",
+        "resolve_vote",
+        "begin_banishment_last_words",
+        "close_self_destruct_window",
+        "close_vote",
+    }
+)
 
 
 class RoomNotFoundError(LookupError):
@@ -168,11 +183,16 @@ class Room:
     claimed_player_ids: set[str] = field(default_factory=set)
     tokens_by_player: dict[str, str] = field(default_factory=dict)
     player_by_token: dict[str, str] = field(default_factory=dict)
+    continue_gate: bool = False
     lock: RLock = field(default_factory=RLock, repr=False)
-    ai_policy: L0Policy = field(init=False, repr=False)
+    ai_policy: L1RulePolicy = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.ai_policy = L0Policy(seed=self.state.seed)
+        try:
+            cards = load_validated_directives()
+        except Exception:
+            cards = ()
+        self.ai_policy = DirectivePolicy(seed=self.state.seed, cards=cards)
 
     @property
     def human_count(self) -> int:
@@ -458,6 +478,17 @@ class InMemoryRoomRepository:
             except Exception:
                 room.state = state_before
                 raise
+            vote_resolved_now = any(
+                event.event_type is EventType.VOTE_RESULT
+                for event in room.state.events[previous_event_seq + 1 :]
+            )
+            if vote_resolved_now:
+                # Freeze right after the vote result, even on a tie that
+                # already advanced the phase, so humans can read the board.
+                room.continue_gate = True
+            if request.action == "last_words":
+                # Freeze again after last words so nobody misses them.
+                room.continue_gate = True
             return RoomMutation(
                 room=room,
                 previous_event_seq=previous_event_seq,
@@ -474,6 +505,17 @@ class InMemoryRoomRepository:
         room = self._get_room(access.room_id)
         with room.lock:
             mutation = self.execute_action(access, request, now=now)
+            if request.action in {"speech", "last_words"}:
+                # Publish the human's own words immediately instead of
+                # blocking the response while eight AI speeches are prepared.
+                reference = time() if now is None else now
+                room.state.phase_deadline_at = reference + 0.2
+                room.state.phase_deadline_kind = "phase_pace"
+                return RoomMutation(
+                    room=mutation.room,
+                    previous_event_seq=mutation.previous_event_seq,
+                    current_event_seq=mutation.current_event_seq,
+                )
             controller_result = self.advance_ai(access.room_id, now=now)
             return RoomMutation(
                 room=mutation.room,
@@ -487,7 +529,39 @@ class InMemoryRoomRepository:
         *,
         now: float | None = None,
     ) -> AIControllerResult:
+        room = self._get_room(room_id)
+        if room.continue_gate:
+            return AIControllerResult(
+                steps=0,
+                stopped_reason="human_turn",
+                previous_event_seq=room.last_event_seq,
+                current_event_seq=room.last_event_seq,
+            )
         return self.ai_controller.advance(room_id, now=now)
+
+    def request_continue(
+        self,
+        room_id: str,
+        access: "ViewerAccess",
+        *,
+        now: float | None = None,
+    ) -> RoomMutation:
+        """Release the post-vote freeze so the game can enter the night."""
+
+        room = self._get_room(room_id)
+        with room.lock:
+            if access.kind != "player":
+                raise RoomPermissionError("观战者不能推进流程")
+            previous_event_seq = room.last_event_seq
+            room.continue_gate = False
+            room.state.phase_deadline_at = None
+            room.state.phase_deadline_kind = None
+            self.advance_ai(room_id, now=now)
+            return RoomMutation(
+                room=room,
+                previous_event_seq=previous_event_seq,
+                current_event_seq=room.last_event_seq,
+            )
 
     def auto_play_human_turn(
         self,
@@ -541,6 +615,18 @@ class InMemoryRoomRepository:
         for room_id in room_ids:
             room = self._get_room(room_id)
             with room.lock:
+                if room.continue_gate:
+                    if not any(
+                        player.is_human and player.is_alive
+                        for player in room.state.players
+                    ):
+                        # No living human left to acknowledge the pause, so
+                        # the AI-only remainder of the game plays itself out.
+                        room.continue_gate = False
+                        room.state.phase_deadline_at = None
+                        room.state.phase_deadline_kind = None
+                        self.advance_ai(room_id, now=now)
+                    continue
                 timeout_kind = self._expired_timeout_kind(room.state, now)
                 if timeout_kind is None:
                     continue
@@ -704,6 +790,46 @@ class InMemoryRoomRepository:
                 for event in get_visible_events(room.state, viewer)
                 if event.event_seq > after_event_seq
             )
+
+    @staticmethod
+    def _last_night_summary(state: GameState) -> str | None:
+        """A stable, front-and-center line about the previous night."""
+
+        if state.phase in {
+            Phase.INIT,
+            Phase.NIGHT_WOLF_DISCUSSION_R1,
+            Phase.NIGHT_WOLF_DISCUSSION_R2,
+            Phase.NIGHT_WOLF_KILL,
+            Phase.NIGHT_SEER_CHECK,
+            Phase.NIGHT_WITCH_ACTION,
+            Phase.NIGHT_RESOLUTION,
+            Phase.NIGHT_HUNTER_SHOT,
+        }:
+            return None
+        day_result = state.day_result
+        if day_result is None:
+            return None
+        day = state.day or 1
+        if day_result.announced_death_ids:
+            cause_labels = {
+                "wolf_kill": "狼人击杀",
+                "poisoned": "女巫毒杀",
+                "hunter_shot": "猎人开枪",
+                "banished": "投票放逐",
+                "self_destruct": "自爆",
+            }
+            parts: list[str] = []
+            for player in sorted(state.players, key=lambda item: item.seat):
+                if player.player_id not in day_result.announced_death_ids:
+                    continue
+                causes = day_result.death_causes.get(player.player_id) or []
+                labels = [
+                    cause_labels.get(cause, cause) for cause in causes
+                ]
+                suffix = f"（{'、'.join(labels)}）" if labels else ""
+                parts.append(f"{player.seat} 号{suffix}")
+            return f"第 {day} 天 · 昨晚 {'、'.join(parts)} 出局"
+        return f"第 {day} 天 · 昨晚是平安夜"
 
     @staticmethod
     def _announcements(state: GameState, access: ViewerAccess) -> list[str]:
@@ -879,12 +1005,20 @@ class InMemoryRoomRepository:
                     if player.player_id not in room.claimed_player_ids
                 ],
                 announcements=self._announcements(room.state, access),
-                available_actions=list(
-                    available_actions_for_state(
-                        room.state,
-                        viewer,
-                        host_player_id=room.host_player_id,
-                        now=server_time,
+                last_night_summary=self._last_night_summary(room.state),
+                awaiting_continue=room.continue_gate,
+                available_actions=(
+                    []
+                    if room.continue_gate
+                    else list(
+                        action
+                        for action in available_actions_for_state(
+                            room.state,
+                            viewer,
+                            host_player_id=room.host_player_id,
+                            now=server_time,
+                        )
+                        if action.action not in SYSTEM_ONLY_ACTIONS
                     )
                 ),
             )

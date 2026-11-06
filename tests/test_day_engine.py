@@ -3,6 +3,8 @@
 from unittest import TestCase
 
 from backend.game_engine import (
+    LAST_WORDS_TIMEOUT_SECONDS,
+    PUBLIC_SPEECH_TIMEOUT_SECONDS,
     EventType,
     GameState,
     NightResult,
@@ -202,18 +204,20 @@ class DayAnnouncementAndLastWordsTests(TestCase):
 
     def test_last_words_timeout_advances_after_fixed_30_seconds(self) -> None:
         state = make_day(day=1, death_ids=["p4", "p2"], now=100.0)
-        self.assertEqual(state.day_result.last_words_deadline, 130.0)
+        deadline = 100.0 + LAST_WORDS_TIMEOUT_SECONDS
+        self.assertEqual(state.day_result.last_words_deadline, deadline)
 
         event_count_before = len(state.events)
         with self.assertRaises(ValueError):
-            timeout_last_words(state, 129.9)
+            timeout_last_words(state, deadline - 0.1)
         self.assertEqual(state.day_result.last_words_queue, ["p4", "p2"])
         self.assertEqual(len(state.events), event_count_before)
 
-        timeout_last_words(state, 130.0)
+        timeout_last_words(state, deadline)
         self.assertEqual(state.day_result.last_words_queue, ["p2"])
-        self.assertEqual(state.day_result.last_words_deadline, 160.0)
-        timeout_last_words(state, 160.0)
+        next_deadline = deadline + LAST_WORDS_TIMEOUT_SECONDS
+        self.assertEqual(state.day_result.last_words_deadline, next_deadline)
+        timeout_last_words(state, next_deadline)
         self.assertEqual(state.phase, Phase.DAY_DISCUSSION)
         self.assertEqual(state.day_result.last_words_deadline, None)
         timeout_events = [
@@ -334,13 +338,14 @@ class PublicSpeechTests(TestCase):
 
     def test_timeout_advances_each_speaker_and_reaches_vote(self) -> None:
         state = make_day(day=1, now=100.0)
-        self.assertEqual(state.day_result.speech_deadline, 130.0)
+        deadline = 100.0 + PUBLIC_SPEECH_TIMEOUT_SECONDS
+        self.assertEqual(state.day_result.speech_deadline, deadline)
 
         phase_before = state.phase
         index_before = state.day_result.next_speaker_index
         event_count_before = len(state.events)
         with self.assertRaises(ValueError):
-            timeout_public_speech(state, 129.9)
+            timeout_public_speech(state, deadline - 0.1)
         self.assertIs(state.phase, phase_before)
         self.assertEqual(state.day_result.next_speaker_index, index_before)
         self.assertEqual(len(state.events), event_count_before)

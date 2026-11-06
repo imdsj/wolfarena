@@ -100,17 +100,29 @@ def speech_content(state: GameState, actor, view) -> str | None:
 
     role = actor.role
     if role is Role.SEER:
-        if pick is not None:
-            return with_reference(
-                rng.choice(
-                    [
-                        f"我是预言家，今晚我会查验 {pick.seat} 号，白天公布结论。",
-                        f"我是预言家，本轮计划验 {pick.seat} 号，好人跟我的票。",
-                        f"我是预言家，先验 {pick.seat} 号，有结果我会说清楚。",
-                    ]
-                )
+        # Announcing "I am the seer" every day is suicidal: the wolf kill
+        # heuristic hunts public god claims. Only claim once there is a wolf
+        # result worth acting on.
+        reports: list[tuple[int, str]] = []
+        for event in get_visible_events(state, actor):
+            if event.event_type is not EventType.SEER_CHECKED:
+                continue
+            target = next(
+                (
+                    player
+                    for player in state.players
+                    if player.player_id == event.target_id
+                ),
+                None,
             )
-        return "我是预言家，今晚会优先查验最可疑的对象。"
+            if target is not None:
+                reports.append((target.seat, str(event.data.get("result"))))
+        wolf_seats = [seat for seat, result in reports if result == "wolf"]
+        if wolf_seats:
+            return f"我是预言家，{wolf_seats[-1]} 号是狼，今天票 {wolf_seats[-1]} 号。"
+        if reports:
+            return "我这边有信息，先听完再决定要不要明身份。"
+        return f"我 {seat} 号先听一轮。"
 
     if role is Role.WITCH:
         return rng.choice(
@@ -436,30 +448,109 @@ class L1RulePolicy:
             )
             return target if target in view.target_ids else None
         if view.action == "wolf_kill":
-            claimed = self._claimed_god_ids(state, actor)
-            return next(
-                (
-                    target_id
-                    for target_id in view.target_ids
-                    if target_id in claimed
-                ),
-                view.target_ids[0],
-            )
+            return self._wolf_kill_target(state, actor, view)
         if view.action == "seer_check":
-            checked = {
-                event.target_id
-                for event in get_visible_events(state, actor)
-                if event.event_type is EventType.SEER_CHECKED
-            }
-            return next(
-                (
-                    target_id
-                    for target_id in view.target_ids
-                    if target_id not in checked
-                ),
-                view.target_ids[0],
-            )
+            return self._seer_check_target(state, actor, view)
+        if view.action == "vote":
+            return self._vote_target(state, actor, view)
         return view.target_ids[0]
+
+    def _vote_target(self, state, actor, view) -> str:
+        """Follow public suspicion; never collapse onto seat 1 by default."""
+
+        from .public_signals import build_signals
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            seat = signals.top_accused(exclude=actor.seat)
+            if seat is not None:
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in view.target_ids
+                    ):
+                        return player.player_id
+        rng = Random(f"{self.seed}:vote:{state.day}:{actor.player_id}")
+        choices = [
+            player_id
+            for player_id in view.target_ids
+            if player_id != actor.player_id
+        ]
+        return rng.choice(choices or list(view.target_ids))
+
+    def _wolf_kill_target(self, state, actor, view) -> str:
+        """Kill a god claim first, else a threat; never always seat 1."""
+
+        from .public_signals import build_signals
+
+        def is_wolf(player_id: str) -> bool:
+            return any(
+                player.player_id == player_id
+                and player.role is Role.WEREWOLF
+                for player in state.players
+            )
+
+        prey = [
+            player_id
+            for player_id in view.target_ids
+            if not is_wolf(player_id)
+        ] or list(view.target_ids)
+
+        claimed = self._claimed_god_ids(state, actor)
+        for player_id in prey:
+            if player_id in claimed:
+                return player_id
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            seat = signals.top_accused(exclude=actor.seat)
+            if seat is not None:
+                for player in state.players:
+                    if player.seat == seat and player.player_id in prey:
+                        return player.player_id
+
+        rng = Random(f"{self.seed}:kill:{state.day}:{actor.player_id}")
+        choices = [player_id for player_id in prey if player_id != actor.player_id]
+        return rng.choice(choices or prey)
+
+    def _seer_check_target(self, state, actor, view) -> str:
+        """Check a suspicious, not-yet-checked player, never just seat 1."""
+
+        from .public_signals import build_signals
+
+        checked = {
+            event.target_id
+            for event in get_visible_events(state, actor)
+            if event.event_type is EventType.SEER_CHECKED
+        }
+        candidates = [
+            player_id
+            for player_id in view.target_ids
+            if player_id not in checked
+        ] or list(view.target_ids)
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            seat = signals.top_accused(exclude=actor.seat)
+            if seat is not None:
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in candidates
+                    ):
+                        return player.player_id
+
+        rng = Random(f"{self.seed}:check:{state.day}:{actor.player_id}")
+        return rng.choice(candidates)
 
     @staticmethod
     def choose_content(state, actor, view) -> str | None:

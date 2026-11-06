@@ -108,10 +108,11 @@ PHASE_ORDER: Final[tuple[Phase, ...]] = (
 )
 
 SPECTATOR_VIEW: Final[str] = "spectator"
-PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 30.0
-LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 30.0
-HUMAN_ACTION_TIMEOUT_SECONDS: Final[float] = 20.0
-NIGHT_PHASE_PACE_SECONDS: Final[float] = 4.0
+PUBLIC_SPEECH_TIMEOUT_SECONDS: Final[float] = 3600.0
+LAST_WORDS_TIMEOUT_SECONDS: Final[float] = 3600.0
+HUMAN_ACTION_TIMEOUT_SECONDS: Final[float] = 3600.0
+NIGHT_HUMAN_ACTION_TIMEOUT_SECONDS: Final[float] = 3600.0
+NIGHT_PHASE_PACE_SECONDS: Final[float] = 2.0
 
 
 ROLE_DECK: Final[tuple[Role, ...]] = (
@@ -1297,6 +1298,7 @@ def resolve_vote(state: GameState) -> GameState:
     append_event(
         state,
         EventType.VOTE_RESULT,
+        target_id=banished_id,
         visibility=Visibility.PUBLIC,
         data={
             "votes": dict(final_votes),
@@ -1328,7 +1330,11 @@ def resolve_vote(state: GameState) -> GameState:
     return state
 
 
-def begin_banishment_last_words(state: GameState) -> GameState:
+def begin_banishment_last_words(
+    state: GameState,
+    *,
+    now: float | None = None,
+) -> GameState:
     """Open last words for the player banished by the resolved vote."""
 
     if state.phase is not Phase.VOTE:
@@ -1346,6 +1352,9 @@ def begin_banishment_last_words(state: GameState) -> GameState:
     else:
         day_result.after_last_words_phase = None
     day_result.last_words_queue = [banished.player_id]
+    day_result.last_words_deadline = (
+        None if now is None else now + LAST_WORDS_TIMEOUT_SECONDS
+    )
     day_result.banishment_pending = False
     state.phase = Phase.DAY_LAST_WORDS
     append_event(

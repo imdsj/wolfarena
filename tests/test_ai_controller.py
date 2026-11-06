@@ -149,6 +149,9 @@ class AIControllerTests(TestCase):
             ActionRequest(action="speech", content="真人发言"),
             now=200.0,
         )
+        # The human's speech is published immediately; the next AI turn is
+        # driven by the short pace deadline.
+        repository.process_expired_deadlines(200.3)
         snapshot = repository.snapshot_for_access(room, session.access)
 
         self.assertIn(snapshot.phase, {"VOTE", "SELF_DESTRUCT"})

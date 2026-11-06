@@ -437,6 +437,35 @@ def create_app(
         )
 
     @application.post(
+        "/api/rooms/{room_id}/continue",
+        response_model=RoomSnapshot,
+    )
+    async def continue_room(
+        room_id: str,
+        player_token: str | None = Header(default=None, alias="X-Player-Token"),
+    ) -> RoomSnapshot:
+        try:
+            session = room_repository.authenticate_player(room_id, player_token)
+        except RoomNotFoundError as error:
+            raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
+        except InvalidPlayerTokenError as error:
+            raise _error(401, "INVALID_PLAYER_TOKEN", str(error)) from error
+
+        try:
+            mutation = room_repository.request_continue(
+                room_id,
+                session.access,
+            )
+        except RoomPermissionError as error:
+            raise _error(403, "ACTION_FORBIDDEN", str(error)) from error
+
+        await application.state.realtime.broadcast_mutation(mutation)
+        return room_repository.snapshot_for_access(
+            mutation.room,
+            session.access,
+        )
+
+    @application.post(
         "/api/rooms/{room_id}/ai-action",
         response_model=AIActionResponse,
     )
@@ -754,9 +783,18 @@ def create_app(
         Path(__file__).resolve().parent.parent / "frontend" / "dist"
     )
     if frontend_dist.is_dir():
+
+        class NoCacheStaticFiles(StaticFiles):
+            """Force revalidation so a deploy is visible without hard refresh."""
+
+            async def get_response(self, path, scope):
+                response = await super().get_response(path, scope)
+                response.headers["Cache-Control"] = "no-cache, must-revalidate"
+                return response
+
         application.mount(
             "/",
-            StaticFiles(directory=frontend_dist, html=True),
+            NoCacheStaticFiles(directory=frontend_dist, html=True),
             name="frontend",
         )
 

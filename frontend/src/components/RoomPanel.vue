@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import type {
   ActionSubmission,
@@ -9,7 +9,6 @@ import type {
 import ActionForm from "./ActionForm.vue";
 import ConnectionStatus from "./ConnectionStatus.vue";
 import GameResultPanel from "./GameResultPanel.vue";
-import PhaseCountdown from "./PhaseCountdown.vue";
 
 const props = defineProps<{
   room: RoomSnapshot;
@@ -32,12 +31,16 @@ const emit = defineEmits<{
   action: [action: ActionSubmission];
   aiAction: [];
   chat: [message: string];
+  continue: [];
   reconnect: [];
   leave: [];
 }>();
 
 const copyLabel = ref("复制房间号");
 const chatInput = ref("");
+const buildId =
+  (globalThis as { __WOLFARENA_BUILD__?: string }).__WOLFARENA_BUILD__ ??
+  "dev";
 
 function submitChat(): void {
   const text = chatInput.value.trim();
@@ -79,52 +82,47 @@ const feedItems = computed(() =>
   props.events.filter((event) => feedEventTypes.has(event.event_type)),
 );
 const revealedCount = ref(0);
-const feedExpanded = ref(false);
 const feedList = ref<HTMLElement | null>(null);
-let revealTimer: ReturnType<typeof setInterval> | null = null;
+const stickToBottom = ref(true);
+const pendingFeedCount = computed(() =>
+  Math.max(0, feedItems.value.length - revealedCount.value),
+);
 
 onMounted(() => {
   revealedCount.value = feedItems.value.length;
 });
 
-watch(
-  () => feedItems.value.length,
-  (length) => {
-    if (length <= revealedCount.value) {
-      revealedCount.value = length;
-      return;
-    }
-    if (revealTimer !== null) {
-      return;
-    }
-    revealTimer = setInterval(() => {
-      if (revealedCount.value < feedItems.value.length) {
-        revealedCount.value += 1;
-      } else if (revealTimer !== null) {
-        clearInterval(revealTimer);
-        revealTimer = null;
-      }
-    }, 2200);
-  },
-);
+function revealNext(): void {
+  if (pendingFeedCount.value > 0) {
+    stickToBottom.value = true;
+    revealedCount.value += 1;
+  }
+}
+
+function revealAll(): void {
+  stickToBottom.value = true;
+  revealedCount.value = feedItems.value.length;
+}
+
+function onFeedScroll(): void {
+  const element = feedList.value;
+  if (!element) {
+    return;
+  }
+  stickToBottom.value =
+    element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+}
 
 watch(
   () => revealedCount.value,
   async () => {
     await nextTick();
     const element = feedList.value;
-    if (element) {
+    if (element && stickToBottom.value) {
       element.scrollTop = element.scrollHeight;
     }
   },
 );
-
-onBeforeUnmount(() => {
-  if (revealTimer !== null) {
-    clearInterval(revealTimer);
-    revealTimer = null;
-  }
-});
 
 const visibleFeed = computed(() =>
   feedItems.value.slice(0, revealedCount.value),
@@ -140,10 +138,28 @@ function systemText(event: GameEvent): string {
     ? `${target.seat} 号 ${target.name}`
     : (event.target_id ?? "");
   if (event.event_type === "PLAYER_DIED") {
-    return `${label} 出局`;
+    const causes = Array.isArray(event.data.causes)
+      ? event.data.causes.filter(
+          (cause): cause is string => typeof cause === "string",
+        )
+      : [];
+    const causeText = causes
+      .map((cause) => deathCauseLabels[cause] ?? cause)
+      .join("、");
+    return `${label} 出局${causeText ? `（${causeText}）` : ""}`;
   }
   if (event.event_type === "VOTE_RESULT") {
-    return `投票结果：${label || "无人出局"}`;
+    const banishedId = event.data.banished_id;
+    const banishedSeat =
+      typeof banishedId === "string"
+        ? playerById.value.get(banishedId)?.seat
+        : null;
+    if (banishedSeat) {
+      return `投票结果：${banishedSeat} 号被放逐`;
+    }
+    return String(event.data.reason ?? "") === "tie"
+      ? "投票结果：平票，无人出局"
+      : "投票结果：无人出局";
   }
   if (event.event_type === "BANISHMENT") {
     return `${label} 被放逐`;
@@ -208,6 +224,48 @@ const visibleDeathCauses = computed(() => {
     causes.set(event.target_id, values);
   }
   return causes;
+});
+const latestVoteResult = computed(() => {
+  const results = props.events.filter(
+    (event) => event.event_type === "VOTE_RESULT",
+  );
+  return results.length ? results[results.length - 1] : null;
+});
+const voteRows = computed(() => {
+  const data = latestVoteResult.value?.data;
+  const votes = data?.votes;
+  if (!votes || typeof votes !== "object") {
+    return [];
+  }
+  const seatOf = (playerId: unknown): number | null => {
+    if (typeof playerId !== "string") {
+      return null;
+    }
+    return playerById.value.get(playerId)?.seat ?? null;
+  };
+  return Object.entries(votes as Record<string, string | null>)
+    .map(([voter, target]) => ({
+      voter,
+      voterSeat: seatOf(voter),
+      targetSeat: seatOf(target),
+    }))
+    .sort((left, right) => (left.voterSeat ?? 0) - (right.voterSeat ?? 0));
+});
+const voteTally = computed(() => {
+  const data = latestVoteResult.value?.data;
+  const tally = data?.tally;
+  if (!tally || typeof tally !== "object") {
+    return [];
+  }
+  return Object.entries(tally as Record<string, number>)
+    .map(([playerId, count]) => {
+      const seat = playerById.value.get(playerId)?.seat;
+      return seat === undefined ? null : { seat, count };
+    })
+    .filter(
+      (item): item is { seat: number; count: number } => item !== null,
+    )
+    .sort((left, right) => right.count - left.count);
 });
 const witchKillTarget = computed(() => {
   if (!props.room.witch_kill_target_visible) {
@@ -299,6 +357,7 @@ async function copyRoomId(): Promise<void> {
         <div class="room-identity">
           <div class="eyebrow room-code">
             房间 <code>{{ room.room_id }}</code>
+            <span class="build-tag">build {{ buildId }}</span>
           </div>
           <button class="text-button copy-room-id" type="button" @click="copyRoomId">
             {{ copyLabel }}
@@ -330,7 +389,80 @@ async function copyRoomId(): Promise<void> {
       data-testid="dead-player-mode"
     >
       <strong>你已出局</strong>
-      <span>页面仍保持玩家视角，只能看到服务端允许你看到的信息。</span>
+      <span>本局继续，你现在是观战视角：能看所有公开信息（天亮公告、票型、发言、死亡），但不能发言和投票。</span>
+    </section>
+
+    <div class="room-layout">
+      <main class="room-main">
+    <section
+      v-if="room.last_night_summary"
+      class="night-result-banner"
+      data-testid="night-result"
+    >
+      <span class="night-result-label">天亮公告</span>
+      <strong>{{ room.last_night_summary }}</strong>
+    </section>
+
+    <section
+      v-if="!isSpectator && !gameEnded && room.available_actions.length"
+      class="turn-banner"
+      data-testid="your-turn"
+    >
+      <strong>轮到你行动</strong>
+      <span>
+        {{ room.available_actions.map((item) => item.label).join("、") }}
+      </span>
+    </section>
+
+    <section
+      v-if="latestVoteResult && voteRows.length"
+      class="panel vote-board"
+      data-testid="vote-board"
+    >
+      <div class="section-heading">
+        <h2>票型</h2>
+        <span>第 {{ latestVoteResult.day }} 天</span>
+      </div>
+      <div class="vote-rows">
+        <div v-for="row in voteRows" :key="row.voter" class="vote-row">
+          <span class="vote-voter">{{ row.voterSeat }} 号</span>
+          <span class="vote-arrow">→</span>
+          <span
+            class="vote-target"
+            :class="{ 'vote-abstain': !row.targetSeat }"
+          >
+            {{ row.targetSeat ? row.targetSeat + " 号" : "弃权" }}
+          </span>
+        </div>
+      </div>
+      <div class="vote-tally">
+        <span v-for="item in voteTally" :key="item.seat" class="vote-chip">
+          {{ item.seat }} 号 · {{ item.count }} 票
+        </span>
+      </div>
+    </section>
+
+    <section
+      v-if="room.awaiting_continue"
+      class="continue-banner"
+      data-testid="continue-banner"
+    >
+      <div>
+        <strong>{{ room.phase === "VOTE" ? "投票已结束" : "本阶段结束" }}</strong>
+        <span>看完票型和遗言再继续。你不点，游戏不会往下走。</span>
+      </div>
+      <button
+        class="primary-button"
+        type="button"
+        :disabled="busy"
+        @click="emit('continue')"
+      >
+        {{
+          room.phase.startsWith("NIGHT_") || room.phase === "VOTE"
+            ? "继续进入黑夜"
+            : "继续游戏"
+        }}
+      </button>
     </section>
 
     <section v-if="room.announcements.length" class="panel narrator-panel">
@@ -341,68 +473,6 @@ async function copyRoomId(): Promise<void> {
       >
         {{ line }}
       </p>
-    </section>
-
-    <PhaseCountdown
-      v-if="
-        room.deadline_kind !== null &&
-        room.deadline_at !== null &&
-        room.remaining_ms !== null
-      "
-      :deadline-kind="room.deadline_kind"
-      :remaining-ms="room.remaining_ms"
-      :server-time="room.server_time"
-      :deadline-at="room.deadline_at"
-    />
-
-    <section class="panel feed-panel">
-      <div class="section-heading">
-        <h2>对局直播</h2>
-        <span v-if="isSpectator" class="muted">上帝视角</span>
-        <span v-else class="muted">{{ visibleFeed.length }}/{{ feedItems.length }} 条</span>
-        <button
-          class="text-button"
-          type="button"
-          @click="feedExpanded = !feedExpanded"
-        >
-          {{ feedExpanded ? "折叠" : "展开全部" }}
-        </button>
-      </div>
-      <ol
-        v-if="feedItems.length"
-        ref="feedList"
-        class="speech-list"
-        :class="{ 'feed-collapsed': !feedExpanded }"
-      >
-        <template v-for="event in visibleFeed" :key="event.event_seq">
-          <li
-            v-if="isSpeech(event)"
-            class="speech-bubble"
-            :class="{
-              'speech-wolf': event.event_type === 'WOLF_SPEECH',
-              'speech-last-words': event.event_type === 'LAST_WORDS',
-              'speech-own': event.actor_id === room.viewer.player_id,
-            }"
-          >
-            <div class="speech-meta">
-              <span class="speech-speaker">{{ speakerLabel(event) }}</span>
-              <span class="speech-kind">{{
-                event.event_type === "WOLF_SPEECH"
-                  ? "狼队频道"
-                  : event.event_type === "LAST_WORDS"
-                    ? "遗言"
-                    : "公开发言"
-              }}</span>
-            </div>
-            <p class="speech-text">{{ speechText(event) }}</p>
-          </li>
-          <li v-else class="feed-system">
-            <span class="feed-tag">系统</span>
-            <span>{{ systemText(event) }}</span>
-          </li>
-        </template>
-      </ol>
-      <p v-else class="muted">还没有对局事件。</p>
     </section>
 
     <div class="metric-grid">
@@ -604,5 +674,62 @@ async function copyRoomId(): Promise<void> {
       </ol>
       <p v-if="!events.length" class="muted">还没有收到事件。</p>
     </section>
+      </main>
+
+      <aside class="room-side">
+        <section class="panel feed-panel">
+          <div class="section-heading">
+            <h2>对局直播</h2>
+            <span v-if="isSpectator" class="muted">上帝视角</span>
+            <span v-else class="muted">
+              {{ visibleFeed.length }}/{{ feedItems.length }} 条
+            </span>
+          </div>
+          <ol
+            v-if="feedItems.length"
+            ref="feedList"
+            class="speech-list feed-scroll"
+            @scroll="onFeedScroll"
+          >
+            <template v-for="event in visibleFeed" :key="event.event_seq">
+              <li
+                v-if="isSpeech(event)"
+                class="speech-bubble"
+                :class="{
+                  'speech-wolf': event.event_type === 'WOLF_SPEECH',
+                  'speech-last-words': event.event_type === 'LAST_WORDS',
+                  'speech-own': event.actor_id === room.viewer.player_id,
+                }"
+              >
+                <div class="speech-meta">
+                  <span class="speech-speaker">{{ speakerLabel(event) }}</span>
+                  <span class="speech-kind">{{
+                    event.event_type === "WOLF_SPEECH"
+                      ? "狼队频道"
+                      : event.event_type === "LAST_WORDS"
+                        ? "遗言"
+                        : "公开发言"
+                  }}</span>
+                </div>
+                <p class="speech-text">{{ speechText(event) }}</p>
+              </li>
+              <li v-else class="feed-system">
+                <span class="feed-tag">系统</span>
+                <span>{{ systemText(event) }}</span>
+              </li>
+            </template>
+          </ol>
+          <p v-else class="muted">还没有对局事件。</p>
+          <div v-if="pendingFeedCount" class="feed-more">
+            <button class="primary-button" type="button" @click="revealNext">
+              继续 · 还有 {{ pendingFeedCount }} 条
+            </button>
+            <button class="text-button" type="button" @click="revealAll">
+              全部显示
+            </button>
+          </div>
+        </section>
+      </aside>
+    </div>
   </section>
 </template>

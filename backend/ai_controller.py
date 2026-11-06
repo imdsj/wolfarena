@@ -16,6 +16,7 @@ from .game_engine import (
     GameState,
     HUMAN_ACTION_TIMEOUT_SECONDS,
     NIGHT_PHASE_PACE_SECONDS,
+    NIGHT_HUMAN_ACTION_TIMEOUT_SECONDS,
     Phase,
     Player,
     Role,
@@ -97,6 +98,13 @@ class AIController:
         room = self._repository._get_room(room_id)
         with room.lock:
             previous_event_seq = room.last_event_seq
+            if room.continue_gate:
+                return AIControllerResult(
+                    steps=0,
+                    stopped_reason="human_turn",
+                    previous_event_seq=previous_event_seq,
+                    current_event_seq=previous_event_seq,
+                )
             self._clear_phase_deadline(room.state)
             start_phase = room.state.phase
             steps = 0
@@ -109,6 +117,9 @@ class AIController:
                 "phase_entered",
             ] = "human_turn"
             while steps < self._max_steps:
+                if room.continue_gate:
+                    reason = "human_turn"
+                    break
                 if room.state.phase is Phase.END:
                     reason = "no_action"
                     break
@@ -281,12 +292,18 @@ class AIController:
             and actor is not None
             and actor.is_human
         ):
-            state.phase_deadline_at = (
-                reference + HUMAN_ACTION_TIMEOUT_SECONDS
-            )
-            state.phase_deadline_kind = "human_action"
+            # A human turn never auto-plays: the game waits until they act.
+            state.phase_deadline_at = None
+            state.phase_deadline_kind = None
+            return
         elif state.phase in NIGHT_PACED_PHASES:
             state.phase_deadline_at = reference + NIGHT_PHASE_PACE_SECONDS
+            state.phase_deadline_kind = "phase_pace"
+        elif actor is not None and not actor.is_human:
+            # An AI still owes this phase an action (e.g. the first daytime
+            # speaker right after begin_day). Nudge the timer once so the
+            # game can never sit idle with nobody scheduled to move.
+            state.phase_deadline_at = reference + 0.1
             state.phase_deadline_kind = "phase_pace"
         else:
             self._clear_phase_deadline(state)

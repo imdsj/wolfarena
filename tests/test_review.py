@@ -46,7 +46,7 @@ class ReviewTests(TestCase):
         self.assertEqual(card.evidence_level, "untested")
         self.assertTrue(card.strategy_id.startswith("cand.review."))
 
-    def test_review_run_writes_candidates_and_duplicate_raises(self) -> None:
+    def test_review_run_writes_candidates_and_is_idempotent(self) -> None:
         run = self._write_run(
             [
                 {"seed": 1, "status": "completed", "winner": "wolf"},
@@ -68,5 +68,6 @@ class ReviewTests(TestCase):
         matches = library.search("", limit=20)
         self.assertEqual(matches, [])
 
-        with self.assertRaises(StrategyError):
-            review_run(run, strategy_root=self.root)
+        # Re-reviewing the same run must not duplicate or crash the night loop.
+        self.assertEqual(review_run(run, strategy_root=self.root), [])
+        self.assertEqual(len(library.load("candidate")), 2)
