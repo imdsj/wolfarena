@@ -448,15 +448,7 @@ class L1RulePolicy:
             )
             return target if target in view.target_ids else None
         if view.action == "wolf_kill":
-            claimed = self._claimed_god_ids(state, actor)
-            return next(
-                (
-                    target_id
-                    for target_id in view.target_ids
-                    if target_id in claimed
-                ),
-                view.target_ids[0],
-            )
+            return self._wolf_kill_target(state, actor, view)
         if view.action == "seer_check":
             checked = {
                 event.target_id
@@ -500,6 +492,44 @@ class L1RulePolicy:
             if player_id != actor.player_id
         ]
         return rng.choice(choices or list(view.target_ids))
+
+    def _wolf_kill_target(self, state, actor, view) -> str:
+        """Kill a god claim first, else a threat; never always seat 1."""
+
+        from .public_signals import build_signals
+
+        def is_wolf(player_id: str) -> bool:
+            return any(
+                player.player_id == player_id
+                and player.role is Role.WEREWOLF
+                for player in state.players
+            )
+
+        prey = [
+            player_id
+            for player_id in view.target_ids
+            if not is_wolf(player_id)
+        ] or list(view.target_ids)
+
+        claimed = self._claimed_god_ids(state, actor)
+        for player_id in prey:
+            if player_id in claimed:
+                return player_id
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            seat = signals.top_accused(exclude=actor.seat)
+            if seat is not None:
+                for player in state.players:
+                    if player.seat == seat and player.player_id in prey:
+                        return player.player_id
+
+        rng = Random(f"{self.seed}:kill:{state.day}:{actor.player_id}")
+        choices = [player_id for player_id in prey if player_id != actor.player_id]
+        return rng.choice(choices or prey)
 
     @staticmethod
     def choose_content(state, actor, view) -> str | None:

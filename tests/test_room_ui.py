@@ -9,10 +9,12 @@ from backend.ai_growth import L1RulePolicy
 from backend.game_engine import (
     DayResult,
     Phase,
+    Role,
     _public_speech_order,
     create_game,
 )
 from backend.rooms import InMemoryRoomRepository, ViewerAccess
+from backend.schemas import ActionRequest
 from backend.speech_composer import dead_notice
 
 
@@ -134,3 +136,57 @@ class L1VoteTargetTests(TestCase):
         self.assertGreater(len(set(picks.values())), 1)
         for actor_id, target in picks.items():
             self.assertNotEqual(actor_id, target)
+
+
+class WolfKillTargetTests(TestCase):
+    def test_wolves_never_kill_teammates_or_always_seat_one(self) -> None:
+        state = create_game(seed=13, human_count=0)
+        state.day = 1
+        ids = [p.player_id for p in state.players if p.is_alive]
+        view = SimpleNamespace(
+            action="wolf_kill",
+            target_ids=ids,
+            choices=[],
+            requires_target=True,
+            allow_no_target=True,
+            requires_content=False,
+        )
+        picks = {
+            wolf.player_id: L1RulePolicy(seed=13).choose_target(
+                state, wolf, view, choice=None
+            )
+            for wolf in state.players
+            if wolf.role is Role.WEREWOLF
+        }
+        self.assertGreater(len(set(picks.values())), 1)
+        for actor_id, target in picks.items():
+            self.assertNotEqual(actor_id, target)
+            target_role = next(
+                p.role for p in state.players if p.player_id == target
+            )
+            self.assertIsNot(target_role, Role.WEREWOLF)
+
+
+class TieVoteGateTests(TestCase):
+    def test_tie_vote_freezes_room_even_after_night_advances(self) -> None:
+        repository = InMemoryRoomRepository()
+        created = repository.create_room(
+            seed=1, human_count=1, max_humans=3, nickname="x"
+        )
+        room = repository._rooms[created.room_id]
+        access = ViewerAccess(
+            room_id=created.room_id, kind="player", player_id="p1"
+        )
+        with room.lock:
+            room.state.day = 1
+            room.state.phase = Phase.VOTE
+            living = [p for p in room.state.players if p.is_alive]
+            day_result = DayResult()
+            for index, player in enumerate(living):
+                day_result.votes[player.player_id] = living[
+                    (index + 1) % len(living)
+                ].player_id
+            day_result.votes_closed = True
+            room.state.day_result = day_result
+        repository.execute_action(access, ActionRequest(action="resolve_vote"))
+        self.assertTrue(room.continue_gate)

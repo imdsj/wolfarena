@@ -478,14 +478,13 @@ class InMemoryRoomRepository:
             except Exception:
                 room.state = state_before
                 raise
-            day_result = room.state.day_result
-            if (
-                room.state.phase is Phase.VOTE
-                and day_result is not None
-                and day_result.vote_resolved
-            ):
-                # Freeze the room so humans can read the vote board before
-                # the game moves on to the night.
+            vote_resolved_now = any(
+                event.event_type is EventType.VOTE_RESULT
+                for event in room.state.events[previous_event_seq + 1 :]
+            )
+            if vote_resolved_now:
+                # Freeze right after the vote result, even on a tie that
+                # already advanced the phase, so humans can read the board.
                 room.continue_gate = True
             return RoomMutation(
                 room=room,
@@ -984,15 +983,19 @@ class InMemoryRoomRepository:
                 announcements=self._announcements(room.state, access),
                 last_night_summary=self._last_night_summary(room.state),
                 awaiting_continue=room.continue_gate,
-                available_actions=list(
-                    action
-                    for action in available_actions_for_state(
-                        room.state,
-                        viewer,
-                        host_player_id=room.host_player_id,
-                        now=server_time,
+                available_actions=(
+                    []
+                    if room.continue_gate
+                    else list(
+                        action
+                        for action in available_actions_for_state(
+                            room.state,
+                            viewer,
+                            host_player_id=room.host_player_id,
+                            now=server_time,
+                        )
+                        if action.action not in SYSTEM_ONLY_ACTIONS
                     )
-                    if action.action not in SYSTEM_ONLY_ACTIONS
                 ),
             )
 
