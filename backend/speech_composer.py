@@ -29,6 +29,30 @@ ROLE_LABELS = {
     "hunter": "猎人",
 }
 
+ROLE_PERSONA = {
+    "werewolf": (
+        "你是狼人。白天必须伪装成好人，可以撒谎、误导他人、把嫌疑转移给别的玩家；"
+        "要和狼队友保持一致，绝不要攻击队友；如果有队友被怀疑，可以帮他辩护，"
+        "也可以在必要时放弃他保全自己。残局只剩3人且你们2狼在场时，白天合力投走最后一个好人就能直接获胜。"
+    ),
+    "seer": (
+        "你是预言家。白天要用巧妙的方式把查验信息传递给好人，避免过早暴露而被狼人夜间刀掉；"
+        "情况危急时可以跳身份报出查验结果来争取信任。你的发言要能带领好人正确归票。"
+    ),
+    "witch": (
+        "你是女巫。白天要隐藏身份，可以暗示你昨晚救过人，但不要轻易暴露自己是女巫，"
+        "否则会成为狼人的目标。谨慎使用解药和毒药，确认对方是狼再下毒。"
+    ),
+    "hunter": (
+        "你是猎人。发言要符合逻辑，观察别人前后矛盾的地方；可以用猎人身份威慑狼人，但注意时机。"
+        "投票坚定站在好人一边，投最可疑的玩家。"
+    ),
+    "villager": (
+        "你是村民，没有任何技能，只能靠白天的发言和投票。要仔细分析每句话里的漏洞，"
+        "清晰说出你怀疑谁、为什么，不要情绪化，不要轻信任何人。"
+    ),
+}
+
 DEATH_CAUSE_LABELS = {
     "wolf_kill": "被狼人刀",
     "poisoned": "被女巫毒",
@@ -103,7 +127,20 @@ def private_context(state: GameState, actor) -> str:
             and player.player_id != actor.player_id
         ]
         names = "、".join(f"{seat} 号" for seat in teammates) or "已无"
-        return f"你的狼人队友是：{names}。白天必须伪装，不能承认狼人身份。"
+        lines = [f"你的狼人队友是：{names}。白天必须伪装，不能承认狼人身份。"]
+        night_result = state.night_result
+        if night_result is not None and night_result.wolf_target_id:
+            target = next(
+                (
+                    player
+                    for player in state.players
+                    if player.player_id == night_result.wolf_target_id
+                ),
+                None,
+            )
+            if target is not None:
+                lines.append(f"你方昨晚的刀口是：{target.seat} 号。")
+        return "\n".join(lines)
 
     if role is Role.HUNTER:
         return "你是猎人，出局时可以开枪带走一人。"
@@ -165,6 +202,59 @@ def tactics_context(state: GameState, actor) -> str:
     return "战术库参考（沉淀自过往经验，供你借鉴，不是强制指令）：\n" + "\n".join(lines)
 
 
+def _seat_of(state: GameState, player_id: str | None) -> str:
+    if not player_id:
+        return "?"
+    for player in state.players:
+        if player.player_id == player_id:
+            return str(player.seat)
+    return "?"
+
+
+def game_timeline(state: GameState, actor, *, limit: int = 18) -> str:
+    """A compact seat-numbered trail of deaths, shots and votes."""
+
+    lines: list[str] = []
+    for event in reversed(get_visible_events(state, actor)):
+        if event.event_type is EventType.PLAYER_DIED:
+            causes = event.data.get("causes")
+            cause_text = (
+                "、".join(
+                    DEATH_CAUSE_LABELS.get(cause, cause)
+                    for cause in causes
+                    if isinstance(cause, str)
+                )
+                if isinstance(causes, list)
+                else ""
+            )
+            suffix = f"（{cause_text}）" if cause_text else ""
+            lines.append(f"{_seat_of(state, event.target_id)} 号出局{suffix}")
+        elif event.event_type is EventType.HUNTER_SHOT:
+            lines.append(
+                f"{_seat_of(state, event.actor_id)} 号开枪带走 "
+                f"{_seat_of(state, event.target_id)} 号"
+            )
+        elif event.event_type is EventType.SELF_DESTRUCTED:
+            lines.append(f"{_seat_of(state, event.actor_id)} 号自爆")
+        elif event.event_type is EventType.VOTE_RESULT and event.target_id:
+            lines.append(f"投票放逐 {_seat_of(state, event.target_id)} 号")
+        if len(lines) >= limit:
+            break
+    lines.reverse()
+    return "\n".join(lines)
+
+
+def speaking_order(state: GameState, actor) -> str:
+    """Current speaker position and the full seat order for today."""
+
+    day_result = state.day_result
+    if day_result is None or not day_result.speech_order:
+        return ""
+    seats = [_seat_of(state, player_id) for player_id in day_result.speech_order]
+    position = seats.index(_seat_of(state, actor.player_id)) + 1
+    return f"发言顺序：{' → '.join(seats)}（你是第 {position} 个）"
+
+
 def compose_speech(
     *,
     state: GameState,
@@ -187,29 +277,36 @@ def compose_speech(
         for player in state.players
         if player.is_alive
     ]
-    history = public_history(state, actor)[-8:]
+    history = public_history(state, actor)[-12:]
     private_info = private_context(state, actor)
     public_result = night_summary(state)
     tactics = tactics_context(state, actor)
+    timeline = game_timeline(state, actor)
+    order_info = speaking_order(state, actor)
     is_last_words = view.action == "last_words"
     death_line = dead_notice(state, actor) if is_last_words else ""
     system = (
         f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
-        "你的目标是用自然的中文发言帮助你的阵营获胜。规则：只使用公开信息；"
-        "狼人必须伪装成好人，不得暴露身份；可以引用其他玩家的座位号和发言；"
-        "必须回应或评价在场其他玩家的发言，不能只自言自语；"
-        "不要承认自己是 AI。输出一句到两句，80 字以内。"
+        f"{ROLE_PERSONA.get(role, '')}"
+        "发言要求：必须回应或评价在场其他玩家的发言，不能自说自话；"
+        "可以引用座位号和别人的原话；不要承认自己是 AI。"
+        "只输出一句到两句中文发言，90 字以内。"
         + ("你现在已经出局，只能留遗言。" if is_last_words else "")
         + "\n" + rules_brief()
     )
     user = (
-        f"第 {state.day} 天，当前阶段 {state.phase.value}。"
-        f"昨晚结果：{public_result}"
+        f"现在是第 {state.day} 天的{'遗言' if is_last_words else '白天发言'}环节。"
+        f"{order_info}\n"
         f"{death_line}"
-        f"你的私密信息：{private_info}"
-        f"战术参考：{tactics or '无'}"
-        f"在场玩家：{'、'.join(roster)}。"
-        f"最近的公开发言：{' / '.join(history) if history else '暂无'}。"
+        f"=== 你的私密信息 ===\n{private_info}\n\n"
+        f"=== 本局事件 ===\n{timeline or '暂无'}\n\n"
+        f"=== 本轮公开信息 ===\n"
+        f"- 昨晚结果：{public_result}\n"
+        f"- 存活玩家：{'、'.join(roster)}\n"
+        f"- 今日发言：\n"
+        + ("\n".join(history) if history else "你是第一个发言。")
+        + "\n"
+        f"{('=== 战术参考 ===\n' + tactics) if tactics else ''}"
         f"请以 {actor.seat} 号的身份发表本轮发言。"
     )
     try:
