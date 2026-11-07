@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 
 from .simulator import simulate_game
@@ -115,32 +116,42 @@ def _run_policy_seeds(
     games: int,
     model_path: Path | None,
 ) -> tuple[int, int, list[str | None]]:
+    # Evaluation must be deterministic and cheap: never call the speech LLM
+    # inside a rollout. Restore the flag afterwards.
+    previous_speech = os.environ.get("WOLFARENA_LLM_SPEECH")
+    os.environ["WOLFARENA_LLM_SPEECH"] = "0"
     learner = None
-    if policy == "l2":
-        from .q_policy import QTablePolicy
+    try:
+        if policy == "l2":
+            from .q_policy import QTablePolicy
 
-        path = model_path or (MODELS_DIR / "l2-qtable-v2.json")
-        learner = QTablePolicy.load(path)
-        learner.freeze()
+            path = model_path or (MODELS_DIR / "l2-qtable-v2.json")
+            learner = QTablePolicy.load(path)
+            learner.freeze()
 
-    good = 0
-    wolf = 0
-    winners: list[str | None] = []
-    for seed in range(seed_start, seed_start + games):
-        summary, _actions = simulate_game(
-            seed=seed,
-            policy_name=policy,
-            max_action_steps=600,
-            max_days=20,
-            policy=learner,
-        )
-        winner = summary.get("winner")
-        if winner == "good":
-            good += 1
-        elif winner == "wolf":
-            wolf += 1
-        winners.append(winner)
-    return good, wolf, winners
+        good = 0
+        wolf = 0
+        winners: list[str | None] = []
+        for seed in range(seed_start, seed_start + games):
+            summary, _actions = simulate_game(
+                seed=seed,
+                policy_name=policy,
+                max_action_steps=600,
+                max_days=20,
+                policy=learner,
+            )
+            winner = summary.get("winner")
+            if winner == "good":
+                good += 1
+            elif winner == "wolf":
+                wolf += 1
+            winners.append(winner)
+        return good, wolf, winners
+    finally:
+        if previous_speech is None:
+            os.environ.pop("WOLFARENA_LLM_SPEECH", None)
+        else:
+            os.environ["WOLFARENA_LLM_SPEECH"] = previous_speech
 
 
 def rollout_faction_win_rates(
