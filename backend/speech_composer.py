@@ -275,7 +275,12 @@ def speaking_order(state: GameState, actor) -> str:
     if day_result is None or not day_result.speech_order:
         return ""
     seats = [_seat_of(state, player_id) for player_id in day_result.speech_order]
-    position = seats.index(_seat_of(state, actor.player_id)) + 1
+    actor_seat = _seat_of(state, actor.player_id)
+    if actor_seat not in seats:
+        # A night-death speaker giving last words is not part of today's
+        # living speaking order, so there is no position to report.
+        return ""
+    position = seats.index(actor_seat) + 1
     return f"发言顺序：{' → '.join(seats)}（你是第 {position} 个）"
 
 

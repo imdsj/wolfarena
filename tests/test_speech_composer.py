@@ -7,6 +7,7 @@ from unittest import TestCase
 
 from backend.ai_provider import DeepSeekSettings
 from backend.game_engine import (
+    DayResult,
     EventType,
     Phase,
     Role,
@@ -15,6 +16,7 @@ from backend.game_engine import (
     create_game,
 )
 from backend.speech_composer import (
+    speaking_order,
     compose_speech,
     llm_speech_enabled,
     private_context,
@@ -107,3 +109,15 @@ class SpeechComposerTests(TestCase):
         context = tactics_context(state, seer)
         self.assertIn("战术库参考", context)
         self.assertIn("预言家", context)
+
+    def test_speaking_order_ignores_night_death_speaker(self) -> None:
+        state = create_game(seed=5, human_count=0)
+        state.day = 1
+        dead = state.players[2]
+        dead.is_alive = False
+        state.day_result = DayResult(
+            speech_order=[
+                p.player_id for p in state.players if p.player_id != dead.player_id
+            ][:5]
+        )
+        self.assertEqual(speaking_order(state, dead), "")

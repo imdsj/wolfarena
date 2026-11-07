@@ -47,10 +47,10 @@ TRAINING_MODELS: dict[str, dict[str, str]] = {
 }
 
 METRIC_FILES: dict[str, str] = {
-    "l0.random.v1": "2026-10-29_l0-200_summary.json",
-    "l1.rules.v1": "2026-10-29_l1-200_summary.json",
-    "l2.qtable.v1": "2026-10-29_l2-200_summary.json",
-    "l2.qtable.v2": "2026-10-29_l2-v2-200_summary.json",
+    "l0.random.v1": "2026-11-07_l0-200_summary.json",
+    "l1.rules.v1": "2026-11-07_l1-200_summary.json",
+    "l2.qtable.v1": "2026-11-07_l2-200_summary.json",
+    "l2.qtable.v2": "2026-11-07_l2-v2-200_summary.json",
 }
 
 
