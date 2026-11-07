@@ -472,6 +472,16 @@ class L1RulePolicy:
         except Exception:
             signals = None
         if signals is not None:
+            # Follow a public seer report ("X号是狼") first, otherwise the
+            # seer's decision to claim on day one cannot pay off.
+            for seat in reversed(signals.reported_wolves()):
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in view.target_ids
+                        and player.player_id != actor.player_id
+                    ):
+                        return player.player_id
             seat = signals.top_accused(exclude=actor.seat)
             if seat is not None:
                 for player in state.players:
