@@ -36,8 +36,8 @@ ROLE_PERSONA = {
         "也可以在必要时放弃他保全自己。残局只剩3人且你们2狼在场时，白天合力投走最后一个好人就能直接获胜。"
     ),
     "seer": (
-        "你是预言家。白天要用巧妙的方式把查验信息传递给好人，避免过早暴露而被狼人夜间刀掉；"
-        "情况危急时可以跳身份报出查验结果来争取信任。你的发言要能带领好人正确归票。"
+        "你是预言家。第一天就要跳出来报查验结果（金水或查杀），带领好人归票，不要等死后才在遗言里说。"
+        "报完查验后要给出明确的归票方向，并说明你下一个要验谁。"
         "如果有人也声称是预言家，那个人一定是狼人在悍跳，要立刻指认对方、报清你的查验历史，号召好人票他。"
     ),
     "witch": (
@@ -321,6 +321,31 @@ def compose_speech(
     death_line = dead_notice(state, actor) if is_last_words else ""
     tactics_block = ("=== 战术参考 ===\n" + tactics) if tactics else ""
     history_block = "\n".join(history) if history else "你是第一个发言。"
+    wolf_plan_block = ""
+    if role == "werewolf" and not is_last_words:
+        wolf_lines = wolf_history(state, actor)[-8:]
+        if wolf_lines:
+            wolf_plan_block = (
+                "=== 你们狼队的夜间战术（白天必须照着执行）===\n"
+                + "\n".join(wolf_lines)
+                + "\n白天按计划走：该悍跳的悍跳、该跟票的跟票、该低调的低调，不要临场改口。\n"
+            )
+    spoken_seats: set[str] = set()
+    if state.day_result is not None and state.day_result.speech_order:
+        for player_id in state.day_result.speech_order[
+            : state.day_result.next_speaker_index
+        ]:
+            spoken_seats.add(_seat_of(state, player_id))
+    unspoken = [
+        str(player.seat)
+        for player in state.players
+        if player.is_alive and str(player.seat) not in spoken_seats
+    ]
+    unspoken_block = (
+        "还没发言，禁止评价他们的发言内容：" + "、".join(unspoken)
+        if unspoken
+        else ""
+    )
     if is_wolf_speech:
         wolf_lines = wolf_history(state, actor)[-10:]
         wolf_history_block = (
@@ -359,11 +384,14 @@ def compose_speech(
         f"=== 本轮公开信息 ===\n"
         f"- 昨晚结果：{public_result}\n"
         f"- 存活玩家：{'、'.join(roster)}\n"
+        f"- 已发言：{'、'.join(sorted(spoken_seats)) or '无'}\n"
+        f"- {unspoken_block}\n"
         f"- 今日发言：\n"
         + history_block
         + "\n"
-        f"{tactics_block}"
-        f"请以 {actor.seat} 号的身份发表本轮发言。"
+        + wolf_plan_block
+        + tactics_block
+        + f"请以 {actor.seat} 号的身份发表本轮发言。"
         )
     try:
         with httpx.Client(timeout=8.0) as client:

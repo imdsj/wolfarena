@@ -1260,6 +1260,44 @@ body.night-mode .narrator-panel {
   color: #7a867b;
 }
 
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #c7cec7;
+  background: #fff;
+  color: #2b3a2f;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: #3f6b4a;
+}
+
+.chip-active {
+  border-color: #2f5d3a;
+  background: #2f5d3a;
+  color: #fff;
+}
+
+body.night-mode .chip {
+  background: #1d2420;
+  border-color: #3a4a3f;
+  color: #e8eee9;
+}
+
+body.night-mode .chip-active {
+  background: #4f8a5f;
+  border-color: #4f8a5f;
+  color: #fff;
+}
+
 .vote-board {
   display: grid;
   gap: 12px;

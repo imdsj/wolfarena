@@ -121,6 +121,16 @@ function playerLabel(playerId: string): string {
   return player ? `${player.seat}号 ${player.name}` : playerId;
 }
 
+const choiceLabels: Record<string, string> = {
+  none: "不使用",
+  antidote: "解药",
+  poison: "毒药",
+};
+
+function choiceLabel(choice: string): string {
+  return choiceLabels[choice] ?? choice;
+}
+
 function submit(): void {
   emit("submit", {
     action: props.action.action,
@@ -139,33 +149,49 @@ function submit(): void {
       <code>{{ action.action }}</code>
     </div>
 
-    <label v-if="action.choices.length" class="compact-field">
+    <div v-if="action.choices.length" class="compact-field">
       <span>行动选项</span>
-      <select v-model="form.choice">
-        <option v-for="choice in action.choices" :key="choice" :value="choice">
-          {{ choice }}
-        </option>
-      </select>
-    </label>
+      <div class="chip-grid">
+        <button
+          v-for="choice in action.choices"
+          :key="choice"
+          type="button"
+          class="chip"
+          :class="{ 'chip-active': form.choice === choice }"
+          @click="form.choice = choice"
+        >
+          {{ choiceLabel(choice) }}
+        </button>
+      </div>
+    </div>
 
-    <label
+    <div
       v-if="showTargetPicker"
       class="compact-field"
     >
       <span>目标</span>
-      <select v-model="form.targetId">
-        <option v-if="action.allow_no_target" value="__none__">
+      <div class="chip-grid">
+        <button
+          v-if="action.allow_no_target"
+          type="button"
+          class="chip"
+          :class="{ 'chip-active': form.targetId === '__none__' }"
+          @click="form.targetId = '__none__'"
+        >
           {{ noTargetLabel }}
-        </option>
-        <option
+        </button>
+        <button
           v-for="targetId in aliveTargetIds"
           :key="targetId"
-          :value="targetId"
+          type="button"
+          class="chip"
+          :class="{ 'chip-active': form.targetId === targetId }"
+          @click="form.targetId = targetId"
         >
           {{ playerLabel(targetId) }}
-        </option>
-      </select>
-    </label>
+        </button>
+      </div>
+    </div>
 
     <label v-if="action.requires_content" class="compact-field">
       <span>发言内容</span>

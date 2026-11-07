@@ -231,6 +231,12 @@ const latestVoteResult = computed(() => {
   );
   return results.length ? results[results.length - 1] : null;
 });
+const latestFeedEvent = computed(() =>
+  props.events.length ? props.events[props.events.length - 1] : null,
+);
+const lastWordsJustEnded = computed(
+  () => latestFeedEvent.value?.event_type === "LAST_WORDS",
+);
 const voteRows = computed(() => {
   const data = latestVoteResult.value?.data;
   const votes = data?.votes;
@@ -448,8 +454,18 @@ async function copyRoomId(): Promise<void> {
       data-testid="continue-banner"
     >
       <div>
-        <strong>{{ room.phase === "VOTE" ? "投票已结束" : "本阶段结束" }}</strong>
-        <span>看完票型和遗言再继续。你不点，游戏不会往下走。</span>
+        <strong>{{
+          lastWordsJustEnded
+            ? "遗言已结束"
+            : room.phase === "VOTE"
+              ? "投票已结束"
+              : "本阶段结束"
+        }}</strong>
+        <span>{{
+          lastWordsJustEnded
+            ? "看完遗言再继续。你不点，游戏不会进入黑夜。"
+            : "看完票型和遗言再继续。你不点，游戏不会往下走。"
+        }}</span>
       </div>
       <button
         class="primary-button"

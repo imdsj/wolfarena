@@ -121,7 +121,14 @@ def speech_content(state: GameState, actor, view) -> str | None:
         if wolf_seats:
             return f"我是预言家，{wolf_seats[-1]} 号是狼，今天票 {wolf_seats[-1]} 号。"
         if reports:
-            return "我这边有信息，先听完再决定要不要明身份。"
+            # Day one info is too valuable to sit on: claim and report the
+            # latest check so the good side actually has something to act on.
+            seat_checked, result = reports[-1]
+            verdict = "狼人" if result == "wolf" else "好人"
+            return (
+                f"我是预言家，昨晚查验 {seat_checked} 号是{verdict}，"
+                "好人跟我的票，别让狼人带节奏。"
+            )
         return f"我 {seat} 号先听一轮。"
 
     if role is Role.WITCH:
