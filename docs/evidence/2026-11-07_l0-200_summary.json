@@ -1,8 +1,8 @@
 {
   "run_id": "l0-1000-1199",
-  "generated_at": "2026-11-07T05:30:22.284622+00:00",
-  "code_commit": "3e79386",
-  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out 'C:\\Users\\dings\\Documents\\Codex\\2026-10-28\\markdown-593-22-kb-ai-wolfarena\\work\\rebase-20261107\\l0-200' --commit 3e79386",
+  "generated_at": "2026-11-07T06:11:08.392448+00:00",
+  "code_commit": "f21ffb5",
+  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l0 --out 'C:\\Users\\dings\\Documents\\Codex\\2026-10-28\\markdown-593-22-kb-ai-wolfarena\\work\\rebase-f21ffb5\\l0-200' --commit f21ffb5",
   "policy": "l0",
   "policy_version": "l0.random.v1",
   "python_version": "3.14.7",
@@ -65,7 +65,7 @@
     "wolf": 0.16
   },
   "average_steps": 43.595,
-  "average_duration_ms": 17.354245000000002,
-  "total_duration_ms": 3470.849,
+  "average_duration_ms": 21.921265,
+  "total_duration_ms": 4384.253,
   "errors_by_type": {}
 }

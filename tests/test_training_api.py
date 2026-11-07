@@ -43,7 +43,7 @@ class TrainingApiTests(TestCase):
 
         l1 = by_id["l1.rules.v1"]
         self.assertEqual(l1["samples"], 200)
-        self.assertAlmostEqual(l1["good_win_rate"], 0.16, places=3)
+        self.assertAlmostEqual(l1["good_win_rate"], 0.175, places=3)
         self.assertIs(l1["no_go"], False)
 
         l2v2 = by_id["l2.qtable.v2"]

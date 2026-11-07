@@ -1,8 +1,8 @@
 {
   "run_id": "l2-1000-1199",
-  "generated_at": "2026-11-07T05:30:27.713910+00:00",
-  "code_commit": "3e79386",
-  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l2 --model-in 'strategy_library\\models\\l2-qtable-v1.json' --out 'C:\\Users\\dings\\Documents\\Codex\\2026-10-28\\markdown-593-22-kb-ai-wolfarena\\work\\rebase-20261107\\l2-v1-200' --commit 3e79386",
+  "generated_at": "2026-11-07T06:11:14.674340+00:00",
+  "code_commit": "f21ffb5",
+  "command": "python -m backend.simulator --games 200 --seed-start 1000 --policy l2 --model-in 'strategy_library\\models\\l2-qtable-v1.json' --out 'C:\\Users\\dings\\Documents\\Codex\\2026-10-28\\markdown-593-22-kb-ai-wolfarena\\work\\rebase-f21ffb5\\l2-v1-200' --commit f21ffb5",
   "policy": "l2",
   "policy_version": "l2.qtable.v1",
   "python_version": "3.14.7",
@@ -84,7 +84,7 @@
     "wolf": 0.685
   },
   "average_steps": 72.955,
-  "average_duration_ms": 34.14477,
-  "total_duration_ms": 6828.954,
+  "average_duration_ms": 48.277955,
+  "total_duration_ms": 9655.591,
   "errors_by_type": {}
 }
