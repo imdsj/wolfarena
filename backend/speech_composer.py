@@ -16,6 +16,7 @@ import httpx
 from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
 from .llm_budget import LEDGER
+from .logic_audit import asserts_unspoken_identity, audit
 from .rulebook import rules_brief
 from .strategy_library import StrategyLibrary
 
@@ -318,6 +319,14 @@ def compose_speech(
     public_result = night_summary(state)
     tactics = tactics_context(state, actor)
     timeline = game_timeline(state, actor)
+    audit_lines = [finding.detail for finding in audit(state, actor)[-3:]]
+    audit_block = (
+        "=== 逻辑审计（只基于公开信息，可直接作为质疑点）===\n"
+        + "\n".join(f"- {line}" for line in audit_lines)
+        + "\n"
+        if audit_lines
+        else ""
+    )
     order_info = speaking_order(state, actor)
     is_last_words = view.action == "last_words"
     is_wolf_speech = view.action == "wolf_speech"
@@ -364,12 +373,15 @@ def compose_speech(
             "要听懂队友（尤其是真人玩家）的战术安排，并给出可执行的回应："
             "今晚刀谁、白天谁去悍跳预言家、谁去跟票、谁去踩人。"
             "可以讨论自刀骗药、对跳预言家，不要胆怯，定下来白天就照做。"
-            "不能暴露狼人身份。只输出一句到两句中文，80 字以内。\n" + rules_brief()
+            "不能暴露狼人身份。绝不能点名还没发言的玩家是预言家/女巫/猎人，"
+            "那等于承认你掌握了不该知道的信息。"
+            "只输出一句到两句中文，80 字以内。\n" + rules_brief()
         )
         user = (
             f"第 {state.day} 天夜晚，狼队讨论环节。\n"
             f"=== 你的私密信息 ===\n{private_info}\n\n"
             f"=== 最近的狼队频道发言 ===\n{wolf_history_block}\n"
+            f"{audit_block}"
             f"请以 {actor.seat} 号的身份回应队友，给出你的建议。"
         )
     else:
@@ -379,6 +391,8 @@ def compose_speech(
         "发言要求：必须回应或评价在场其他玩家的发言，不能自说自话；"
         "可以引用座位号和别人的原话；不要承认自己是 AI。"
         "死亡信息只以【本轮公开信息】里的昨晚结果为准，绝对不能编造谁死了、谁被票了。"
+        "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
+        "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
         "只输出一句到两句中文发言，90 字以内。"
         + ("你现在已经出局，只能留遗言。" if is_last_words else "")
         + "\n" + rules_brief()
@@ -389,6 +403,7 @@ def compose_speech(
         f"{death_line}"
         f"=== 你的私密信息 ===\n{private_info}\n\n"
         f"=== 本局事件 ===\n{timeline or '暂无'}\n\n"
+        f"{audit_block}"
         f"=== 本轮公开信息 ===\n"
         f"- 昨晚结果：{public_result}\n"
         f"- 存活玩家：{'、'.join(roster)}\n"
@@ -435,4 +450,12 @@ def compose_speech(
         LEDGER.record_failure()
         return None
     cleaned = " ".join(str(content).split())[:140]
+    try:
+        unspoken_seats = {int(seat) for seat in unspoken}
+    except ValueError:
+        unspoken_seats = set()
+    if asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat):
+        # The model leaked information a player could not have. Drop the
+        # sentence and let the deterministic template speak instead.
+        return None
     return cleaned or None

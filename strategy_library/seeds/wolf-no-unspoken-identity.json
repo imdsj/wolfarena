@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.no-unspoken-identity",
+  "title": "狼人不要替未发言队友定性",
+  "role": "werewolf",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "白天发言时，仍有狼队友没有轮到发言。",
+  "recommendation": "只踩已经发过言的人，或用“等X号发言再说”带过；绝不说X号是预言家、女巫或猎人。",
+  "rationale": "提前报出未发言者的神职身份，等于告诉好人你掌握了不该知道的信息。",
+  "risk": "完全不提队友也可能显得刻意切割；用公开票型和已发生的发言做理由更自然。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "狼人",
+    "信息差",
+    "发言安全"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 真人对局复盘：狼人提前为未发言队友认预言家而暴露",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}

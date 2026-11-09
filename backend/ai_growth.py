@@ -131,6 +131,21 @@ def speech_content(state: GameState, actor, view) -> str | None:
             )
         return f"我 {seat} 号先听一轮。"
 
+    # A good player who spots an impossible claim should name it. Without
+    # this branch the template only talks about generic suspicion, so the
+    # clearest information on the table never reaches the vote.
+    try:
+        from .logic_audit import strongest_finding
+
+        finding = strongest_finding(state, actor, exclude_speaker=seat)
+    except Exception:
+        finding = None
+    if finding is not None and role is not Role.WEREWOLF:
+        return (
+            f"我 {seat} 号先抓一个逻辑漏洞：{finding.detail}，"
+            f"今天先票 {finding.speaker_seat} 号。"
+        )
+
     if role is Role.WITCH:
         return rng.choice(
             [
@@ -513,6 +528,22 @@ class L1RulePolicy:
                         and player.player_id != actor.player_id
                     ):
                         return player.player_id
+            # A spoken contradiction is stronger than a pile-on accusation:
+            # the table can shout at anyone, but only a wolf can know an
+            # unspoken player's role.
+            try:
+                from .logic_audit import top_suspect
+
+                audit_seat = top_suspect(state, actor, exclude=actor.seat)
+            except Exception:
+                audit_seat = None
+            if audit_seat is not None:
+                for player in state.players:
+                    if (
+                        player.seat == audit_seat
+                        and player.player_id in view.target_ids
+                    ):
+                        return player.player_id
             seat = signals.top_accused(exclude=actor.seat)
             if seat is not None:
                 for player in state.players:
@@ -576,7 +607,11 @@ class L1RulePolicy:
 
         import re
 
-        pattern = re.compile(r"(?:刀|杀|带走|处理|出)\s*(\d{1,2})\s*号")
+        pattern = re.compile(
+            r"(?:刀|杀|带走|做掉|处理|集火)\s*(\d{1,2})\s*号?"
+            r"|刀口\s*(?:定|在|是|为|选)?\s*(\d{1,2})\s*号?"
+            r"|(\d{1,2})\s*号\s*(?:是|作为|当)\s*刀口"
+        )
         for event in reversed(get_visible_events(state, actor)):
             if event.event_type is not EventType.WOLF_SPEECH:
                 continue
@@ -584,7 +619,12 @@ class L1RulePolicy:
             if not isinstance(content, str):
                 continue
             for match in reversed(list(pattern.finditer(content))):
-                seat = int(match.group(1))
+                prefix = content[max(0, match.start() - 2) : match.start()]
+                if "不" in prefix or "别" in prefix:
+                    continue
+                seat = int(
+                    match.group(1) or match.group(2) or match.group(3)
+                )
                 for player in state.players:
                     if player.seat == seat and player.player_id in prey:
                         return player.player_id

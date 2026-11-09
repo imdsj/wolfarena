@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.seer-report-needs-claim",
+  "title": "只把明确自报预言家的查验当查验",
+  "role": "villager",
+  "phase": "VOTE",
+  "action": "vote",
+  "trigger": "有人说出“N号是狼”或“N号金水”，但没有自称预言家。",
+  "recommendation": "把这句话当普通怀疑，不当作已证实的查验；优先跟明确自报预言家、给出完整查验链的人。",
+  "rationale": "狼人可以随口给任何人扣查杀，未经自报的“查验”没有可信度。",
+  "risk": "真预言家可能因怕被刀而暂时不跳；需要结合票型、刀口和发言前后一致性判断。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "预言家",
+    "查验",
+    "投票",
+    "信息可信度"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 真人对局复盘：普通玩家一句“9号是狼”被误当查验",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}

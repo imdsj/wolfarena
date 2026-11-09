@@ -162,8 +162,15 @@ def build_signals(state: GameState, viewer: Player) -> PublicSignals:
             if seat == speaker_seat:
                 continue
             accusations[seat] += count
-        for seat, result in found_reports.items():
-            reports[seat] = result
+        # A bare "5号是狼" is an accusation, not a seer report. Only a
+        # speaker who has claimed seer (in this speech or earlier) can turn
+        # it into a check result; otherwise a wolf could hijack the channel
+        # by naming a target first.
+        if speaker_seat is not None and "seer" in claims.get(
+            speaker_seat, set()
+        ):
+            for seat, result in found_reports.items():
+                reports[seat] = result
     return PublicSignals(
         claims={
             seat: frozenset(values)

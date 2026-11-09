@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.catch-impossible-identity",
+  "title": "抓“未发言就定性”的信息差",
+  "role": "villager",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "有人在你之前断言某位尚未发言的玩家是预言家、女巫或猎人，且不是该玩家本人自报。",
+  "recommendation": "当场点破：他不可能知道这个身份；把该发言者列为第一嫌疑并归票。",
+  "rationale": "狼人知道队友身份，容易在白天替尚未发言的队友铺路；好人没有这个信息，所以“未发言就定性”是强信息差。",
+  "risk": "该玩家可能已在更早轮次发过言，或说话人只是在假设；使用前先核对发言顺序和原话。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "逻辑漏洞",
+    "信息差",
+    "归票",
+    "抓狼"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 真人对局复盘：9号在3号未发言时称其为真预言家",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}

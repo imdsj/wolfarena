@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Literal
 
 from .actions import available_actions_for_state
 from .ai_growth import L1RulePolicy, speech_content
+from .logic_audit import strongest_finding
 from .speech_composer import compose_speech, llm_speech_enabled
 from .game_engine import (
     EventType,
@@ -502,10 +503,24 @@ class AIController:
         if llm_speech_enabled():
             text = compose_speech(state=state, actor=actor, view=view)
             if text:
-                return text
+                return AIController._ensure_logic_catch(state, actor, view, text)
         if isinstance(policy, L1RulePolicy):
             return policy.choose_content(state, actor, view)
         return speech_content(state, actor, view)
+
+    @staticmethod
+    def _ensure_logic_catch(state, actor, view, text: str) -> str:
+        """Prepend a hard contradiction the model should not have missed."""
+
+        if view.action != "speech" or actor.role is Role.WEREWOLF:
+            return text
+        finding = strongest_finding(state, actor, exclude_speaker=actor.seat)
+        if finding is None or finding.weight < 4:
+            return text
+        if str(finding.speaker_seat) in text:
+            return text
+        prefix = f"先抓{finding.speaker_seat}号一个漏洞：{finding.detail}。"
+        return (prefix + text)[:140]
 
     @staticmethod
     def _host_id(state: GameState) -> str:

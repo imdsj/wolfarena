@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "strategy_id": "wolf.follow-agreed-kill",
+  "title": "夜间频道定下的刀口要执行",
+  "role": "werewolf",
+  "phase": "NIGHT_WOLF_KILL",
+  "action": "wolf_kill",
+  "trigger": "狼队频道已经明确“刀N号”或“刀口N号”，且N号仍是合法目标。",
+  "recommendation": "按既定刀口提交；若要改刀，必须在频道里说明新信息并重新达成一致。",
+  "rationale": "口头计划与实际刀口不一致，会让队友白天无法按计划编造查验和票型。",
+  "risk": "出现女巫救人、猎人跳身份等新信息时可以改刀，但要同步改口，避免前后矛盾。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "狼队",
+    "刀口",
+    "执行一致"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 真人对局复盘：频道承诺刀5号，实战刀口与计划脱节",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}
