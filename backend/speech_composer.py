@@ -34,6 +34,8 @@ ROLE_PERSONA = {
         "你是狼人。白天必须伪装成好人，可以撒谎、误导他人、把嫌疑转移给别的玩家；"
         "要和狼队友保持一致，绝不要攻击队友；如果有队友被怀疑，可以帮他辩护，"
         "也可以在必要时放弃他保全自己。残局只剩3人且你们2狼在场时，白天合力投走最后一个好人就能直接获胜。"
+        "有真预言家跳出来时，你们必须有一个狼人悍跳预言家去对跳，编造查验把水搅浑，不要胆怯。"
+        "夜晚可以自刀（刀自己人）来骗女巫解药或伪装身份，不要害怕自刀。"
     ),
     "seer": (
         "你是预言家。第一天就要跳出来报查验结果（金水或查杀），带领好人归票，不要等死后才在遗言里说。"
@@ -346,6 +348,10 @@ def compose_speech(
         if unspoken
         else ""
     )
+    dead_seats = [
+        str(player.seat) for player in state.players if not player.is_alive
+    ]
+    dead_block = f"- 已出局（死人，不在场）：{'、'.join(dead_seats) or '无'}\n"
     if is_wolf_speech:
         wolf_lines = wolf_history(state, actor)[-10:]
         wolf_history_block = (
@@ -356,6 +362,7 @@ def compose_speech(
             "现在是狼人私密频道，只有狼人能看到，好人和预言家都看不到这里。"
             "要听懂队友（尤其是真人玩家）的战术安排，并给出可执行的回应："
             "今晚刀谁、白天谁去悍跳预言家、谁去跟票、谁去踩人。"
+            "可以讨论自刀骗药、对跳预言家，不要胆怯，定下来白天就照做。"
             "不能暴露狼人身份。只输出一句到两句中文，80 字以内。\n" + rules_brief()
         )
         user = (
@@ -384,6 +391,7 @@ def compose_speech(
         f"=== 本轮公开信息 ===\n"
         f"- 昨晚结果：{public_result}\n"
         f"- 存活玩家：{'、'.join(roster)}\n"
+        f"{dead_block}"
         f"- 已发言：{'、'.join(sorted(spoken_seats)) or '无'}\n"
         f"- {unspoken_block}\n"
         f"- 今日发言：\n"
