@@ -1460,7 +1460,10 @@ def start_night(
             for player in _living_players_with_role(state, Role.WEREWOLF)
             if player.is_human
         ]
-        if len(human_wolves) >= 2:
+        if state.phase is Phase.INIT and len(human_wolves) >= 2:
+            # Only the first election needs an explicit human confirmation.
+            # Mid-game re-elections fall back to the seeded choice so a dead
+            # captain can never stall the next night.
             raise ValueError("多名真人狼在场，请先确认狼队长")
     new_captain: Player | None = None
     selection_method: str | None = None

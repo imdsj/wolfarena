@@ -103,6 +103,18 @@ class CaptainConfirmationTests(TestCase):
         with self.assertRaises(ValueError):
             start_night(state)
 
+    def test_reelection_after_captain_death_falls_back(self) -> None:
+        state, wolves = self._two_human_wolves(309)
+        state.phase = Phase.VOTE
+        state.day = 1
+        wolves[0].is_alive = False
+        state.wolf_captain_id = wolves[0].player_id
+
+        start_night(state)
+
+        self.assertEqual(state.wolf_captain_id, wolves[1].player_id)
+        self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
+
 
 class ReservedSeatGateTests(TestCase):
     def test_start_is_blocked_until_reserved_humans_join(self) -> None:
