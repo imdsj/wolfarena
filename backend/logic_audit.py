@@ -45,6 +45,10 @@ _DEAD_CLAIM = re.compile(
     r"(?<!\d)(\d{1,2})\s*号\s*(?:已经|已|早就)?\s*(?:是)?\s*"
     r"(?:死了|出局了|出局|被淘汰|没了|凉了|死人)"
 )
+_KILL_TARGET = re.compile(
+    r"(?:刀|杀|带走|做掉|处理|集火)\s*(\d{1,2})\s*号?"
+    r"|刀口\s*(?:定|在|是|为|选)?\s*(\d{1,2})\s*号?"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -312,3 +316,18 @@ def contradicts_own_report(text: str) -> bool:
         result == "good" and accusations.get(seat, 0) > 0
         for seat, result in reports.items()
     )
+
+
+def wolf_speech_targets_dead(text: str, dead_seats: set[int]) -> bool:
+    """True when a wolf speech proposes killing an already-dead seat."""
+
+    if not isinstance(text, str) or not text:
+        return False
+    for match in _KILL_TARGET.finditer(text):
+        prefix = text[max(0, match.start() - 2) : match.start()]
+        if "不" in prefix or "别" in prefix:
+            continue
+        seat = int(match.group(1) or match.group(2))
+        if seat in dead_seats:
+            return True
+    return False

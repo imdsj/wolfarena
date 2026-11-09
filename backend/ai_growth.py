@@ -445,6 +445,9 @@ class L1RulePolicy:
                 and night_result.wolf_target_id in view.target_ids
             ):
                 return "antidote"
+            if "poison" in view.choices and state.poison_available:
+                if self._witch_poison_target(state, actor, view) is not None:
+                    return "poison"
             if "none" in view.choices:
                 return "none"
         return view.choices[0]
@@ -460,15 +463,17 @@ class L1RulePolicy:
         if not view.target_ids:
             return None
         if view.action == "witch_action":
-            if choice != "antidote":
-                return None
-            night_result = state.night_result
-            target = (
-                night_result.wolf_target_id
-                if night_result is not None
-                else None
-            )
-            return target if target in view.target_ids else None
+            if choice == "poison":
+                return self._witch_poison_target(state, actor, view)
+            if choice == "antidote":
+                night_result = state.night_result
+                target = (
+                    night_result.wolf_target_id
+                    if night_result is not None
+                    else None
+                )
+                return target if target in view.target_ids else None
+            return None
         if view.action == "wolf_kill":
             return self._wolf_kill_target(state, actor, view)
         if view.action == "seer_check":
@@ -506,6 +511,25 @@ class L1RulePolicy:
                         and player.player_id != actor.player_id
                     ):
                         return player.player_id
+        return None
+
+    def _witch_poison_target(self, state, actor, view) -> str | None:
+        """Poison only a seat a self-claimed seer has reported as a wolf."""
+
+        from .public_signals import build_signals
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            return None
+        for seat in reversed(signals.reported_wolves()):
+            for player in state.players:
+                if (
+                    player.seat == seat
+                    and player.player_id in view.target_ids
+                    and player.player_id != actor.player_id
+                ):
+                    return player.player_id
         return None
 
     def _vote_target(self, state, actor, view) -> str:

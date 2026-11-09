@@ -21,6 +21,7 @@ from .logic_audit import (
     audit,
     contradicts_own_report,
     speech_claims_living_dead,
+    wolf_speech_targets_dead,
 )
 from .rulebook import rules_brief
 from .strategy_library import StrategyLibrary
@@ -154,6 +155,17 @@ def private_context(state: GameState, actor) -> str:
         ]
         names = "、".join(f"{seat} 号" for seat in teammates) or "已无"
         lines = [f"你的狼人队友是：{names}。白天必须伪装，不能承认狼人身份。"]
+        alive = [
+            player.seat for player in state.players if player.is_alive
+        ]
+        dead = [
+            player.seat for player in state.players if not player.is_alive
+        ]
+        lines.append(
+            f"场上存活：{'、'.join(str(seat) for seat in alive)}；"
+            f"已出局：{'、'.join(str(seat) for seat in dead) or '无'}。"
+            "刀口只能从存活玩家里选，绝不能刀已经出局的玩家。"
+        )
         night_result = state.night_result
         if night_result is not None and night_result.wolf_target_id:
             target = next(
@@ -380,11 +392,15 @@ def compose_speech(
             "可以讨论自刀骗药、对跳预言家，不要胆怯，定下来白天就照做。"
             "不能暴露狼人身份。绝不能点名还没发言的玩家是预言家/女巫/猎人，"
             "那等于承认你掌握了不该知道的信息。"
+            "只能从存活玩家里选择刀口，绝不能刀已经出局的玩家。"
             "只输出一句到两句中文，80 字以内。\n" + rules_brief()
         )
         user = (
             f"第 {state.day} 天夜晚，狼队讨论环节。\n"
             f"=== 你的私密信息 ===\n{private_info}\n\n"
+            f"=== 场上状态 ===\n"
+            f"- 存活玩家：{'、'.join(roster)}\n"
+            f"- 已出局（不在场，不能刀）：{'、'.join(dead_seats) or '无'}\n\n"
             f"=== 最近的狼队频道发言 ===\n{wolf_history_block}\n"
             f"{audit_block}"
             f"请以 {actor.seat} 号的身份回应队友，给出你的建议。"
@@ -462,10 +478,17 @@ def compose_speech(
     except ValueError:
         unspoken_seats = set()
     alive_seats = {player.seat for player in state.players if player.is_alive}
+    dead_seats = {
+        player.seat for player in state.players if not player.is_alive
+    }
     if (
         asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat)
         or speech_claims_living_dead(cleaned, alive_seats)
         or contradicts_own_report(cleaned)
+        or (
+            actor.role is Role.WEREWOLF
+            and wolf_speech_targets_dead(cleaned, dead_seats)
+        )
     ):
         # The model leaked information a player could not have. Drop the
         # sentence and let the deterministic template speak instead.

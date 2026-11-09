@@ -21,6 +21,7 @@ from backend.logic_audit import (
     strongest_finding,
     speech_claims_living_dead,
     top_suspect,
+    wolf_speech_targets_dead,
 )
 from backend.public_signals import build_signals, parse_speech
 
@@ -361,3 +362,63 @@ class BoardStateTests(TestCase):
             state, seer, _view(state, "vote"), choice=None
         )
         self.assertNotEqual(picked, gold.player_id)
+
+
+class WolfDeadTargetTests(TestCase):
+    def test_dead_target_guard(self) -> None:
+        self.assertTrue(wolf_speech_targets_dead("今晚定刀2号", {2}))
+        self.assertTrue(wolf_speech_targets_dead("今晚刀口在2号", {2}))
+        self.assertFalse(wolf_speech_targets_dead("今晚刀5号", {2}))
+        self.assertFalse(wolf_speech_targets_dead("不刀2号", {2}))
+        self.assertFalse(wolf_speech_targets_dead("别刀2号", {2}))
+
+
+class WitchPoisonPolicyTests(TestCase):
+    def _view(self, state):
+        return SimpleNamespace(
+            action="witch_action",
+            choices=["none", "poison"],
+            target_ids=[p.player_id for p in state.players if p.is_alive],
+            requires_content=False,
+        )
+
+    def test_witch_poisons_a_reported_wolf(self) -> None:
+        state = create_game(seed=130, human_count=0)
+        witch = next(p for p in state.players if p.role is Role.WITCH)
+        claimant = next(
+            p for p in state.players if p.player_id != witch.player_id
+        )
+        target = next(
+            p
+            for p in state.players
+            if p.player_id not in {witch.player_id, claimant.player_id}
+        )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=claimant.player_id,
+            data={
+                "content": f"我是预言家，我验了{target.seat}号是狼。"
+            },
+        )
+        state.antidote_available = False
+        view = self._view(state)
+        policy = L1RulePolicy(seed=130)
+        choice = policy.choose_choice(state, witch, view)
+        self.assertEqual(choice, "poison")
+        self.assertEqual(
+            policy.choose_target(
+                state, witch, view, choice=choice
+            ),
+            target.player_id,
+        )
+
+    def test_witch_holds_poison_without_a_report(self) -> None:
+        state = create_game(seed=131, human_count=0)
+        witch = next(p for p in state.players if p.role is Role.WITCH)
+        state.antidote_available = False
+        view = self._view(state)
+        self.assertEqual(
+            L1RulePolicy(seed=131).choose_choice(state, witch, view),
+            "none",
+        )
