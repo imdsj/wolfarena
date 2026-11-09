@@ -1454,6 +1454,14 @@ def start_night(
         else None
     )
     needs_captain = current_captain is None or not current_captain.is_alive
+    if needs_captain:
+        human_wolves = [
+            player
+            for player in _living_players_with_role(state, Role.WEREWOLF)
+            if player.is_human
+        ]
+        if len(human_wolves) >= 2:
+            raise ValueError("多名真人狼在场，请先确认狼队长")
     new_captain: Player | None = None
     selection_method: str | None = None
     if needs_captain:

@@ -184,6 +184,7 @@ class Room:
     tokens_by_player: dict[str, str] = field(default_factory=dict)
     player_by_token: dict[str, str] = field(default_factory=dict)
     continue_gate: bool = False
+    continue_acks: set[str] = field(default_factory=set)
     lock: RLock = field(default_factory=RLock, repr=False)
     ai_policy: L1RulePolicy = field(init=False, repr=False)
 
@@ -453,6 +454,11 @@ class InMemoryRoomRepository:
             if access.kind != "player":
                 raise RoomPermissionError("观战者不能执行游戏动作")
             player = self._access_player(room, access)
+            if (
+                request.action == "start_night"
+                and room.human_count < room.reserved_human_count
+            ):
+                raise ValueError("还有真人未加入，不能开始游戏")
             superseded = SUPERSEDED_TRANSITION_PHASES.get(request.action)
             if (
                 superseded is not None
@@ -486,9 +492,11 @@ class InMemoryRoomRepository:
                 # Freeze right after the vote result, even on a tie that
                 # already advanced the phase, so humans can read the board.
                 room.continue_gate = True
+                room.continue_acks.clear()
             if request.action == "last_words":
                 # Freeze again after last words so nobody misses them.
                 room.continue_gate = True
+                room.continue_acks.clear()
             return RoomMutation(
                 room=room,
                 previous_event_seq=previous_event_seq,
@@ -546,17 +554,41 @@ class InMemoryRoomRepository:
         *,
         now: float | None = None,
     ) -> RoomMutation:
-        """Release the post-vote freeze so the game can enter the night."""
+        """Acknowledge the post-vote freeze for one player.
+
+        The game only moves on once every living human has acknowledged, so
+        one impatient player can no longer skip the others.
+        """
 
         room = self._get_room(room_id)
         with room.lock:
             if access.kind != "player":
                 raise RoomPermissionError("观战者不能推进流程")
+            player = self._access_player(room, access)
             previous_event_seq = room.last_event_seq
-            room.continue_gate = False
-            room.state.phase_deadline_at = None
-            room.state.phase_deadline_kind = None
-            self.advance_ai(room_id, now=now)
+            if not room.continue_gate:
+                return RoomMutation(
+                    room=room,
+                    previous_event_seq=previous_event_seq,
+                    current_event_seq=room.last_event_seq,
+                )
+            room.continue_acks.add(player.player_id)
+            living_humans = [
+                candidate
+                for candidate in room.state.players
+                if candidate.is_alive
+                and candidate.is_human
+                and candidate.player_id in room.claimed_player_ids
+            ]
+            if all(
+                candidate.player_id in room.continue_acks
+                for candidate in living_humans
+            ):
+                room.continue_gate = False
+                room.continue_acks.clear()
+                room.state.phase_deadline_at = None
+                room.state.phase_deadline_kind = None
+                self.advance_ai(room_id, now=now)
             return RoomMutation(
                 room=room,
                 previous_event_seq=previous_event_seq,
@@ -586,6 +618,12 @@ class InMemoryRoomRepository:
                 if step.actor is not None
                 else room.host_player_id
             )
+            request = step.request
+            if request.action == "vote":
+                # The rules count an uncast ballot as abstention, so an idle
+                # human is replaced with a neutral abstain instead of a vote
+                # the AI would invent for them.
+                request = ActionRequest(action="vote", target_id=None)
             access = ViewerAccess(
                 room_id=room_id,
                 kind="player",
@@ -593,13 +631,13 @@ class InMemoryRoomRepository:
             )
             state_before = deepcopy(room.state)
             try:
-                self.execute_action(access, step.request, now=now)
+                self.execute_action(access, request, now=now)
             except Exception:
                 room.state = state_before
                 logger.exception(
                     "Human auto-play failed for %s action=%s",
                     room_id,
-                    step.request.action,
+                    request.action,
                 )
                 return
             self.advance_ai(room_id, now=now)
@@ -623,6 +661,7 @@ class InMemoryRoomRepository:
                         # No living human left to acknowledge the pause, so
                         # the AI-only remainder of the game plays itself out.
                         room.continue_gate = False
+                        room.continue_acks.clear()
                         room.state.phase_deadline_at = None
                         room.state.phase_deadline_kind = None
                         self.advance_ai(room_id, now=now)
@@ -1006,7 +1045,12 @@ class InMemoryRoomRepository:
                 ],
                 announcements=self._announcements(room.state, access),
                 last_night_summary=self._last_night_summary(room.state),
-                awaiting_continue=room.continue_gate,
+                awaiting_continue=(
+                    room.continue_gate
+                    and access.kind == "player"
+                    and access.player_id is not None
+                    and access.player_id not in room.continue_acks
+                ),
                 available_actions=(
                     []
                     if room.continue_gate

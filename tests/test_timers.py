@@ -119,7 +119,7 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
         ]
         self.assertEqual(len(timeout_after), 1)
 
-    async def test_idle_human_night_role_waits_for_the_human(self) -> None:
+    async def test_idle_human_night_role_is_auto_played(self) -> None:
         repository = InMemoryRoomRepository()
         created = repository.create_room(
             seed=3,
@@ -139,18 +139,16 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
             now=0.0,
         )
         self.assertEqual(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
-        self.assertIsNone(room.state.phase_deadline_at)
-        self.assertIsNone(room.state.phase_deadline_kind)
+        self.assertEqual(room.state.phase_deadline_kind, "human_action")
+        self.assertEqual(room.state.phase_deadline_at, 30.0)
 
         realtime = FakeRealtime()
         timer = RoomTimerService(repository, realtime)
-        now = 0.0
-        for _ in range(200):
-            now += 30.0
-            await timer.tick(now=now)
+        await timer.tick(now=30.0)
 
-        # The human never acted, so the game must still be waiting for them.
-        self.assertIs(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
+        # The idle human's wolf turn was played for them, so the discussion
+        # moved past the first round instead of stalling forever.
+        self.assertNotEqual(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
 
     def test_late_begin_day_is_ignored_after_phase_advanced(self) -> None:
         repository = InMemoryRoomRepository()

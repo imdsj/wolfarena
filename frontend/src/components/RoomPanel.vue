@@ -463,8 +463,8 @@ async function copyRoomId(): Promise<void> {
         }}</strong>
         <span>{{
           lastWordsJustEnded
-            ? "看完遗言再继续。你不点，游戏不会进入黑夜。"
-            : "看完票型和遗言再继续。你不点，游戏不会往下走。"
+            ? "看完遗言再继续。所有存活玩家都点继续后，才进入黑夜。"
+            : "看完票型和遗言再继续。所有存活玩家都点继续后，才往下走。"
         }}</span>
       </div>
       <button

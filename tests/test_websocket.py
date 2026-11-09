@@ -287,7 +287,7 @@ class VisibilityTests(WebSocketTestBase):
             )
 
     def test_wolf_living_player_and_spectator_receive_different_events(self) -> None:
-        room = self.create_room(seed=3, human_count=3, nickname="WolfHost")
+        room = self.create_room(seed=3, human_count=2, nickname="WolfHost")
         joined = self.join_room(room["room_id"], "GoodPlayer")
         self.assertEqual(room["room"]["viewer"]["role"], "werewolf")
         self.assertEqual(joined["room"]["viewer"]["role"], "villager")

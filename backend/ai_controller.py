@@ -56,6 +56,11 @@ NIGHT_PACED_PHASES = frozenset(
     }
 )
 
+# A living human who does not act in time is replaced by the AI so a
+# 2-3 player game can never stall on a disconnected seat.
+HUMAN_TURN_TIMEOUT_SECONDS = 30.0
+VOTE_TURN_TIMEOUT_SECONDS = 10.0
+
 
 @dataclass(frozen=True, slots=True)
 class AIControllerResult:
@@ -292,10 +297,17 @@ class AIController:
             state.phase in HUMAN_TURN_TIMEOUT_PHASES
             and actor is not None
             and actor.is_human
+            and actor.is_alive
         ):
-            # A human turn never auto-plays: the game waits until they act.
-            state.phase_deadline_at = None
-            state.phase_deadline_kind = None
+            # An idle human is eventually replaced by the AI policy so the
+            # room keeps moving; voting gets a shorter grace period.
+            timeout = (
+                VOTE_TURN_TIMEOUT_SECONDS
+                if state.phase is Phase.VOTE
+                else HUMAN_TURN_TIMEOUT_SECONDS
+            )
+            state.phase_deadline_at = reference + timeout
+            state.phase_deadline_kind = "human_action"
             return
         elif state.phase in NIGHT_PACED_PHASES:
             state.phase_deadline_at = reference + NIGHT_PHASE_PACE_SECONDS

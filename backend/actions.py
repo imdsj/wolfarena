@@ -15,6 +15,7 @@ from .game_engine import (
     begin_day,
     close_self_destruct_window,
     close_vote,
+    elect_wolf_captain,
     get_player,
     record_public_speech,
     record_wolf_speech,
@@ -85,6 +86,12 @@ def available_actions_for_state(
     if phase is Phase.INIT:
         if is_host:
             add("start_night", "开始首夜")
+        if (
+            viewer.is_alive
+            and viewer.role is Role.WEREWOLF
+            and viewer.is_human
+        ):
+            add("confirm_captain", "确认当狼队长")
         return tuple(actions)
 
     if phase in {
@@ -309,6 +316,8 @@ def execute_engine_action(
     actor_id = viewer.player_id
     if action == "start_night":
         start_night(state)
+    elif action == "confirm_captain":
+        elect_wolf_captain(state, captain_id=actor_id)
     elif action == "wolf_speech":
         round_number = (
             1 if state.phase is Phase.NIGHT_WOLF_DISCUSSION_R1 else 2
