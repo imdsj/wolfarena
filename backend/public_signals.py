@@ -48,7 +48,7 @@ _ACCUSE_BARE = re.compile(
     r"(?:票|投|归票)\s*(\d{1,2})(?!\d)(?!\s*号)"
 )
 _SEER_REPORT = re.compile(
-    r"(\d{1,2})\s*号\s*(?:是狼|查杀|是狼人|是好人|金水)"
+    r"(\d{1,2})\s*号\s*(?:是|为)?\s*(?:狼人|狼|查杀|好人|金水)"
 )
 _SEER_GIFT = re.compile(r"(?:给|验|发)\s*(\d{1,2})\s*号\s*(金水|查杀)")
 _SEER_BARE_GIFT = re.compile(r"(?<!\d)(\d{1,2})\s*(金水|查杀)")
@@ -149,7 +149,8 @@ def build_signals(state: GameState, viewer: Player) -> PublicSignals:
     players = list(state.players)
     claims: dict[int, set[str]] = {}
     accusations: Counter = Counter()
-    reports: dict[int, str] = {}
+    checks_by_speaker: dict[int, set[int]] = {}
+    report_events: list[tuple[int, dict[int, str]]] = []
     spoken: set[int] = set()
     for event in get_visible_events(state, viewer):
         if event.event_type not in SPEECH_EVENTS:
@@ -176,8 +177,24 @@ def build_signals(state: GameState, viewer: Player) -> PublicSignals:
         if speaker_seat is not None and "seer" in claims.get(
             speaker_seat, set()
         ):
-            for seat, result in found_reports.items():
-                reports[seat] = result
+            checks_by_speaker.setdefault(speaker_seat, set()).update(
+                found_reports
+            )
+            if found_reports:
+                report_events.append((speaker_seat, found_reports))
+    # A seer checks exactly one player per night. On day N only N nights
+    # have passed, so anyone reporting more distinct checks than that is
+    # contradicting a hard rule; their reports must not become "evidence".
+    max_checks = max(1, state.day)
+    valid_speakers = {
+        seat
+        for seat, targets in checks_by_speaker.items()
+        if len(targets) <= max_checks
+    }
+    reports: dict[int, str] = {}
+    for speaker, found in report_events:
+        if speaker in valid_speakers:
+            reports.update(found)
     return PublicSignals(
         claims={
             seat: frozenset(values)

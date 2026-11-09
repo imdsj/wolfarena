@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "strategy_id": "seer.one-check-per-night",
+  "title": "预言家报验必须遵守一晚一验",
+  "role": "seer",
+  "phase": "NIGHT_SEER_CHECK",
+  "action": "seer_check",
+  "trigger": "作为预言家夜晚查验，或白天向好人报查验。",
+  "recommendation": "每晚只验一人；报查验时按“第一晚/第二晚”分别报，绝不能把两个查验说成同一晚。",
+  "rationale": "查验次数是全场可核对的硬信息，报错一次就会失去好人信任。",
+  "risk": "狼人可能利用报验顺序做文章；报验时把夜晚、目标和结果说清楚。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "预言家",
+    "查验",
+    "硬规则"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 真人对局复盘：预言家一晚只能验一人",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}

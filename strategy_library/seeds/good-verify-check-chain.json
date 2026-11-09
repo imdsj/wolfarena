@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.verify-check-chain",
+  "title": "对跳先核对完整查验链",
+  "role": "villager",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "场上出现两个或以上自称预言家的玩家。",
+  "recommendation": "让双方各报完整查验链：第几晚、验了谁、结果是什么；核对查验总数是否等于已经过去的天数。",
+  "rationale": "查验链是预言家唯一可验证的信息，数量和夜晚对不上就是硬伤。",
+  "risk": "狼人可能编造完整链条；还要结合票型、发言和刀口综合判断。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "预言家",
+    "对跳",
+    "查验链",
+    "硬规则"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 复盘，并参考旧版 Werewolf-AI-Arena 的对跳报验策略",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}

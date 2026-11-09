@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.hard-rule-first",
+  "title": "硬规则矛盾优先于信息完整",
+  "role": "villager",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "有人自称预言家，但在第 N 天报出超过 N 个查验，或同一晚报两个查验。",
+  "recommendation": "直接判为硬矛盾，优先怀疑并归票；不要因为对方“查验信息更完整”就相信他。",
+  "rationale": "预言家一晚只能验一人，这是规则，不是发言风格；违反硬规则的查验链不能作为证据。",
+  "risk": "狼人可能故意报错信息钓鱼；好人要核对天数、查验数和报验顺序。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "硬规则",
+    "预言家",
+    "逻辑漏洞",
+    "归票"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 真人对局复盘：6号第1天报两个查验，AI仍认为信息更完整",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}

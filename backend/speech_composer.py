@@ -20,11 +20,14 @@ from .logic_audit import (
     asserts_unspoken_identity,
     audit,
     contradicts_own_report,
+    impossible_seer_claim_in_text,
+    mentions_two_nights_on_day_one,
     speech_claims_living_dead,
     wolf_speech_targets_dead,
 )
 from .rulebook import rules_brief
 from .strategy_library import StrategyLibrary
+from .vote_analysis import format_vote_analysis
 
 STRATEGY_ROOT = Path(__file__).resolve().parent.parent / "strategy_library"
 
@@ -344,6 +347,14 @@ def compose_speech(
         if audit_lines
         else ""
     )
+    vote_lines = format_vote_analysis(state, actor)
+    vote_block = (
+        "=== 历史票型（谁投给了谁，可用来抓同票/绑票）===\n"
+        + vote_lines
+        + "\n"
+        if vote_lines
+        else ""
+    )
     order_info = speaking_order(state, actor)
     is_last_words = view.action == "last_words"
     is_wolf_speech = view.action == "wolf_speech"
@@ -403,6 +414,7 @@ def compose_speech(
             f"- 已出局（不在场，不能刀）：{'、'.join(dead_seats) or '无'}\n\n"
             f"=== 最近的狼队频道发言 ===\n{wolf_history_block}\n"
             f"{audit_block}"
+            f"{vote_block}"
             f"请以 {actor.seat} 号的身份回应队友，给出你的建议。"
         )
     else:
@@ -427,6 +439,7 @@ def compose_speech(
         f"=== 你的私密信息 ===\n{private_info}\n\n"
         f"=== 本局事件 ===\n{timeline or '暂无'}\n\n"
         f"{audit_block}"
+        f"{vote_block}"
         f"=== 本轮公开信息 ===\n"
         f"- 昨晚结果：{public_result}\n"
         f"- 存活玩家：{'、'.join(roster)}\n"
@@ -485,6 +498,8 @@ def compose_speech(
         asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat)
         or speech_claims_living_dead(cleaned, alive_seats)
         or contradicts_own_report(cleaned)
+        or impossible_seer_claim_in_text(cleaned, state.day)
+        or mentions_two_nights_on_day_one(cleaned, state.day)
         or (
             actor.role is Role.WEREWOLF
             and wolf_speech_targets_dead(cleaned, dead_seats)

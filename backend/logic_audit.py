@@ -93,6 +93,7 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
     alive_seats = {player.seat for player in players if player.is_alive}
     spoken: set[int] = set()
     claims: dict[int, set[str]] = {}
+    seer_checks: dict[int, set[int]] = {}
     findings: list[Finding] = []
     seen: set[tuple[str, int, int]] = set()
 
@@ -209,6 +210,53 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                         weight=3,
                     )
                 )
+
+            # A seer checks exactly one player per night; on day N at most N
+            # checks can exist. Reporting more is a hard rule violation.
+            if "seer" in claims.get(speaker, set()) and reports:
+                seer_checks.setdefault(speaker, set()).update(reports)
+                allowed = max(1, state.day)
+                if len(seer_checks[speaker]) > allowed:
+                    key = ("impossible_seer_checks", speaker, 0)
+                    if key not in seen:
+                        seen.add(key)
+                        findings.append(
+                            Finding(
+                                kind="impossible_seer_checks",
+                                speaker_seat=speaker,
+                                subject_seat=speaker,
+                                detail=(
+                                    f"{speaker}号自称预言家，却报了"
+                                    f"{len(seer_checks[speaker])}个不同查验；"
+                                    f"第{state.day}天最多只有{allowed}次查验，"
+                                    "这是硬规则矛盾"
+                                ),
+                                weight=5,
+                            )
+                        )
+                for clause in re.split(r"[，。；;！!？?\n]", content):
+                    if "昨晚" not in clause and "昨夜" not in clause:
+                        continue
+                    _, _, clause_reports = parse_speech(clause)
+                    if len(clause_reports) < 2:
+                        continue
+                    key = ("one_night_two_checks", speaker, 0)
+                    if key in seen:
+                        break
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="one_night_two_checks",
+                            speaker_seat=speaker,
+                            subject_seat=speaker,
+                            detail=(
+                                f"{speaker}号在同一晚（昨晚）报了两个查验目标，"
+                                "而预言家一晚只能验一人"
+                            ),
+                            weight=5,
+                        )
+                    )
+                    break
         spoken.add(speaker)
 
     return tuple(findings)
@@ -219,7 +267,12 @@ def suspect_scores(findings: tuple[Finding, ...]) -> Counter:
 
     scores: Counter = Counter()
     for finding in findings:
-        if finding.kind in {"impossible_identity", "role_flip"}:
+        if finding.kind in {
+            "impossible_identity",
+            "role_flip",
+            "impossible_seer_checks",
+            "one_night_two_checks",
+        }:
             scores[finding.speaker_seat] += finding.weight
     return scores
 
@@ -331,3 +384,28 @@ def wolf_speech_targets_dead(text: str, dead_seats: set[int]) -> bool:
         if seat in dead_seats:
             return True
     return False
+
+
+def impossible_seer_claim_in_text(text: str, day: int) -> bool:
+    """True when a generated speech reports more checks than the rules allow."""
+
+    if not isinstance(text, str) or not text:
+        return False
+    _, _, reports = parse_speech(text)
+    if day <= 1 and len(reports) >= 2:
+        return True
+    for clause in re.split(r"[，。；;！!？?\n]", text):
+        if "昨晚" not in clause and "昨夜" not in clause:
+            continue
+        _, _, clause_reports = parse_speech(clause)
+        if len(clause_reports) >= 2:
+            return True
+    return False
+
+
+def mentions_two_nights_on_day_one(text: str, day: int) -> bool:
+    """True when day 1 speech invents a second night of checks."""
+
+    if day > 1 or not isinstance(text, str):
+        return False
+    return "两晚" in text or "两夜" in text

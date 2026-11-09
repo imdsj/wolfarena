@@ -18,6 +18,8 @@ from backend.logic_audit import (
     asserts_unspoken_identity,
     audit,
     contradicts_own_report,
+    impossible_seer_claim_in_text,
+    mentions_two_nights_on_day_one,
     strongest_finding,
     speech_claims_living_dead,
     top_suspect,
@@ -371,6 +373,88 @@ class WolfDeadTargetTests(TestCase):
         self.assertFalse(wolf_speech_targets_dead("今晚刀5号", {2}))
         self.assertFalse(wolf_speech_targets_dead("不刀2号", {2}))
         self.assertFalse(wolf_speech_targets_dead("别刀2号", {2}))
+
+
+class SeerCheckCountTests(TestCase):
+    def test_two_checks_on_day_one_is_impossible(self) -> None:
+        state = create_game(seed=320, human_count=0)
+        state.day = 1
+        speaker = state.players[5]  # seat 6
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={
+                "content": "我是预言家，昨晚查验4号是金水、2号是查杀。"
+            },
+        )
+        findings = audit(state, state.players[0])
+        kinds = {finding.kind for finding in findings}
+        self.assertIn("impossible_seer_checks", kinds)
+        self.assertIn("one_night_two_checks", kinds)
+        self.assertEqual(top_suspect(state, state.players[0]), speaker.seat)
+
+        signals = build_signals(state, state.players[0])
+        self.assertEqual(signals.reported_wolves(), [])
+
+    def test_two_checks_on_day_two_are_allowed(self) -> None:
+        state = create_game(seed=321, human_count=0)
+        state.day = 2
+        speaker = state.players[5]
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={
+                "content": (
+                    "我是预言家，第一晚验4号金水，"
+                    "第二晚验2号查杀。"
+                )
+            },
+        )
+        findings = audit(state, state.players[0])
+        self.assertNotIn(
+            "impossible_seer_checks",
+            {finding.kind for finding in findings},
+        )
+        signals = build_signals(state, state.players[0])
+        self.assertEqual(signals.reported_wolves(), [2])
+
+    def test_one_night_clause_is_flagged_on_day_two(self) -> None:
+        state = create_game(seed=322, human_count=0)
+        state.day = 2
+        speaker = state.players[5]
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": "我是预言家，昨晚查验4号金水、2号查杀。"},
+        )
+        findings = audit(state, state.players[0])
+        self.assertIn(
+            "one_night_two_checks",
+            {finding.kind for finding in findings},
+        )
+
+    def test_two_nights_phrase_on_day_one_is_invalid(self) -> None:
+        state = create_game(seed=323, human_count=0)
+        state.day = 1
+        self.assertTrue(
+            mentions_two_nights_on_day_one("6号报的是两晚查验", 1)
+        )
+        self.assertFalse(
+            mentions_two_nights_on_day_one("6号报的是两晚查验", 2)
+        )
+        self.assertTrue(
+            impossible_seer_claim_in_text(
+                "我是预言家，昨晚验4号金水、2号查杀", 1
+            )
+        )
+        self.assertFalse(
+            impossible_seer_claim_in_text(
+                "我是预言家，第一晚验4号金水，第二晚验2号查杀", 2
+            )
+        )
 
 
 class WitchPoisonPolicyTests(TestCase):

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "strategy_id": "good.read-vote-blocs",
+  "title": "从票型抓同票与绑票",
+  "role": "villager",
+  "phase": "DAY_DISCUSSION",
+  "action": "speech",
+  "trigger": "已经出现至少两天的公开票型。",
+  "recommendation": "列出谁投给谁，重点看连续同票的两人、总不跟最高票的人、以及关键轮次抱团冲票的人。",
+  "rationale": "狼队需要集中票才能推出好人，同票和绑票是最稳定的行为特征。",
+  "risk": "好人也会因为判断一致而同票；必须结合发言和查验链，不能只凭同票定狼。",
+  "evidence_level": "rule_derived",
+  "tags": [
+    "票型",
+    "同票",
+    "绑票",
+    "归票"
+  ],
+  "source_type": "team",
+  "source": "WolfArena 2026-11-09 复盘：需要让 AI 主动分析历史票型",
+  "status": "seed",
+  "version": "v1",
+  "samples": 0,
+  "win_rate": null,
+  "interval": null,
+  "created_by": "team",
+  "created_at": "2026-11-09T00:00:00+08:00",
+  "evaluation": null
+}
