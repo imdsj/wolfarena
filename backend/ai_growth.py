@@ -460,7 +460,38 @@ class L1RulePolicy:
             return self._seer_check_target(state, actor, view)
         if view.action == "vote":
             return self._vote_target(state, actor, view)
+        if view.action in {"night_hunter_shot", "day_hunter_shot"}:
+            return self._hunter_target(state, actor, view)
         return view.target_ids[0]
+
+    def _hunter_target(self, state, actor, view) -> str | None:
+        """Only shoot with a real read; holding the gun beats a random kill."""
+
+        from .public_signals import build_signals
+
+        try:
+            signals = build_signals(state, actor)
+        except Exception:
+            signals = None
+        if signals is not None:
+            for seat in reversed(signals.reported_wolves()):
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in view.target_ids
+                        and player.player_id != actor.player_id
+                    ):
+                        return player.player_id
+            seat = signals.top_accused(exclude=actor.seat, minimum=2)
+            if seat is not None:
+                for player in state.players:
+                    if (
+                        player.seat == seat
+                        and player.player_id in view.target_ids
+                        and player.player_id != actor.player_id
+                    ):
+                        return player.player_id
+        return None
 
     def _vote_target(self, state, actor, view) -> str:
         """Follow public suspicion; never collapse onto seat 1 by default."""
@@ -516,6 +547,10 @@ class L1RulePolicy:
             if not is_wolf(player_id)
         ] or list(view.target_ids)
 
+        agreed = self._wolf_agreed_target(state, actor, prey)
+        if agreed is not None:
+            return agreed
+
         claimed = self._claimed_god_ids(state, actor)
         for player_id in prey:
             if player_id in claimed:
@@ -535,6 +570,25 @@ class L1RulePolicy:
         rng = Random(f"{self.seed}:kill:{state.day}:{actor.player_id}")
         choices = [player_id for player_id in prey if player_id != actor.player_id]
         return rng.choice(choices or prey)
+
+    def _wolf_agreed_target(self, state, actor, prey: list[str]) -> str | None:
+        """Honour the latest kill target the wolf channel actually agreed on."""
+
+        import re
+
+        pattern = re.compile(r"(?:刀|杀|带走|处理|出)\s*(\d{1,2})\s*号")
+        for event in reversed(get_visible_events(state, actor)):
+            if event.event_type is not EventType.WOLF_SPEECH:
+                continue
+            content = event.data.get("content")
+            if not isinstance(content, str):
+                continue
+            for match in reversed(list(pattern.finditer(content))):
+                seat = int(match.group(1))
+                for player in state.players:
+                    if player.seat == seat and player.player_id in prey:
+                        return player.player_id
+        return None
 
     def _seer_check_target(self, state, actor, view) -> str:
         """Check a suspicious, not-yet-checked player, never just seat 1."""
