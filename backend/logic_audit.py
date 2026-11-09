@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import re
 
 from .game_engine import EventType, GameState, Player, get_visible_events
+from .public_signals import parse_speech
 
 
 PUBLIC_EVENTS = frozenset(
@@ -40,6 +41,10 @@ _IDENTITY_ASSERTION = re.compile(
     r"(?:是|就是)\s*(?:真正的|真)?\s*(预言家|女巫|猎人)"
 )
 _SELF_CLAIM = re.compile(r"我(?:是|就是)\s*(预言家|女巫|猎人)")
+_DEAD_CLAIM = re.compile(
+    r"(?<!\d)(\d{1,2})\s*号\s*(?:已经|已|早就)?\s*(?:是)?\s*"
+    r"(?:死了|出局了|出局|被淘汰|没了|凉了|死人)"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -81,6 +86,7 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
 
     players = list(state.players)
     seat_set = {player.seat for player in players}
+    alive_seats = {player.seat for player in players if player.is_alive}
     spoken: set[int] = set()
     claims: dict[int, set[str]] = {}
     findings: list[Finding] = []
@@ -148,6 +154,55 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                             "这是不可能知道的信息"
                         ),
                         weight=4,
+                    )
+                )
+
+            # Saying a living player is dead is a board-state error. It is
+            # weaker than a god-role leak but still worth calling out.
+            for match in _DEAD_CLAIM.finditer(content):
+                subject = int(match.group(1))
+                if subject not in alive_seats:
+                    continue
+                if "不是" in match.group(0):
+                    continue
+                if _hedged(content, match.start(), match.end()):
+                    continue
+                key = ("living_dead_claim", speaker, subject)
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append(
+                    Finding(
+                        kind="living_dead_claim",
+                        speaker_seat=speaker,
+                        subject_seat=subject,
+                        detail=(
+                            f"{speaker}号把还活着的{subject}号"
+                            "说成已经出局"
+                        ),
+                        weight=3,
+                    )
+                )
+
+            # "1号是金水，今天票1号" contradicts the speaker's own report.
+            _, accusations, reports = parse_speech(content)
+            for subject, result in reports.items():
+                if result != "good" or accusations.get(subject, 0) <= 0:
+                    continue
+                key = ("report_vs_vote", speaker, subject)
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append(
+                    Finding(
+                        kind="report_vs_vote",
+                        speaker_seat=speaker,
+                        subject_seat=subject,
+                        detail=(
+                            f"{speaker}号刚说{subject}号是好人/金水，"
+                            f"又要票{subject}号，前后矛盾"
+                        ),
+                        weight=3,
                     )
                 )
         spoken.add(speaker)
@@ -228,3 +283,32 @@ def asserts_unspoken_identity(
             continue
         return True
     return False
+
+
+def speech_claims_living_dead(text: str, alive_seats: set[int]) -> bool:
+    """True when a generated speech calls a living player dead."""
+
+    if not isinstance(text, str) or not text:
+        return False
+    for match in _DEAD_CLAIM.finditer(text):
+        subject = int(match.group(1))
+        if subject not in alive_seats:
+            continue
+        if "不是" in match.group(0):
+            continue
+        if _hedged(text, match.start(), match.end()):
+            continue
+        return True
+    return False
+
+
+def contradicts_own_report(text: str) -> bool:
+    """True when a speech calls a seat good and then votes for it."""
+
+    if not isinstance(text, str) or not text:
+        return False
+    _, accusations, reports = parse_speech(text)
+    return any(
+        result == "good" and accusations.get(seat, 0) > 0
+        for seat, result in reports.items()
+    )

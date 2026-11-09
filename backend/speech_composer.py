@@ -16,7 +16,12 @@ import httpx
 from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
 from .llm_budget import LEDGER
-from .logic_audit import asserts_unspoken_identity, audit
+from .logic_audit import (
+    asserts_unspoken_identity,
+    audit,
+    contradicts_own_report,
+    speech_claims_living_dead,
+)
 from .rulebook import rules_brief
 from .strategy_library import StrategyLibrary
 
@@ -391,6 +396,8 @@ def compose_speech(
         "发言要求：必须回应或评价在场其他玩家的发言，不能自说自话；"
         "可以引用座位号和别人的原话；不要承认自己是 AI。"
         "死亡信息只以【本轮公开信息】里的昨晚结果为准，绝对不能编造谁死了、谁被票了。"
+        "场上存活/出局名单也必须以【本轮公开信息】为准，绝不能把活人说成死人。"
+        "不能刚说某人是金水/好人，又要票他。"
         "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
         "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
         "只输出一句到两句中文发言，90 字以内。"
@@ -454,7 +461,12 @@ def compose_speech(
         unspoken_seats = {int(seat) for seat in unspoken}
     except ValueError:
         unspoken_seats = set()
-    if asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat):
+    alive_seats = {player.seat for player in state.players if player.is_alive}
+    if (
+        asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat)
+        or speech_claims_living_dead(cleaned, alive_seats)
+        or contradicts_own_report(cleaned)
+    ):
         # The model leaked information a player could not have. Drop the
         # sentence and let the deterministic template speak instead.
         return None

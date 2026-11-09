@@ -513,6 +513,18 @@ class L1RulePolicy:
 
         from .public_signals import build_signals
 
+        # A seer's own gold-water is the one player they know is good. They
+        # must never vote it out, even if the table is piling on.
+        trusted_good: set[str] = set()
+        if actor.role is Role.SEER:
+            trusted_good = {
+                event.target_id
+                for event in get_visible_events(state, actor)
+                if event.event_type is EventType.SEER_CHECKED
+                and event.data.get("result") == "good"
+                and event.target_id
+            }
+
         try:
             signals = build_signals(state, actor)
         except Exception:
@@ -526,6 +538,7 @@ class L1RulePolicy:
                         player.seat == seat
                         and player.player_id in view.target_ids
                         and player.player_id != actor.player_id
+                        and player.player_id not in trusted_good
                     ):
                         return player.player_id
             # A spoken contradiction is stronger than a pile-on accusation:
@@ -542,6 +555,7 @@ class L1RulePolicy:
                     if (
                         player.seat == audit_seat
                         and player.player_id in view.target_ids
+                        and player.player_id not in trusted_good
                     ):
                         return player.player_id
             seat = signals.top_accused(exclude=actor.seat)
@@ -550,15 +564,21 @@ class L1RulePolicy:
                     if (
                         player.seat == seat
                         and player.player_id in view.target_ids
+                        and player.player_id not in trusted_good
                     ):
                         return player.player_id
         rng = Random(f"{self.seed}:vote:{state.day}:{actor.player_id}")
         choices = [
             player_id
             for player_id in view.target_ids
-            if player_id != actor.player_id
+            if player_id != actor.player_id and player_id not in trusted_good
         ]
-        return rng.choice(choices or list(view.target_ids))
+        fallback = [
+            player_id
+            for player_id in view.target_ids
+            if player_id not in trusted_good
+        ]
+        return rng.choice(choices or fallback or list(view.target_ids))
 
     def _wolf_kill_target(self, state, actor, view) -> str:
         """Kill a god claim first, else a threat; never always seat 1."""

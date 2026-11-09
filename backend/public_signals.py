@@ -44,10 +44,14 @@ _ACCUSE_PREFIX = re.compile(
 _ACCUSE_SUFFIX = re.compile(
     r"(\d{1,2})\s*号\s*(?:是狼|是匹狼|有问题|很狼|像狼|划水|是狼人)"
 )
+_ACCUSE_BARE = re.compile(
+    r"(?:票|投|归票)\s*(\d{1,2})(?!\d)(?!\s*号)"
+)
 _SEER_REPORT = re.compile(
     r"(\d{1,2})\s*号\s*(?:是狼|查杀|是狼人|是好人|金水)"
 )
 _SEER_GIFT = re.compile(r"(?:给|验|发)\s*(\d{1,2})\s*号\s*(金水|查杀)")
+_SEER_BARE_GIFT = re.compile(r"(?<!\d)(\d{1,2})\s*(金水|查杀)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +122,7 @@ def parse_speech(text: str) -> tuple[set[str], Counter, dict[int, str]]:
         return set(), Counter(), {}
     claims = _claims(text)
     accusations: Counter = Counter()
-    for pattern in (_ACCUSE_PREFIX, _ACCUSE_SUFFIX):
+    for pattern in (_ACCUSE_PREFIX, _ACCUSE_SUFFIX, _ACCUSE_BARE):
         for match in pattern.finditer(text):
             seat = int(match.group(1))
             if 1 <= seat <= 12:
@@ -131,6 +135,9 @@ def parse_speech(text: str) -> tuple[set[str], Counter, dict[int, str]]:
             "good" if ("金水" in tail or "好人" in tail) else "wolf"
         )
     for match in _SEER_GIFT.finditer(text):
+        seat = int(match.group(1))
+        reports[seat] = "good" if match.group(2) == "金水" else "wolf"
+    for match in _SEER_BARE_GIFT.finditer(text):
         seat = int(match.group(1))
         reports[seat] = "good" if match.group(2) == "金水" else "wolf"
     return claims, accusations, reports

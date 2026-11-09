@@ -17,10 +17,12 @@ from backend.game_engine import (
 from backend.logic_audit import (
     asserts_unspoken_identity,
     audit,
+    contradicts_own_report,
     strongest_finding,
+    speech_claims_living_dead,
     top_suspect,
 )
-from backend.public_signals import build_signals
+from backend.public_signals import build_signals, parse_speech
 
 
 def _view(state, action: str):
@@ -276,3 +278,86 @@ class LogicCatchInjectionTests(TestCase):
             state, wolf, SimpleNamespace(action="speech"), text
         )
         self.assertEqual(out, text)
+
+
+class BoardStateTests(TestCase):
+    def test_living_player_claimed_dead_is_flagged(self) -> None:
+        state = create_game(seed=120, human_count=0)
+        speaker = state.players[8]
+        subject = state.players[0]
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": f"{subject.seat}号已经出局了，别再听他。"},
+        )
+        findings = audit(state, state.players[0])
+        self.assertIn(
+            ("living_dead_claim", speaker.seat, subject.seat),
+            [(f.kind, f.speaker_seat, f.subject_seat) for f in findings],
+        )
+        self.assertTrue(
+            speech_claims_living_dead(
+                f"{subject.seat}号已经出局了", {subject.seat}
+            )
+        )
+        self.assertFalse(
+            speech_claims_living_dead(
+                f"{subject.seat}号没有出局", {subject.seat}
+            )
+        )
+
+    def test_gold_water_banish_is_flagged(self) -> None:
+        state = create_game(seed=121, human_count=0)
+        speaker = state.players[1]
+        target = state.players[0]
+        content = (
+            f"6狼、9金水、{target.seat}金水——"
+            f"你{target.seat}号是金水，今天票{target.seat}"
+        )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": content},
+        )
+        findings = audit(state, state.players[2])
+        self.assertIn(
+            ("report_vs_vote", speaker.seat, target.seat),
+            [(f.kind, f.speaker_seat, f.subject_seat) for f in findings],
+        )
+        self.assertTrue(contradicts_own_report(content))
+
+    def test_bare_seat_gift_is_parsed(self) -> None:
+        _, _, reports = parse_speech("6狼、9金水、1金水")
+        self.assertEqual(reports[9], "good")
+        self.assertEqual(reports[1], "good")
+
+    def test_seer_never_votes_own_gold_water(self) -> None:
+        state = create_game(seed=122, human_count=0)
+        seer = next(p for p in state.players if p.role is Role.SEER)
+        gold = next(p for p in state.players if p.player_id != seer.player_id)
+        accuser = next(
+            p
+            for p in state.players
+            if p.player_id not in {seer.player_id, gold.player_id}
+        )
+        append_event(
+            state,
+            EventType.SEER_CHECKED,
+            actor_id=seer.player_id,
+            target_id=gold.player_id,
+            visibility=Visibility.PLAYER,
+            visible_to=(seer.player_id,),
+            data={"result": "good"},
+        )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=accuser.player_id,
+            data={"content": f"{gold.seat}号是狼，今天票{gold.seat}。"},
+        )
+        picked = L1RulePolicy(seed=122).choose_target(
+            state, seer, _view(state, "vote"), choice=None
+        )
+        self.assertNotEqual(picked, gold.player_id)
