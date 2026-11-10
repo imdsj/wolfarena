@@ -1372,3 +1372,27 @@ body.night-mode .chip-active {
   font-size: 13px;
   color: #4a5a4e;
 }
+.audio-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 80;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(22, 26, 22, 0.58);
+  backdrop-filter: blur(10px);
+  color: #f3ede1;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.audio-toggle:hover {
+  transform: translateY(-1px);
+  background: rgba(38, 44, 38, 0.72);
+}
+

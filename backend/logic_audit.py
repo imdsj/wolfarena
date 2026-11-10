@@ -49,6 +49,9 @@ _KILL_TARGET = re.compile(
     r"(?:刀|杀|带走|做掉|处理|集火)\s*(\d{1,2})\s*号?"
     r"|刀口\s*(?:定|在|是|为|选)?\s*(\d{1,2})\s*号?"
 )
+_VOTE_TARGET = re.compile(
+    r"(?:票|投|归票|抗推|放逐|出)\s*(\d{1,2})\s*号?"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -91,6 +94,7 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
     players = list(state.players)
     seat_set = {player.seat for player in players}
     alive_seats = {player.seat for player in players if player.is_alive}
+    dead_seats = seat_set - alive_seats
     spoken: set[int] = set()
     claims: dict[int, set[str]] = {}
     seer_checks: dict[int, set[int]] = {}
@@ -206,6 +210,26 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                         detail=(
                             f"{speaker}号刚说{subject}号是好人/金水，"
                             f"又要票{subject}号，前后矛盾"
+                        ),
+                        weight=3,
+                    )
+                )
+
+            # Calling for a vote on a player who is already out is a hard
+            # board-state error, not a debatable read.
+            for subject in dead_vote_targets(content, dead_seats):
+                key = ("vote_dead_target", speaker, subject)
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append(
+                    Finding(
+                        kind="vote_dead_target",
+                        speaker_seat=speaker,
+                        subject_seat=subject,
+                        detail=(
+                            f"{speaker}号还在号召票已经出局的{subject}号，"
+                            "而死人是不能投票、也不能被票的"
                         ),
                         weight=3,
                     )
@@ -384,6 +408,22 @@ def wolf_speech_targets_dead(text: str, dead_seats: set[int]) -> bool:
         if seat in dead_seats:
             return True
     return False
+
+
+def dead_vote_targets(text: str, dead_seats: set[int]) -> set[int]:
+    """Return dead seats the speech still tells people to vote out."""
+
+    if not isinstance(text, str) or not text:
+        return set()
+    found: set[int] = set()
+    for match in _VOTE_TARGET.finditer(text):
+        prefix = text[max(0, match.start() - 2) : match.start()]
+        if "不" in prefix or "别" in prefix:
+            continue
+        seat = int(match.group(1))
+        if seat in dead_seats:
+            found.add(seat)
+    return found
 
 
 def impossible_seer_claim_in_text(text: str, day: int) -> bool:

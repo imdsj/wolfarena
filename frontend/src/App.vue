@@ -5,11 +5,19 @@ import {
   onMounted,
   reactive,
   ref,
+  watch,
   watchEffect,
 } from "vue";
 
 import LobbyPanel from "./components/LobbyPanel.vue";
 import RoomPanel from "./components/RoomPanel.vue";
+import {
+  audioEnabled,
+  initAudio,
+  playSfx,
+  setAudioEnabled,
+  stopAmbient,
+} from "./audio";
 import type {
   ActionSubmission,
   AiActionResponse,
@@ -32,6 +40,42 @@ const chatLog = ref<
 
 const isNight = computed(() =>
   (room.value?.phase ?? "").startsWith("NIGHT_"),
+);
+
+const audioOn = ref(audioEnabled());
+let audioArmed = false;
+
+function toggleAudio(): void {
+  audioOn.value = !audioOn.value;
+  setAudioEnabled(audioOn.value);
+}
+
+function armAudio(): void {
+  if (audioArmed) {
+    return;
+  }
+  audioArmed = true;
+  if (audioOn.value) {
+    initAudio();
+  }
+}
+
+let lastPhase = "";
+watch(
+  () => room.value?.phase,
+  (phase) => {
+    if (!phase || phase === lastPhase) {
+      return;
+    }
+    lastPhase = phase;
+    if (phase.startsWith("NIGHT_")) {
+      playSfx("night");
+    } else if (phase === "VOTE") {
+      playSfx("vote");
+    } else if (phase.startsWith("DAY_")) {
+      playSfx("day");
+    }
+  },
 );
 
 watchEffect(() => {
@@ -305,6 +349,11 @@ function handleServerMessage(message: unknown): void {
     const event = message as unknown as GameEvent;
     if (Number.isInteger(event.event_seq) && typeof event.event_type === "string") {
       mergeEvents([event]);
+      if (event.event_type === "PLAYER_DIED") {
+        playSfx("death");
+      } else if (event.event_type === "VOTE_RESULT") {
+        playSfx("vote");
+      }
     }
     return;
   }
@@ -539,15 +588,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-onMounted(restoreRememberedSession);
+onMounted(() => {
+  window.addEventListener("pointerdown", armAudio, { once: true });
+  restoreRememberedSession();
+});
 onBeforeUnmount(() => {
   socket?.close();
+  window.removeEventListener("pointerdown", armAudio);
+  stopAmbient();
   document.body.classList.remove("night-mode");
 });
 </script>
 
 <template>
   <main class="app-shell">
+    <button
+      class="audio-toggle"
+      type="button"
+      :aria-pressed="audioOn"
+      :title="audioOn ? '关闭声音' : '开启声音'"
+      @click="toggleAudio"
+    >
+      {{ audioOn ? "🔊" : "🔇" }}
+    </button>
     <RoomPanel
       v-if="room"
       :room="room"

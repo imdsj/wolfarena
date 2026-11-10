@@ -18,6 +18,7 @@ from backend.logic_audit import (
     asserts_unspoken_identity,
     audit,
     contradicts_own_report,
+    dead_vote_targets,
     impossible_seer_claim_in_text,
     mentions_two_nights_on_day_one,
     strongest_finding,
@@ -373,6 +374,31 @@ class WolfDeadTargetTests(TestCase):
         self.assertFalse(wolf_speech_targets_dead("今晚刀5号", {2}))
         self.assertFalse(wolf_speech_targets_dead("不刀2号", {2}))
         self.assertFalse(wolf_speech_targets_dead("别刀2号", {2}))
+
+
+class VoteDeadTargetTests(TestCase):
+    def test_vote_for_dead_seat_is_flagged(self) -> None:
+        state = create_game(seed=340, human_count=0)
+        speaker = state.players[4]  # seat 5
+        dead = state.players[6]  # seat 7
+        dead.is_alive = False
+        content = f"{dead.seat}号是狼，今天票{dead.seat}"
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": content},
+        )
+        findings = audit(state, state.players[0])
+        self.assertIn(
+            ("vote_dead_target", speaker.seat, dead.seat),
+            [
+                (finding.kind, finding.speaker_seat, finding.subject_seat)
+                for finding in findings
+            ],
+        )
+        self.assertEqual(dead_vote_targets(content, {dead.seat}), {dead.seat})
+        self.assertEqual(dead_vote_targets("别票7号", {7}), set())
 
 
 class SeerCheckCountTests(TestCase):

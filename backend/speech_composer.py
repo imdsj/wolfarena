@@ -20,12 +20,14 @@ from .logic_audit import (
     asserts_unspoken_identity,
     audit,
     contradicts_own_report,
+    dead_vote_targets,
     impossible_seer_claim_in_text,
     mentions_two_nights_on_day_one,
     speech_claims_living_dead,
     wolf_speech_targets_dead,
 )
 from .rulebook import rules_brief
+from .speech_quality import is_repetitive
 from .strategy_library import StrategyLibrary
 from .vote_analysis import format_vote_analysis
 
@@ -38,6 +40,14 @@ ROLE_LABELS = {
     "witch": "女巫",
     "hunter": "猎人",
 }
+
+SPEECH_STYLES = (
+    "沉稳型：先给结论，再用一两条证据支撑",
+    "直球型：直接点矛盾，敢归票",
+    "谨慎型：先听两边，说清自己还缺什么信息",
+    "强势型：敢定票，但必须给出理由",
+    "简练型：少说废话，只讲本轮关键变化",
+)
 
 ROLE_PERSONA = {
     "werewolf": (
@@ -113,6 +123,27 @@ def wolf_history(state: GameState, actor) -> list[str]:
             seat = _seat_of(state, event.actor_id)
             lines.append(f"{seat} 号：{content}")
     return lines
+
+
+def _own_last_speech(state: GameState, actor) -> str:
+    """The speaker's own most recent public sentence, for anti-repetition."""
+
+    for event in reversed(get_visible_events(state, actor)):
+        if event.event_type not in {
+            EventType.PUBLIC_SPEECH,
+            EventType.LAST_WORDS,
+        }:
+            continue
+        if event.actor_id != actor.player_id:
+            continue
+        content = event.data.get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+    return ""
+
+
+def _style_for(state: GameState, actor) -> str:
+    return SPEECH_STYLES[(state.seed + actor.seat) % len(SPEECH_STYLES)]
 
 
 def private_context(state: GameState, actor) -> str:
@@ -361,6 +392,8 @@ def compose_speech(
     death_line = dead_notice(state, actor) if is_last_words else ""
     tactics_block = ("=== 战术参考 ===\n" + tactics) if tactics else ""
     history_block = "\n".join(history) if history else "你是第一个发言。"
+    own_last = _own_last_speech(state, actor)
+    style = _style_for(state, actor)
     wolf_plan_block = ""
     if role == "werewolf" and not is_last_words:
         wolf_lines = wolf_history(state, actor)[-8:]
@@ -389,6 +422,7 @@ def compose_speech(
     dead_seats = [
         str(player.seat) for player in state.players if not player.is_alive
     ]
+    dead_seat_set = {player.seat for player in state.players if not player.is_alive}
     dead_block = f"- 已出局（死人，不在场）：{'、'.join(dead_seats) or '无'}\n"
     if is_wolf_speech:
         wolf_lines = wolf_history(state, actor)[-10:]
@@ -404,6 +438,7 @@ def compose_speech(
             "不能暴露狼人身份。绝不能点名还没发言的玩家是预言家/女巫/猎人，"
             "那等于承认你掌握了不该知道的信息。"
             "只能从存活玩家里选择刀口，绝不能刀已经出局的玩家。"
+            f"你的说话风格：{style}。保持风格，但不要复述队友已经说过的话。"
             "只输出一句到两句中文，80 字以内。\n" + rules_brief()
         )
         user = (
@@ -425,11 +460,13 @@ def compose_speech(
         "可以引用座位号和别人的原话；不要承认自己是 AI。"
         "死亡信息只以【本轮公开信息】里的昨晚结果为准，绝对不能编造谁死了、谁被票了。"
         "场上存活/出局名单也必须以【本轮公开信息】为准，绝不能把活人说成死人。"
+        "已出局的人不能再被票、被刀、被验；不要号召票死人。"
         "不能刚说某人是金水/好人，又要票他。"
         "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
         "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
         "只输出一句到两句中文发言，90 字以内。"
         + ("你现在已经出局，只能留遗言。" if is_last_words else "")
+        + f"你的说话风格：{style}。保持风格，但逻辑优先。"
         + "\n" + rules_brief()
         )
         user = (
@@ -444,6 +481,8 @@ def compose_speech(
         f"- 昨晚结果：{public_result}\n"
         f"- 存活玩家：{'、'.join(roster)}\n"
         f"{dead_block}"
+        f"=== 你上一轮说过 ===\n{own_last or '无（这是你第一次发言）'}\n"
+        "本轮必须给出新的判断、质疑或票型分析，禁止复述上一轮或别人说过的话。\n"
         f"- 已发言：{'、'.join(sorted(spoken_seats)) or '无'}\n"
         f"- {unspoken_block}\n"
         f"- 今日发言：\n"
@@ -468,6 +507,8 @@ def compose_speech(
                         {"role": "user", "content": user},
                     ],
                     "temperature": 0.8,
+                    "presence_penalty": 0.6,
+                    "frequency_penalty": 0.4,
                     "max_tokens": 180,
                 },
             )
@@ -494,10 +535,15 @@ def compose_speech(
     dead_seats = {
         player.seat for player in state.players if not player.is_alive
     }
+    prior_texts = list(history[-12:])
+    if own_last:
+        prior_texts.append(own_last)
     if (
         asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat)
         or speech_claims_living_dead(cleaned, alive_seats)
         or contradicts_own_report(cleaned)
+        or dead_vote_targets(cleaned, dead_seat_set)
+        or is_repetitive(cleaned, prior_texts)
         or impossible_seer_claim_in_text(cleaned, state.day)
         or mentions_two_nights_on_day_one(cleaned, state.day)
         or (
