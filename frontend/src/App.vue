@@ -17,7 +17,7 @@ import {
   playSfx,
   setAudioEnabled,
   stopAmbient,
-} from "./audio";
+} from "./audio.ts";
 import type {
   ActionSubmission,
   AiActionResponse,

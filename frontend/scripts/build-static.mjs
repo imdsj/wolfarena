@@ -123,6 +123,7 @@ await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 
 await compileTypescriptModule("main.ts", { dropCss: true });
+await compileTypescriptModule("audio.ts");
 await compileVueComponent("App.vue");
 await compileVueComponent(path.join("components", "ActionForm.vue"));
 await compileVueComponent(path.join("components", "ConnectionStatus.vue"));
