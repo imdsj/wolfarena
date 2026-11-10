@@ -15,6 +15,7 @@ import httpx
 
 from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
+from .public_signals import build_signals
 from .llm_budget import LEDGER
 from .logic_audit import (
     asserts_unspoken_identity,
@@ -27,7 +28,7 @@ from .logic_audit import (
     wolf_speech_targets_dead,
 )
 from .rulebook import rules_brief
-from .speech_quality import is_repetitive
+from .speech_quality import fabricates_reference, is_repetitive
 from .strategy_library import StrategyLibrary
 from .vote_analysis import format_vote_analysis
 
@@ -341,6 +342,49 @@ def speaking_order(state: GameState, actor) -> str:
     return f"发言顺序：{' → '.join(seats)}（你是第 {position} 个）"
 
 
+def _counterclaim_note(state: GameState, actor) -> str:
+    """Tell the designated wolf to counterclaim, and the others to back off.
+
+    Without an explicit owner every wolf assumes a teammate will jump, and on
+    day one nobody does, which hands the good side a free seer.
+    """
+
+    if actor.role is not Role.WEREWOLF or not actor.is_alive:
+        return ""
+    living_wolves = [
+        player
+        for player in state.players
+        if player.is_alive and player.role is Role.WEREWOLF
+    ]
+    if not living_wolves:
+        return ""
+    try:
+        signals = build_signals(state, actor)
+    except Exception:
+        return ""
+    wolf_seats = {
+        player.seat for player in state.players if player.role is Role.WEREWOLF
+    }
+    claimed_seers = [
+        seat for seat, roles in signals.claims.items() if "seer" in roles
+    ]
+    if not claimed_seers:
+        return ""
+    if any(seat in wolf_seats for seat in claimed_seers):
+        return ""
+    owner = min(living_wolves, key=lambda player: player.seat)
+    if actor.seat == owner.seat:
+        return (
+            "【本回合强制】已经有人跳预言家，而狼队还没人对跳。你是狼队指定的"
+            f"悍跳位（存活狼人中 {owner.seat} 号最小），这一轮必须跳出来自称预言家，"
+            "编一个假查验搅浑水，不要再等队友。"
+        )
+    return (
+        f"【本回合分工】悍跳由 {owner.seat} 号负责，你不要再跳预言家，"
+        "而要附和它、替他站台，把票引向真预言家。"
+    )
+
+
 def compose_speech(
     *,
     state: GameState,
@@ -470,6 +514,7 @@ def compose_speech(
         "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
         "只输出一句到两句中文发言，90 字以内。"
         + ("你现在已经出局，只能留遗言。" if is_last_words else "")
+        + ("" if is_last_words else _counterclaim_note(state, actor))
         + f"你的说话风格：{style}。保持风格，但逻辑优先。"
         + "\n" + rules_brief()
         )
@@ -548,6 +593,7 @@ def compose_speech(
         or contradicts_own_report(cleaned)
         or dead_vote_targets(cleaned, dead_seat_set)
         or is_repetitive(cleaned, prior_texts)
+        or fabricates_reference(cleaned, prior_texts)
         or impossible_seer_claim_in_text(cleaned, state.day)
         or mentions_two_nights_on_day_one(cleaned, state.day)
         or (

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from random import Random
@@ -31,6 +32,25 @@ GROWTH_STAGE_ORDER: Final[tuple[GrowthStage, ...]] = (
     GrowthStage.L2_STRATEGY,
     GrowthStage.L3_ADVERSARIAL,
 )
+
+
+_ABSTAIN_CALL = re.compile(r"弃票|弃权|空票|全弃|都不投|别投了")
+
+
+def _abstain_is_called(state: GameState, actor) -> bool:
+    """True when someone publicly asks the table to hold their votes."""
+
+    try:
+        events = get_visible_events(state, actor)
+    except Exception:
+        return False
+    for event in events:
+        if event.event_type not in {EventType.PUBLIC_SPEECH, EventType.LAST_WORDS}:
+            continue
+        content = event.data.get("content")
+        if isinstance(content, str) and _ABSTAIN_CALL.search(content):
+            return True
+    return False
 
 
 def speech_content(state: GameState, actor, view) -> str | None:
@@ -532,8 +552,8 @@ class L1RulePolicy:
                     return player.player_id
         return None
 
-    def _vote_target(self, state, actor, view) -> str:
-        """Follow public suspicion; never collapse onto seat 1 by default."""
+    def _vote_target(self, state, actor, view) -> str | None:
+        """Follow public suspicion; abstain when the table has no read at all."""
 
         from .public_signals import build_signals
 
@@ -591,6 +611,13 @@ class L1RulePolicy:
                         and player.player_id not in trusted_good
                     ):
                         return player.player_id
+        # 有人公开号召全弃时，除非预言家已经报人，否则跟着弃票保人。
+        if (
+            signals is not None
+            and not signals.reported_wolves()
+            and _abstain_is_called(state, actor)
+        ):
+            return None
         rng = Random(f"{self.seed}:vote:{state.day}:{actor.player_id}")
         choices = [
             player_id
