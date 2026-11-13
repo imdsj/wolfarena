@@ -18,6 +18,7 @@ from .actions import (
 )
 from .ai_controller import AIController, AIControllerResult
 from .ai_growth import L1RulePolicy
+from .player_agent import PlayerAgent, build_agents
 from .tactic_policy import DirectivePolicy, load_validated_directives
 from .game_engine import (
     Event,
@@ -39,7 +40,9 @@ from .game_engine import (
 )
 from .schemas import (
     ActionRequest,
+    AgentInsight,
     CreatedRoomResponse,
+    DecisionTraceView,
     JoinedRoomResponse,
     PublicEvent,
     PublicPlayer,
@@ -187,6 +190,7 @@ class Room:
     continue_acks: set[str] = field(default_factory=set)
     lock: RLock = field(default_factory=RLock, repr=False)
     ai_policy: L1RulePolicy = field(init=False, repr=False)
+    agents: dict[str, PlayerAgent] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         try:
@@ -194,6 +198,7 @@ class Room:
         except Exception:
             cards = ()
         self.ai_policy = DirectivePolicy(seed=self.state.seed, cards=cards)
+        self.agents = build_agents(self.state, cards)
 
     @property
     def human_count(self) -> int:
@@ -246,6 +251,7 @@ class Room:
             raise DuplicateNicknameError("昵称已被使用")
         player.name = nickname
         player.is_human = True
+        self.agents.pop(player.player_id, None)
 
 
 class InMemoryRoomRepository:
@@ -1008,6 +1014,20 @@ class InMemoryRoomRepository:
                     is_host=player.player_id == room.host_player_id,
                 )
 
+            show_agent_insights = (
+                access.kind == "spectator"
+                or room.state.phase is Phase.END
+            )
+            agent_insights: list[AgentInsight] = []
+            if show_agent_insights:
+                agent_insights = [
+                    self._agent_insight(room, agent)
+                    for agent in sorted(
+                        room.agents.values(),
+                        key=lambda item: item.player_id,
+                    )
+                ]
+
             return RoomSnapshot(
                 room_id=room.room_id,
                 phase=room.state.phase.value,
@@ -1028,6 +1048,11 @@ class InMemoryRoomRepository:
                         name=player.name,
                         is_human=player.player_id in room.claimed_player_ids,
                         is_alive=player.is_alive,
+                        archetype=(
+                            room.agents[player.player_id].persona.value
+                            if player.player_id in room.agents
+                            else None
+                        ),
                     )
                     for player in sorted(
                         room.state.players,
@@ -1065,7 +1090,23 @@ class InMemoryRoomRepository:
                         if action.action not in SYSTEM_ONLY_ACTIONS
                     )
                 ),
+                agent_insights=agent_insights,
             )
+
+    @staticmethod
+    def _agent_insight(room: "Room", agent: PlayerAgent) -> AgentInsight:
+        player = get_player(room.state, agent.player_id)
+        return AgentInsight(
+            player_id=agent.player_id,
+            seat=player.seat,
+            name=player.name,
+            archetype=agent.persona.value,
+            current_plan=agent.current_plan,
+            decision_traces=[
+                DecisionTraceView(**trace.as_dict())
+                for trace in agent.decision_traces
+            ],
+        )
 
     @staticmethod
     def serialize_event(event: Event) -> PublicEvent:

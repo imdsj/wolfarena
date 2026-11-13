@@ -189,6 +189,12 @@ const roleLabels: Record<string, string> = {
   witch: "女巫",
   hunter: "猎人",
 };
+const archetypeLabels: Record<string, string> = {
+  aggressive: "冲锋型",
+  steady: "稳健型",
+  logical: "逻辑型",
+  chaotic: "搅局型",
+};
 const deathCauseLabels: Record<string, string> = {
   wolf_kill: "狼人击杀",
   poisoned: "女巫毒杀",
@@ -302,6 +308,9 @@ const canUseAiStart = computed(
       (action) => action.action === "start_night",
     ),
 );
+const showAgentInsights = computed(
+  () => isSpectator.value || gameEnded.value,
+);
 
 const phaseLabels: Record<string, string> = {
   INIT: "等待开始",
@@ -331,6 +340,28 @@ function roleLabel(role: string | null | undefined): string {
 
 function visibleRole(playerId: string): string {
   return roleLabel(visibleRoles.value.get(playerId));
+}
+
+function archetypeLabel(archetype: string | null | undefined): string {
+  return archetype ? archetypeLabels[archetype] ?? archetype : "";
+}
+
+function targetSeat(playerId: string | null): string {
+  if (!playerId) {
+    return "";
+  }
+  const player = playerById.value.get(playerId);
+  return player ? `${player.seat}号` : playerId;
+}
+
+const toolNameLabels: Record<string, string> = {
+  audit_logic: "逻辑审计",
+  analyze_votes: "票型分析",
+  search_tactics: "战术检索",
+};
+
+function toolNameLabel(name: unknown): string {
+  return typeof name === "string" ? toolNameLabels[name] ?? name : "";
 }
 
 function playerStatus(player: { player_id: string; is_alive: boolean }): string {
@@ -550,7 +581,15 @@ async function copyRoomId(): Promise<void> {
           <div class="roster-heading">
             <span>{{ player.seat }}号</span>
             <strong>{{ player.name }}</strong>
-            <small>{{ player.is_human ? "真人" : "AI" }}</small>
+            <small>
+              {{
+                player.is_human
+                  ? "真人"
+                  : archetypeLabel(player.archetype)
+                    ? `AI · ${archetypeLabel(player.archetype)}`
+                    : "AI"
+              }}
+            </small>
           </div>
           <div class="roster-meta">
             <span>{{ visibleRole(player.player_id) }}</span>
@@ -558,6 +597,66 @@ async function copyRoomId(): Promise<void> {
           </div>
         </article>
       </div>
+    </section>
+
+    <section
+      v-if="showAgentInsights && room.agent_insights.length"
+      class="panel agent-insight-panel"
+      data-testid="agent-insights"
+    >
+      <div class="section-heading">
+        <h2>AI 决策</h2>
+        <span>{{ isSpectator ? "上帝视角" : "赛后复盘" }}</span>
+      </div>
+      <article
+        v-for="agent in room.agent_insights"
+        :key="agent.player_id"
+        class="agent-insight"
+      >
+        <div class="agent-insight-head">
+          <strong>{{ agent.seat }}号 {{ agent.name }}</strong>
+          <span class="chip" :class="'chip-' + agent.archetype">
+            {{ archetypeLabel(agent.archetype) }}
+          </span>
+        </div>
+        <ol
+          v-if="agent.decision_traces.length"
+          class="trace-list"
+        >
+          <li
+            v-for="(trace, index) in [...agent.decision_traces].reverse().slice(0, 5)"
+            :key="index"
+            class="trace-row"
+          >
+            <span class="trace-phase">{{ phaseLabel(trace.phase) }}</span>
+            <span class="trace-action">
+              {{ trace.action }}
+              <template v-if="trace.target_id">
+                → {{ targetSeat(trace.target_id) }}
+              </template>
+            </span>
+            <span
+              v-if="trace.tool_calls.length"
+              class="trace-tools"
+            >
+              <span
+                v-for="(call, callIndex) in trace.tool_calls"
+                :key="callIndex"
+                class="tool-chip"
+              >
+                {{ toolNameLabel(call.name) }}
+              </span>
+            </span>
+            <span
+              v-if="trace.tactic_ids.length"
+              class="trace-tactics"
+            >
+              战术：{{ trace.tactic_ids.join("、") }}
+            </span>
+          </li>
+        </ol>
+        <p v-else class="muted">还没有决策记录。</p>
+      </article>
     </section>
 
     <section class="panel action-panel">

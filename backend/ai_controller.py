@@ -11,7 +11,11 @@ from typing import TYPE_CHECKING, Literal
 from .actions import available_actions_for_state
 from .ai_growth import L1RulePolicy, speech_content
 from .logic_audit import strongest_finding
-from .speech_composer import compose_speech, llm_speech_enabled
+from .speech_composer import (
+    compose_speech,
+    compose_speech_with_tools,
+    llm_speech_enabled,
+)
 from .game_engine import (
     EventType,
     GameState,
@@ -132,6 +136,7 @@ class AIController:
                 step = self.plan_next_step(
                     room.state,
                     policy=room.ai_policy,
+                    agents=getattr(room, "agents", None),
                     now=now,
                     auto_close_vote=True,
                 )
@@ -207,6 +212,7 @@ class AIController:
         state: GameState,
         *,
         policy,
+        agents: dict | None = None,
         now: float | None,
         skip_optional_self_destruct: bool = True,
         auto_close_vote: bool = False,
@@ -276,7 +282,42 @@ class AIController:
             [view.action for view in action_views]
         )
         view = next(view for view in action_views if view.action == action)
-        request = self._build_request(state, actor, view, policy=policy)
+        effective_policy = policy
+        agent = None
+        if agents is not None and not actor.is_human:
+            candidate = agents.get(actor.player_id)
+            if candidate is not None:
+                agent = candidate
+                effective_policy = candidate.policy
+                action = effective_policy.choose_action(
+                    [item.action for item in action_views]
+                )
+                view = next(
+                    item for item in action_views if item.action == action
+                )
+        request, tool_calls = self._build_request_with_tools(
+            state,
+            actor,
+            view,
+            policy=effective_policy,
+        )
+        if agent is not None:
+            tactic_ids = [
+                tactic_id
+                for call in tool_calls
+                if isinstance(call, dict)
+                for tactic_id in call.get("tactic_ids", ())
+            ]
+            agent.record(
+                day=state.day,
+                phase=state.phase.value,
+                action=request.action,
+                target_id=request.target_id,
+                choice=request.choice,
+                strategy_id=effective_policy.strategy_id,
+                tool_calls=tool_calls,
+                tactic_ids=tactic_ids,
+            )
         return AIControllerStep(actor=actor, request=request)
 
     @staticmethod
@@ -470,6 +511,22 @@ class AIController:
         *,
         policy,
     ) -> ActionRequest:
+        request, _ = self._build_request_with_tools(
+            state,
+            actor,
+            view,
+            policy=policy,
+        )
+        return request
+
+    def _build_request_with_tools(
+        self,
+        state: GameState,
+        actor: Player,
+        view: ActionView,
+        *,
+        policy,
+    ) -> tuple[ActionRequest, list[dict]]:
         if isinstance(policy, L1RulePolicy):
             choice = policy.choose_choice(state, actor, view)
             target_id = policy.choose_target(
@@ -478,11 +535,20 @@ class AIController:
                 view,
                 choice=choice,
             )
-            return ActionRequest(
-                action=view.action,
-                target_id=target_id,
-                content=self._speech_content(state, actor, view, policy),
-                choice=choice,
+            content, tool_calls = self._speech_content_with_tools(
+                state,
+                actor,
+                view,
+                policy,
+            )
+            return (
+                ActionRequest(
+                    action=view.action,
+                    target_id=target_id,
+                    content=content,
+                    choice=choice,
+                ),
+                tool_calls,
             )
 
         rng = Random(
@@ -502,23 +568,55 @@ class AIController:
             if view.allow_no_target:
                 candidates.append(None)
             target_id = rng.choice(candidates)
-        content = self._speech_content(state, actor, view, policy)
-        return ActionRequest(
-            action=view.action,
-            target_id=target_id,
-            content=content,
-            choice=choice,
+        content, tool_calls = self._speech_content_with_tools(
+            state,
+            actor,
+            view,
+            policy,
+        )
+        return (
+            ActionRequest(
+                action=view.action,
+                target_id=target_id,
+                content=content,
+                choice=choice,
+            ),
+            tool_calls,
         )
 
     @staticmethod
     def _speech_content(state, actor, view, policy) -> str | None:
+        return AIController._speech_content_with_tools(
+            state,
+            actor,
+            view,
+            policy,
+        )[0]
+
+    @staticmethod
+    def _speech_content_with_tools(
+        state,
+        actor,
+        view,
+        policy,
+    ) -> tuple[str | None, list[dict]]:
+        persona = getattr(policy, "archetype", None)
         if llm_speech_enabled():
-            text = compose_speech(state=state, actor=actor, view=view)
+            text, tool_calls = compose_speech_with_tools(
+                state=state,
+                actor=actor,
+                view=view,
+                persona=persona,
+            )
             if text:
-                return AIController._ensure_logic_catch(state, actor, view, text)
+                return (
+                    AIController._ensure_logic_catch(state, actor, view, text),
+                    tool_calls,
+                )
+            return None, tool_calls
         if isinstance(policy, L1RulePolicy):
-            return policy.choose_content(state, actor, view)
-        return speech_content(state, actor, view)
+            return policy.choose_content(state, actor, view), []
+        return speech_content(state, actor, view), []
 
     @staticmethod
     def _ensure_logic_catch(state, actor, view, text: str) -> str:

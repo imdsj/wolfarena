@@ -62,6 +62,30 @@ class PublicPlayer(ApiModel):
     name: str
     is_human: bool
     is_alive: bool
+    archetype: str | None = None
+
+
+class DecisionTraceView(ApiModel):
+    day: int
+    phase: str
+    action: str
+    target_id: str | None
+    choice: str | None
+    persona: str
+    strategy_id: str
+    rationale: str | None = None
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_event_ids: list[int] = Field(default_factory=list)
+    tactic_ids: list[str] = Field(default_factory=list)
+
+
+class AgentInsight(ApiModel):
+    player_id: str
+    seat: int
+    name: str
+    archetype: str | None
+    current_plan: str | None = None
+    decision_traces: list[DecisionTraceView] = Field(default_factory=list)
 
 
 class PublicEvent(ApiModel):
@@ -121,6 +145,7 @@ class RoomSnapshot(ApiModel):
     announcements: list[str] = Field(default_factory=list)
     last_night_summary: str | None = None
     awaiting_continue: bool = False
+    agent_insights: list[AgentInsight] = Field(default_factory=list)
 
 
 class AvailableSeatsResponse(ApiModel):

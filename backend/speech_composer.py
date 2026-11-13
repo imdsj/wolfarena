@@ -8,11 +8,13 @@ speaker's own role; it never reads another player's hidden identity.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
 import httpx
 
+from .agent_tools import TOOL_DEFINITIONS, execute_tool
 from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
 from .llm_budget import LEDGER
@@ -29,6 +31,7 @@ from .logic_audit import (
 from .rulebook import rules_brief
 from .speech_quality import is_repetitive
 from .strategy_library import StrategyLibrary
+from .personas import persona_guidance
 from .vote_analysis import format_vote_analysis
 
 STRATEGY_ROOT = Path(__file__).resolve().parent.parent / "strategy_library"
@@ -258,27 +261,40 @@ def dead_notice(state: GameState, actor) -> str:
     )
 
 
-def tactics_context(state: GameState, actor) -> str:
-    """Ground the speaker in the curated strategy library for its role/phase."""
+def tactic_query(state: GameState, actor) -> str:
+    """Build a retrieval query exclusively from information visible to actor."""
 
-    try:
-        library = StrategyLibrary(STRATEGY_ROOT)
-        matches = library.search(
-            "",
-            role=actor.role.value,
-            phase=state.phase.value,
-            limit=3,
-        )
-    except Exception:
-        matches = []
+    lines = public_history(state, actor)[-6:]
+    lines.extend(finding.detail for finding in audit(state, actor)[-3:])
+    votes = format_vote_analysis(state, actor)
+    if votes:
+        lines.append(votes)
+    return "\n".join(lines)
+
+
+def tactics_context(state: GameState, actor) -> str:
+    """Retrieve sourced tactics relevant to the actor's current public board."""
+
+    matches = StrategyLibrary(STRATEGY_ROOT).search(
+        tactic_query(state, actor),
+        role=actor.role.value,
+        phase=state.phase.value,
+        limit=3,
+    )
     if not matches:
         return ""
     lines = [
-        f"- {match.card.title}：{match.card.recommendation}"
-        f"（风险：{match.card.risk}）"
+        f"- [{match.card.strategy_id}] {match.card.title}\n"
+        f"  触发：{match.card.trigger}\n"
+        f"  建议：{match.card.recommendation}\n"
+        f"  风险：{match.card.risk}\n"
+        f"  来源：{match.card.source}（{match.card.evidence_level}）"
         for match in matches
     ]
-    return "战术库参考（沉淀自过往经验，供你借鉴，不是强制指令）：\n" + "\n".join(lines)
+    return (
+        "战术库参考（按当前局面检索，供你借鉴，不是强制指令；"
+        "不要在发言中念出策略编号）：\n" + "\n".join(lines)
+    )
 
 
 def _seat_of(state: GameState, player_id: str | None) -> str:
@@ -339,24 +355,75 @@ def speaking_order(state: GameState, actor) -> str:
     return f"发言顺序：{' → '.join(seats)}（你是第 {position} 个）"
 
 
+def _tool_call_summary(name: str, result: dict) -> dict:
+    """A compact, serializable record of one tool call for the decision trace."""
+
+    if name == "audit_logic":
+        return {
+            "name": name,
+            "findings": len(result.get("findings", [])),
+            "strongest": result.get("strongest"),
+        }
+    if name == "analyze_votes":
+        return {
+            "name": name,
+            "summary": (result.get("summary") or "")[:160],
+        }
+    if name == "search_tactics":
+        return {
+            "name": name,
+            "tactic_ids": [
+                tactic.get("strategy_id")
+                for tactic in result.get("tactics", [])
+            ],
+        }
+    return {"name": name}
+
+
 def compose_speech(
     *,
     state: GameState,
     actor,
     view,
     settings: DeepSeekSettings | None = None,
+    persona=None,
 ) -> str | None:
     """Return an LLM speech, or None so the caller falls back to templates."""
+
+    text, _ = compose_speech_with_tools(
+        state=state,
+        actor=actor,
+        view=view,
+        settings=settings,
+        persona=persona,
+    )
+    return text
+
+
+def compose_speech_with_tools(
+    *,
+    state: GameState,
+    actor,
+    view,
+    settings: DeepSeekSettings | None = None,
+    persona=None,
+) -> tuple[str | None, list[dict]]:
+    """LLM speech with an optional whitelisted tool-calling loop.
+
+    The model may call ``audit_logic``, ``analyze_votes`` or ``search_tactics``
+    before writing its sentence. Tool results stay inside the prompt and are
+    returned as a compact trace so the caller can record them.
+    """
 
     if not view.requires_content or view.action not in {
         "speech",
         "last_words",
         "wolf_speech",
     }:
-        return None
+        return None, []
     config = settings or DeepSeekSettings.from_environment()
     if not config.api_key:
-        return None
+        return None, []
 
     role = actor.role.value
     role_label = ROLE_LABELS.get(role, role)
@@ -390,10 +457,11 @@ def compose_speech(
     is_last_words = view.action == "last_words"
     is_wolf_speech = view.action == "wolf_speech"
     death_line = dead_notice(state, actor) if is_last_words else ""
-    tactics_block = ("=== 战术参考 ===\n" + tactics) if tactics else ""
+    tactics_block = ("=== RAG 检索结果 ===\n" + tactics + "\n") if tactics else ""
     history_block = "\n".join(history) if history else "你是第一个发言。"
     own_last = _own_last_speech(state, actor)
     style = _style_for(state, actor)
+    guidance = persona_guidance(persona)
     wolf_plan_block = ""
     if role == "werewolf" and not is_last_words:
         wolf_lines = wolf_history(state, actor)[-8:]
@@ -439,7 +507,8 @@ def compose_speech(
             "那等于承认你掌握了不该知道的信息。"
             "只能从存活玩家里选择刀口，绝不能刀已经出局的玩家。"
             f"你的说话风格：{style}。保持风格，但不要复述队友已经说过的话。"
-            "只输出一句到两句中文，80 字以内。\n" + rules_brief()
+            + guidance
+            + "只输出一句到两句中文，80 字以内。\n" + rules_brief()
         )
         user = (
             f"第 {state.day} 天夜晚，狼队讨论环节。\n"
@@ -450,67 +519,75 @@ def compose_speech(
             f"=== 最近的狼队频道发言 ===\n{wolf_history_block}\n"
             f"{audit_block}"
             f"{vote_block}"
+            f"{tactics_block}"
             f"请以 {actor.seat} 号的身份回应队友，给出你的建议。"
         )
     else:
         system = (
-        f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
-        f"{ROLE_PERSONA.get(role, '')}"
-        "发言要求：必须回应或评价在场其他玩家的发言，不能自说自话；"
-        "可以引用座位号和别人的原话；不要承认自己是 AI。"
-        "死亡信息只以【本轮公开信息】里的昨晚结果为准，绝对不能编造谁死了、谁被票了。"
-        "场上存活/出局名单也必须以【本轮公开信息】为准，绝不能把活人说成死人。"
-        "已出局的人不能再被票、被刀、被验；不要号召票死人。"
-        "不能刚说某人是金水/好人，又要票他。"
-        "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
-        "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
-        "只输出一句到两句中文发言，90 字以内。"
-        + ("你现在已经出局，只能留遗言。" if is_last_words else "")
-        + f"你的说话风格：{style}。保持风格，但逻辑优先。"
-        + "\n" + rules_brief()
+            f"你在 WolfArena 九人狼人杀中扮演 {actor.seat} 号，真实身份是{role_label}。"
+            f"{ROLE_PERSONA.get(role, '')}"
+            "发言要求：必须回应或评价在场其他玩家的发言，不能自说自话；"
+            "可以引用座位号和别人的原话；不要承认自己是 AI。"
+            "死亡信息只以【本轮公开信息】里的昨晚结果为准，绝对不能编造谁死了、谁被票了。"
+            "场上存活/出局名单也必须以【本轮公开信息】为准，绝不能把活人说成死人。"
+            "已出局的人不能再被票、被刀、被验；不要号召票死人。"
+            "不能刚说某人是金水/好人，又要票他。"
+            "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
+            "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
+            "只输出一句到两句中文发言，90 字以内。"
+            + ("你现在已经出局，只能留遗言。" if is_last_words else "")
+            + f"你的说话风格：{style}。保持风格，但逻辑优先。"
+            + guidance
+            + "\n" + rules_brief()
         )
         user = (
-        f"现在是第 {state.day} 天的{'遗言' if is_last_words else '白天发言'}环节。"
-        f"{order_info}\n"
-        f"{death_line}"
-        f"=== 你的私密信息 ===\n{private_info}\n\n"
-        f"=== 本局事件 ===\n{timeline or '暂无'}\n\n"
-        f"{audit_block}"
-        f"{vote_block}"
-        f"=== 本轮公开信息 ===\n"
-        f"- 昨晚结果：{public_result}\n"
-        f"- 存活玩家：{'、'.join(roster)}\n"
-        f"{dead_block}"
-        f"=== 你上一轮说过 ===\n{own_last or '无（这是你第一次发言）'}\n"
-        "本轮必须给出新的判断、质疑或票型分析，禁止复述上一轮或别人说过的话。\n"
-        f"- 已发言：{'、'.join(sorted(spoken_seats)) or '无'}\n"
-        f"- {unspoken_block}\n"
-        f"- 今日发言：\n"
-        + history_block
-        + "\n"
-        + wolf_plan_block
-        + tactics_block
-        + f"请以 {actor.seat} 号的身份发表本轮发言。"
+            f"现在是第 {state.day} 天的{'遗言' if is_last_words else '白天发言'}环节。"
+            f"{order_info}\n"
+            f"{death_line}"
+            f"=== 你的私密信息 ===\n{private_info}\n\n"
+            f"=== 本局事件 ===\n{timeline or '暂无'}\n\n"
+            f"{audit_block}"
+            f"{vote_block}"
+            f"=== 本轮公开信息 ===\n"
+            f"- 昨晚结果：{public_result}\n"
+            f"- 存活玩家：{'、'.join(roster)}\n"
+            f"{dead_block}"
+            f"=== 你上一轮说过 ===\n{own_last or '无（这是你第一次发言）'}\n"
+            "本轮必须给出新的判断、质疑或票型分析，禁止复述上一轮或别人说过的话。\n"
+            f"- 已发言：{'、'.join(sorted(spoken_seats)) or '无'}\n"
+            f"- {unspoken_block}\n"
+            f"- 今日发言：\n"
+            + history_block
+            + "\n"
+            + wolf_plan_block
+            + tactics_block
+            + f"请以 {actor.seat} 号的身份发表本轮发言。"
         )
+
+    messages: list[dict] = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    tool_calls_summary: list[dict] = []
+    content: str | None = None
     try:
         with httpx.Client(timeout=8.0) as client:
+            request_body = {
+                "model": config.model,
+                "messages": messages,
+                "temperature": 0.8,
+                "presence_penalty": 0.6,
+                "frequency_penalty": 0.4,
+                "max_tokens": 180,
+                "tools": TOOL_DEFINITIONS,
+            }
             response = client.post(
                 f"{config.base_url}/chat/completions",
                 headers={
                     "Authorization": f"Bearer {config.api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": config.model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "temperature": 0.8,
-                    "presence_penalty": 0.6,
-                    "frequency_penalty": 0.4,
-                    "max_tokens": 180,
-                },
+                json=request_body,
             )
             response.raise_for_status()
             body = response.json()
@@ -519,14 +596,78 @@ def compose_speech(
                 usage=body.get("usage"),
                 prompt_chars=len(system) + len(user),
                 completion_chars=len(
-                    str(body["choices"][0]["message"]["content"])
+                    str(body["choices"][0]["message"].get("content") or "")
                 ),
             )
-            content = body["choices"][0]["message"]["content"]
+            message = body["choices"][0]["message"]
+            content = message.get("content")
+            tool_calls = message.get("tool_calls") or []
+            if tool_calls:
+                messages.append(message)
+                for call in tool_calls:
+                    function = call.get("function") or {}
+                    name = function.get("name", "")
+                    arguments_text = function.get("arguments") or "{}"
+                    try:
+                        arguments = json.loads(arguments_text)
+                    except (json.JSONDecodeError, TypeError):
+                        arguments = {}
+                    try:
+                        result = execute_tool(name, arguments, state, actor)
+                        tool_calls_summary.append(
+                            _tool_call_summary(name, result)
+                        )
+                    except Exception as error:
+                        result = {"error": str(error)}
+                        tool_calls_summary.append(
+                            {"name": name, "error": str(error)}
+                        )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.get("id"),
+                            "content": json.dumps(result, ensure_ascii=False),
+                        }
+                    )
+                second_response = client.post(
+                    f"{config.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {config.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": config.model,
+                        "messages": messages,
+                        "temperature": 0.8,
+                        "max_tokens": 180,
+                    },
+                )
+                second_response.raise_for_status()
+                second_body = second_response.json()
+                LEDGER.record(
+                    source="speech",
+                    usage=second_body.get("usage"),
+                    prompt_chars=sum(
+                        len(str(item.get("content") or ""))
+                        for item in messages
+                    ),
+                    completion_chars=len(
+                        str(
+                            second_body["choices"][0]["message"].get(
+                                "content"
+                            )
+                            or ""
+                        )
+                    ),
+                )
+                content = second_body["choices"][0]["message"].get("content")
     except Exception:
         LEDGER.record_failure()
-        return None
-    cleaned = " ".join(str(content).split())[:140]
+        return None, tool_calls_summary
+
+    cleaned = " ".join(str(content).split())[:140] if content else ""
+    if not cleaned:
+        return None, tool_calls_summary
     try:
         unspoken_seats = {int(seat) for seat in unspoken}
     except ValueError:
@@ -553,5 +694,5 @@ def compose_speech(
     ):
         # The model leaked information a player could not have. Drop the
         # sentence and let the deterministic template speak instead.
-        return None
-    return cleaned or None
+        return None, tool_calls_summary
+    return cleaned, tool_calls_summary

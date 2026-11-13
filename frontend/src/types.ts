@@ -29,6 +29,7 @@ export interface PublicPlayer {
   name: string;
   is_human: boolean;
   is_alive: boolean;
+  archetype: string | null;
 }
 
 export interface GameEvent {
@@ -50,6 +51,29 @@ export interface AvailableAction {
   requires_content: boolean;
   requires_target: boolean;
   allow_no_target: boolean;
+}
+
+export interface DecisionTraceView {
+  day: number;
+  phase: string;
+  action: string;
+  target_id: string | null;
+  choice: string | null;
+  persona: string;
+  strategy_id: string;
+  rationale: string | null;
+  tool_calls: Array<Record<string, unknown>>;
+  evidence_event_ids: number[];
+  tactic_ids: string[];
+}
+
+export interface AgentInsight {
+  player_id: string;
+  seat: number;
+  name: string;
+  archetype: string | null;
+  current_plan: string | null;
+  decision_traces: DecisionTraceView[];
 }
 
 export interface ActionSubmission {
@@ -78,6 +102,7 @@ export interface RoomSnapshot {
   announcements: string[];
   last_night_summary: string | null;
   awaiting_continue: boolean;
+  agent_insights: AgentInsight[];
 }
 
 export interface RoomSessionResponse {

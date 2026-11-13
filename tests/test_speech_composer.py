@@ -21,6 +21,7 @@ from backend.speech_composer import (
     llm_speech_enabled,
     private_context,
     public_history,
+    tactic_query,
     tactics_context,
 )
 
@@ -109,6 +110,77 @@ class SpeechComposerTests(TestCase):
         context = tactics_context(state, seer)
         self.assertIn("战术库参考", context)
         self.assertIn("预言家", context)
+        self.assertIn("来源：", context)
+
+    def test_tactic_query_uses_public_board_but_not_wolf_chat(self) -> None:
+        state = create_game(seed=330, human_count=0)
+        villager = next(
+            player for player in state.players if player.role is Role.VILLAGER
+        )
+        wolf = next(
+            player for player in state.players if player.role is Role.WEREWOLF
+        )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id="p1",
+            visibility=Visibility.PUBLIC,
+            data={"content": "我关注连续同票"},
+        )
+        append_event(
+            state,
+            EventType.WOLF_SPEECH,
+            actor_id=wolf.player_id,
+            visibility=Visibility.WOLVES,
+            data={"content": "狼队秘密刀口"},
+        )
+        for day, target_id in ((1, "p3"), (2, "p5")):
+            state.day = day
+            append_event(
+                state,
+                EventType.VOTE_RESULT,
+                visibility=Visibility.PUBLIC,
+                data={
+                    "votes": {
+                        "p1": target_id,
+                        "p2": target_id,
+                        "p3": "p1",
+                    }
+                },
+            )
+
+        query = tactic_query(state, villager)
+
+        self.assertIn("我关注连续同票", query)
+        self.assertIn("1号与2号连续2天同票", query)
+        self.assertNotIn("狼队秘密刀口", query)
+
+    def test_tactics_context_retrieves_vote_tactic_for_current_board(self) -> None:
+        state = create_game(seed=330, human_count=0)
+        state.phase = Phase.DAY_DISCUSSION
+        villager = next(
+            player for player in state.players if player.role is Role.VILLAGER
+        )
+        for day, target_id in ((1, "p3"), (2, "p5")):
+            state.day = day
+            append_event(
+                state,
+                EventType.VOTE_RESULT,
+                visibility=Visibility.PUBLIC,
+                data={
+                    "votes": {
+                        "p1": target_id,
+                        "p2": target_id,
+                        "p3": "p1",
+                    }
+                },
+            )
+
+        context = tactics_context(state, villager)
+
+        self.assertIn("good.read-vote-blocs", context)
+        self.assertIn("已经出现至少两天的公开票型", context)
+        self.assertIn("WolfArena 2026-11-09 复盘", context)
 
     def test_speaking_order_ignores_night_death_speaker(self) -> None:
         state = create_game(seed=5, human_count=0)
