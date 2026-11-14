@@ -44,6 +44,7 @@ from .strategy_admin import (
     rollback,
     submit_candidate,
 )
+from .strategy_learning import learn_one_game, learning_history
 from .training import (
     TrainingToolError,
     rollout_faction_win_rates,
@@ -81,6 +82,7 @@ from .schemas import (
     StrategyRollbackRequest,
     StrategySearchRequest,
     StrategySubmitRequest,
+    StrategyLearnRequest,
 )
 
 
@@ -291,6 +293,20 @@ def create_app(
     def strategy_library_index():
         return list_library(strategy_root=resolved_strategy_root)
 
+    @application.get("/api/strategy/growth")
+    def strategy_growth():
+        return {"receipts": learning_history()}
+
+    @application.post("/api/strategy/learn")
+    def strategy_learn(payload: StrategyLearnRequest):
+        try:
+            return learn_one_game(
+                payload.seed,
+                strategy_root=resolved_strategy_root,
+            )
+        except (ValueError, StrategyError) as error:
+            raise _error(422, "LEARNING_REJECTED", str(error)) from error
+
     @application.post(
         "/api/strategy/candidates",
         status_code=status.HTTP_201_CREATED,
@@ -386,6 +402,33 @@ def create_app(
     @application.post("/api/review/screenshot")
     def screenshot_review(payload: ScreenshotReviewRequest):
         return review_transcript(payload.lines, day=payload.day)
+
+    @application.post("/api/rooms/{room_id}/win-rate/{event_seq}")
+    def room_win_rate(
+        room_id: str,
+        event_seq: int,
+        spectator_password: str | None = Header(
+            default=None,
+            alias="X-Spectator-Password",
+        ),
+    ):
+        try:
+            session = room_repository.authenticate_spectator(
+                room_id,
+                spectator_password or "",
+            )
+            return room_repository.win_rate_prediction(
+                session.access,
+                event_seq,
+            )
+        except RoomNotFoundError as error:
+            raise _error(404, "ROOM_NOT_FOUND", str(error)) from error
+        except InvalidSpectatorPasswordError as error:
+            raise _error(401, "INVALID_SPECTATOR", str(error)) from error
+        except RoomPermissionError as error:
+            raise _error(403, "WIN_RATE_FORBIDDEN", str(error)) from error
+        except ValueError as error:
+            raise _error(422, "WIN_RATE_EVENT_INVALID", str(error)) from error
 
     @application.post("/api/rooms/{room_id}/chat")
     async def room_chat(

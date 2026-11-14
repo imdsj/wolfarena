@@ -629,6 +629,7 @@ onBeforeUnmount(() => {
       :room="room"
       :events="events"
       :spectator-password="session.spectatorPassword"
+      :spectator-access-password="session.kind === 'spectator' ? session.accessPassword : session.spectatorPassword"
       :connection-state="connectionState"
       :busy="busy"
       :ai-notice="aiNotice"

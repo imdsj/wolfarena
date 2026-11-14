@@ -235,6 +235,7 @@ def simulate_game(
     max_action_steps: int,
     max_days: int,
     allow_self_destruct: bool = True,
+    allow_llm_speech: bool = False,
     policy: Any | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Run one game through the shared action layer and return auditable logs."""
@@ -243,7 +244,7 @@ def simulate_game(
     if policy is None:
         policy = _policy_for(policy_name, seed=seed)
     state = create_game(seed=seed, human_count=0)
-    controller = AIController(None)
+    controller = AIController(None, allow_llm_speech=allow_llm_speech)
     actions: list[dict[str, Any]] = []
     started_at = perf_counter()
     current_time = 1_000.0

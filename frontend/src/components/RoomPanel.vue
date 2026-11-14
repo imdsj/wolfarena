@@ -10,11 +10,13 @@ import ActionForm from "./ActionForm.vue";
 import AgentInsightPanel from "./AgentInsightPanel.vue";
 import ConnectionStatus from "./ConnectionStatus.vue";
 import GameResultPanel from "./GameResultPanel.vue";
+import WinRatePanel from "./WinRatePanel.vue";
 
 const props = defineProps<{
   room: RoomSnapshot;
   events: GameEvent[];
   spectatorPassword: string;
+  spectatorAccessPassword: string;
   connectionState:
     | "idle"
     | "connecting"
@@ -594,6 +596,14 @@ function openStrategyLab(): void {
         </article>
       </div>
     </section>
+
+    <WinRatePanel
+      v-if="isSpectator"
+      :room-id="room.room_id"
+      :timeline="room.win_rate_timeline"
+      :predictions="room.win_rate_predictions"
+      :access-password="spectatorAccessPassword"
+    />
 
     <AgentInsightPanel
       v-if="showAgentInsights && room.agent_insights.length"

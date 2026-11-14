@@ -29,6 +29,7 @@ class DecisionTrace:
     tool_calls: list[dict] = field(default_factory=list)
     evidence_event_ids: list[int] = field(default_factory=list)
     tactic_ids: list[str] = field(default_factory=list)
+    content: str | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -43,6 +44,7 @@ class DecisionTrace:
             "tool_calls": list(self.tool_calls),
             "evidence_event_ids": list(self.evidence_event_ids),
             "tactic_ids": list(self.tactic_ids),
+            "content": self.content,
         }
 
 
@@ -69,7 +71,28 @@ class PlayerAgent:
         tool_calls: list[dict] | None = None,
         evidence_event_ids: list[int] | None = None,
         tactic_ids: list[str] | None = None,
+        content: str | None = None,
     ) -> None:
+        tools = [
+            str(call.get("name"))
+            for call in (tool_calls or ())
+            if isinstance(call, dict) and call.get("name")
+        ]
+        basis: list[str] = []
+        if tools:
+            basis.append("调用工具 " + "、".join(tools))
+        if tactic_ids:
+            basis.append("命中战术 " + "、".join(tactic_ids))
+        if not basis:
+            basis.append(f"按{self.persona.value}人格规则评估合法动作")
+        rationale = "；".join(basis)
+        if content:
+            rationale += "；已形成具体发言/分工"
+        self.current_plan = (
+            f"第{day}天 {phase}：{rationale}，"
+            f"拟执行 {action}"
+            + (f" → {target_id}" if target_id else "")
+        )
         self.decision_traces.append(
             DecisionTrace(
                 day=day,
@@ -83,6 +106,7 @@ class PlayerAgent:
                 tool_calls=list(tool_calls or ()),
                 evidence_event_ids=list(evidence_event_ids or ()),
                 tactic_ids=list(tactic_ids or ()),
+                content=content,
             )
         )
 

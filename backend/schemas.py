@@ -77,6 +77,7 @@ class DecisionTraceView(ApiModel):
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     evidence_event_ids: list[int] = Field(default_factory=list)
     tactic_ids: list[str] = Field(default_factory=list)
+    content: str | None = None
 
 
 class AgentInsight(ApiModel):
@@ -86,6 +87,30 @@ class AgentInsight(ApiModel):
     archetype: str | None
     current_plan: str | None = None
     decision_traces: list[DecisionTraceView] = Field(default_factory=list)
+
+
+class WinRatePoint(ApiModel):
+    event_seq: int
+    day: int
+    phase: str
+    event_type: str
+    label: str
+    good: float
+    wolf: float
+    delta: float
+    drivers: list[str] = Field(default_factory=list)
+    actor_seat: int | None = None
+    target_seat: int | None = None
+
+
+class WinRatePrediction(WinRatePoint):
+    baseline_good: float
+    llm_good: float | None = None
+    source: str
+    model: str | None = None
+    reason: str
+    transcript_sha256: str
+    created_at: str
 
 
 class PublicEvent(ApiModel):
@@ -146,6 +171,8 @@ class RoomSnapshot(ApiModel):
     last_night_summary: str | None = None
     awaiting_continue: bool = False
     agent_insights: list[AgentInsight] = Field(default_factory=list)
+    win_rate_timeline: list[WinRatePoint] = Field(default_factory=list)
+    win_rate_predictions: list[WinRatePrediction] = Field(default_factory=list)
 
 
 class AvailableSeatsResponse(ApiModel):
@@ -181,6 +208,10 @@ class StrategySubmitRequest(ApiModel):
 class StrategyEvaluateRequest(ApiModel):
     seed_start: int = Field(default=7000, ge=0)
     games: int = Field(default=200, ge=200, le=2000)
+
+
+class StrategyLearnRequest(ApiModel):
+    seed: int = Field(ge=0, le=2_000_000_000)
 
 
 class StrategyApproveRequest(ApiModel):

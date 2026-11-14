@@ -59,6 +59,16 @@ class DirectivePolicy(L1RulePolicy):
             and card.phase in {"ANY", state.phase.value}
         ]
 
+    def applied_tactic_ids(self, state, actor, view) -> list[str]:
+        """Cards whose directive can actually decide this legal action."""
+
+        applied: list[str] = []
+        for card in self._matching(state, actor, view.action):
+            decision = apply_directive(card.directive, state, actor, view)
+            if decision is not None:
+                applied.append(card.strategy_id)
+        return applied
+
     def choose_choice(self, state, actor, view) -> str | None:
         for card in self._matching(state, actor, view.action):
             decision = apply_directive(card.directive, state, actor, view)

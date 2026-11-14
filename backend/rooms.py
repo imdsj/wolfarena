@@ -20,6 +20,7 @@ from .ai_controller import AIController, AIControllerResult
 from .ai_growth import L1RulePolicy
 from .player_agent import PlayerAgent, build_agents
 from .tactic_policy import DirectivePolicy, load_validated_directives
+from .win_probability import baseline_timeline, predict_win_rate
 from .game_engine import (
     Event,
     EventType,
@@ -191,6 +192,7 @@ class Room:
     lock: RLock = field(default_factory=RLock, repr=False)
     ai_policy: L1RulePolicy = field(init=False, repr=False)
     agents: dict[str, PlayerAgent] = field(init=False, repr=False)
+    win_rate_predictions: dict[int, dict] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         try:
@@ -413,6 +415,26 @@ class InMemoryRoomRepository:
                 player_id=player.player_id,
             )
             return self.snapshot_for_access(room, access)
+
+    def win_rate_prediction(
+        self,
+        access: ViewerAccess,
+        event_seq: int,
+    ) -> dict:
+        """Return a cached public-information prediction for a spectator."""
+
+        if access.kind != "spectator":
+            raise RoomPermissionError("胜率预测只在上帝视角开放")
+        room = self._get_room(access.room_id)
+        with room.lock:
+            cached = room.win_rate_predictions.get(event_seq)
+            if cached is not None:
+                return deepcopy(cached)
+            state = deepcopy(room.state)
+        prediction = predict_win_rate(state, event_seq)
+        with room.lock:
+            room.win_rate_predictions[event_seq] = prediction
+            return deepcopy(prediction)
 
     def available_seats(self, room_id: str) -> list[int]:
         room = self._get_room(room_id)
@@ -1091,6 +1113,19 @@ class InMemoryRoomRepository:
                     )
                 ),
                 agent_insights=agent_insights,
+                win_rate_timeline=(
+                    baseline_timeline(room.state)
+                    if access.kind == "spectator"
+                    else []
+                ),
+                win_rate_predictions=(
+                    [
+                        deepcopy(room.win_rate_predictions[key])
+                        for key in sorted(room.win_rate_predictions)
+                    ]
+                    if access.kind == "spectator"
+                    else []
+                ),
             )
 
     @staticmethod

@@ -85,11 +85,18 @@ class AIControllerStep:
 class AIController:
     """Advance local AI and system phases without bypassing action validation."""
 
-    def __init__(self, repository, *, max_steps: int = 300) -> None:
+    def __init__(
+        self,
+        repository,
+        *,
+        max_steps: int = 300,
+        allow_llm_speech: bool = True,
+    ) -> None:
         if max_steps <= 0:
             raise ValueError("max_steps 必须大于 0")
         self._repository = repository
         self._max_steps = max_steps
+        self._allow_llm_speech = allow_llm_speech
 
     def advance(
         self,
@@ -296,12 +303,25 @@ class AIController:
             policy=effective_policy,
         )
         if agent is not None:
+            applied_tactics = getattr(
+                effective_policy,
+                "applied_tactic_ids",
+                None,
+            )
+            directive_tactic_ids = (
+                applied_tactics(state, actor, view)
+                if callable(applied_tactics)
+                else []
+            )
             tactic_ids = [
                 tactic_id
                 for call in tool_calls
                 if isinstance(call, dict)
                 for tactic_id in call.get("tactic_ids", ())
             ]
+            tactic_ids = list(
+                dict.fromkeys([*directive_tactic_ids, *tactic_ids])
+            )
             agent.record(
                 day=state.day,
                 phase=state.phase.value,
@@ -311,6 +331,7 @@ class AIController:
                 strategy_id=effective_policy.strategy_id,
                 tool_calls=tool_calls,
                 tactic_ids=tactic_ids,
+                content=request.content,
             )
         return AIControllerStep(actor=actor, request=request)
 
@@ -529,6 +550,7 @@ class AIController:
                 actor,
                 view,
                 policy,
+                allow_llm=self._allow_llm_speech,
             )
             return (
                 ActionRequest(
@@ -562,6 +584,7 @@ class AIController:
             actor,
             view,
             policy,
+            allow_llm=self._allow_llm_speech,
         )
         return (
             ActionRequest(
@@ -588,12 +611,13 @@ class AIController:
         actor,
         view,
         policy,
+        allow_llm: bool = True,
     ) -> tuple[str | None, list[dict]]:
         persona = getattr(policy, "archetype", None)
         tool_calls: list[dict] = []
         # Public day speech and night wolf-channel planning both use the LLM
         # when enabled; the deterministic template is only the fallback.
-        if llm_speech_enabled():
+        if allow_llm and llm_speech_enabled():
             text, tool_calls = compose_speech_with_tools(
                 state=state,
                 actor=actor,

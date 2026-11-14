@@ -63,6 +63,18 @@ _KILL_KNOWLEDGE = re.compile(
 _CALL_TO_VOTE = re.compile(
     r"(?:归票|票|投|抗推|放逐)\s*(\d{1,2})\s*号?"
 )
+_SELF_COUNTERCLAIM = re.compile(
+    r"(?:我|本人)\s*(?:是|就是|在|来|要|负责|选择|准备)?\s*"
+    r"(?:悍跳|焊跳|对跳)(?:预言家)?"
+    r"|(?:我|本人)\s*(?:是|就是)\s*(?:狼人|狼|假预言家|假的预言家)"
+)
+_SPOKEN_DENIAL = re.compile(
+    r"(?<!\d)(\d{1,2})\s*号\s*"
+    r"(?:还|也|都)?\s*"
+    r"(?:没|没有|尚未|还未|未)\s*"
+    r"(?:开口|发言|说话|表态)"
+    r"|(?<!\d)(\d{1,2})\s*号\s*(?:的)?\s*发言前"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -123,6 +135,7 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
     alive_seats = {player.seat for player in players if player.is_alive}
     dead_seats = seat_set - alive_seats
     spoken: set[int] = set()
+    spoken_by_day: dict[int, set[int]] = {}
     claims: dict[int, set[str]] = {}
     seer_checks: dict[int, set[int]] = {}
     findings: list[Finding] = []
@@ -155,6 +168,43 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
             continue
         content = event.data.get("content")
         if isinstance(content, str) and content:
+            current_day_spoken = spoken_by_day.setdefault(int(event.day), set())
+            if admits_deception(content):
+                key = ("self_counterclaim", speaker, speaker)
+                if key not in seen:
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="self_counterclaim",
+                            speaker_seat=speaker,
+                            subject_seat=speaker,
+                            detail=(
+                                f"{speaker}号公开发言自认悍跳或伪装身份，"
+                                "等于主动承认自己不是真预言家"
+                            ),
+                            weight=5,
+                        )
+                    )
+
+            denied_seat = spoken_denial(content, current_day_spoken)
+            if denied_seat is not None:
+                key = ("spoken_denial", speaker, denied_seat)
+                if key not in seen:
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="spoken_denial",
+                            speaker_seat=speaker,
+                            subject_seat=denied_seat,
+                            detail=(
+                                f"{speaker}号说{denied_seat}号还没发言，"
+                                f"但{denied_seat}号今天已经公开发言，"
+                                "与发言记录直接矛盾"
+                            ),
+                            weight=4,
+                        )
+                    )
+
             # A speaker who claims two different god roles is contradicting
             # themselves, whatever their real role is.
             for match in _SELF_CLAIM.finditer(content):
@@ -355,6 +405,7 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                     )
                     break
         spoken.add(speaker)
+        spoken_by_day.setdefault(int(event.day), set()).add(speaker)
 
     return tuple(findings)
 
@@ -366,12 +417,33 @@ def suspect_scores(findings: tuple[Finding, ...]) -> Counter:
     for finding in findings:
         if finding.kind in {
             "impossible_identity",
+            "self_counterclaim",
+            "spoken_denial",
             "role_flip",
             "impossible_seer_checks",
             "one_night_two_checks",
         }:
             scores[finding.speaker_seat] += finding.weight
     return scores
+
+
+def admits_deception(text: str) -> bool:
+    """True when a public speaker openly admits counter-claiming or being a wolf."""
+
+    return isinstance(text, str) and bool(_SELF_COUNTERCLAIM.search(text))
+
+
+def spoken_denial(text: str, spoken_seats: set[int]) -> int | None:
+    """Return the seat falsely described as silent, if one is present."""
+
+    if not isinstance(text, str) or not text:
+        return None
+    for match in _SPOKEN_DENIAL.finditer(text):
+        raw_seat = match.group(1) or match.group(2)
+        seat = int(raw_seat)
+        if seat in spoken_seats:
+            return seat
+    return None
 
 
 def findings_summary(state: GameState, viewer: Player) -> dict[str, int]:

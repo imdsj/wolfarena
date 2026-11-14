@@ -62,6 +62,7 @@ def _card_summary(card: StrategyCard) -> dict[str, Any]:
         "samples": card.samples,
         "win_rate": card.win_rate,
         "evaluation": card.evaluation,
+        "tags": list(card.tags),
     }
 
 

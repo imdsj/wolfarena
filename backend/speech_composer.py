@@ -19,6 +19,7 @@ from .ai_provider import DeepSeekSettings
 from .game_engine import EventType, GameState, Role, get_visible_events
 from .llm_budget import LEDGER
 from .logic_audit import (
+    admits_deception,
     asserts_unspoken_identity,
     audit,
     claims_kill_target_knowledge,
@@ -26,6 +27,7 @@ from .logic_audit import (
     dead_vote_targets,
     impossible_seer_claim_in_text,
     mentions_two_nights_on_day_one,
+    spoken_denial,
     speech_claims_living_dead,
     wolf_speech_targets_dead,
 )
@@ -543,6 +545,9 @@ def compose_speech_with_tools(
             "不能刚说某人是金水/好人，又要票他。"
             "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
             "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
+            "“悍跳”“对跳”只是狼队内部术语，公开发言时你只能以真预言家自居，"
+            "绝不能说“我悍跳”“我在对跳”“我是假预言家”或承认自己是狼人；"
+            "已经发言的座位以【已发言】名单为准，绝不能说他们还没开口或还没发言。"
             "只输出一句到两句中文发言，90 字以内。"
             + ("你现在已经出局，只能留遗言。" if is_last_words else "")
             + f"你的说话风格：{style}。保持风格，但逻辑优先。"
@@ -679,8 +684,10 @@ def compose_speech_with_tools(
         return None, tool_calls_summary
     try:
         unspoken_seats = {int(seat) for seat in unspoken}
+        spoken_seat_numbers = {int(seat) for seat in spoken_seats}
     except ValueError:
         unspoken_seats = set()
+        spoken_seat_numbers = set()
     alive_seats = {player.seat for player in state.players if player.is_alive}
     dead_seats = {
         player.seat for player in state.players if not player.is_alive
@@ -696,6 +703,14 @@ def compose_speech_with_tools(
         or is_repetitive(cleaned, prior_texts)
         or impossible_seer_claim_in_text(cleaned, state.day)
         or mentions_two_nights_on_day_one(cleaned, state.day)
+        or (
+            view.action in {"speech", "last_words"}
+            and admits_deception(cleaned)
+        )
+        or (
+            view.action == "speech"
+            and spoken_denial(cleaned, spoken_seat_numbers) is not None
+        )
         or (
             actor.role is Role.WEREWOLF
             and wolf_speech_targets_dead(cleaned, dead_seats)

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 
 import type {
+  LearningReceipt,
+  LearningResult,
   StrategyCardSummary,
   StrategyEvaluation,
   StrategyLibraryView,
@@ -15,6 +17,10 @@ const errorMessage = ref("");
 const notice = ref("");
 const lastEvaluation = ref<StrategyEvaluation | null>(null);
 const showForm = ref(false);
+const learning = ref(false);
+const learningSeed = ref(20261114);
+const learningResult = ref<LearningResult | null>(null);
+const receipts = ref<LearningReceipt[]>([]);
 
 const reviewerName = ref("");
 const reviewerToken = ref("");
@@ -83,6 +89,16 @@ const decisionLabels: Record<string, string> = {
   human_review: "待人工审批",
 };
 
+const recentCandidates = computed(() =>
+  [...(library.value?.candidates ?? [])]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 10),
+);
+
+const aiValidatedCount = computed(
+  () => library.value?.validated.filter((card) => card.created_by === "ai").length ?? 0,
+);
+
 function roleLabel(role: string): string {
   return roleLabels[role] ?? role;
 }
@@ -127,6 +143,56 @@ async function loadLibrary(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+async function loadGrowth(): Promise<void> {
+  try {
+    const result = await requestJson<{ receipts: LearningReceipt[] }>(
+      "/api/strategy/growth",
+    );
+    receipts.value = result.receipts;
+  } catch {
+    receipts.value = [];
+  }
+}
+
+async function runLearning(): Promise<void> {
+  learning.value = true;
+  errorMessage.value = "";
+  notice.value = "";
+  learningResult.value = null;
+  try {
+    const result = await requestJson<LearningResult>("/api/strategy/learn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed: learningSeed.value }),
+    });
+    learningResult.value = result;
+    notice.value = `真实自对弈 seed=${result.receipt.seed} 已完成，AI 复盘候选已入库。`;
+    learningSeed.value += 1;
+    await Promise.all([loadLibrary(), loadGrowth()]);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : "AI 学习失败";
+  } finally {
+    learning.value = false;
+  }
+}
+
+function generationLabel(card: StrategyCardSummary): string {
+  if (card.tags.includes("generation:deepseek")) return "DeepSeek 复盘生成";
+  if (card.tags.includes("generation:rule_fallback")) return "规则复盘兜底";
+  return card.created_by === "ai" ? "AI 历史复盘" : "人工提交";
+}
+
+function evaluationText(card: StrategyCardSummary): string {
+  const evaluation = card.evaluation;
+  if (!evaluation) return "尚未评测";
+  const sample = Number(evaluation.sample_size ?? 0);
+  const delta = evaluation.delta_good_win_rate;
+  const reviewer = String(evaluation.reviewer ?? "未记录");
+  const skipped = evaluation.baseline_run_id === "skipped";
+  if (skipped) return `人工直接通过 · ${reviewer} · 未评测`;
+  return `${sample} 局 · Δ ${typeof delta === "number" ? delta : "未记录"} · ${reviewer}`;
 }
 
 function reviewerHeaders(): Record<string, string> {
@@ -279,17 +345,88 @@ function cardEvaluation(card: StrategyCardSummary): Record<string, unknown> | nu
   return card.evaluation;
 }
 
-onMounted(loadLibrary);
+onMounted(() => {
+  void loadLibrary();
+  void loadGrowth();
+});
 </script>
 
 <template>
   <section class="panel strategy-lab" data-testid="strategy-lab">
     <div class="section-heading">
       <h2>策略实验室</h2>
-      <span>
-        候选 / 已验证 / 已拒绝 · 提交 → 200 局评测 → 审批
-      </span>
+      <span>AI 对局 → 自主复盘 → 200 局验证 → 正式上场</span>
     </div>
+
+    <section class="growth-hero">
+      <div class="growth-title">
+        <div>
+          <div class="eyebrow">AI STRATEGY EVOLUTION</div>
+          <h3>策略不是提示词写死的，是从对局里学出来的</h3>
+        </div>
+        <strong>{{ aiValidatedCount }} 条 AI 策略正在上场</strong>
+      </div>
+      <ol class="growth-pipeline">
+        <li><b>01</b><span>真实自对弈</span><small>固定 seed，全程留日志</small></li>
+        <li><b>02</b><span>AI 自主复盘</span><small>生成新的候选战术卡</small></li>
+        <li><b>03</b><span>200 局对照</span><small>同 seed + McNemar 检验</small></li>
+        <li><b>04</b><span>审批并上场</span><small>检索、决策轨迹可追踪</small></li>
+      </ol>
+      <div class="learning-controls">
+        <label>
+          <span>自对弈 seed</span>
+          <input v-model.number="learningSeed" type="number" min="0" :disabled="learning" />
+        </label>
+        <button class="primary-button" type="button" :disabled="learning" @click="runLearning">
+          {{ learning ? "AI 正在对局并复盘…" : "跑 1 局，让 AI 生成新策略" }}
+        </button>
+      </div>
+      <p class="muted">
+        按钮触发真实后端对局和复盘。生成来源、回放哈希和原始动作日志都会保留；候选未经评测不会自动上场。
+      </p>
+    </section>
+
+    <article v-if="learningResult" class="learning-result">
+      <div class="learning-result-head">
+        <div>
+          <span class="eyebrow">刚刚学到</span>
+          <h3>{{ learningResult.card.title }}</h3>
+        </div>
+        <span class="source-badge" :class="'source-' + learningResult.receipt.generation_source">
+          {{ learningResult.receipt.generation_source === "deepseek" ? "DeepSeek 复盘" : "规则复盘兜底" }}
+        </span>
+      </div>
+      <div class="learning-metrics">
+        <span>seed <b>{{ learningResult.receipt.seed }}</b></span>
+        <span>胜方 <b>{{ learningResult.receipt.winner === "good" ? "好人" : "狼人" }}</b></span>
+        <span>天数 <b>{{ learningResult.receipt.days }}</b></span>
+        <span>动作 <b>{{ learningResult.receipt.action_steps }}</b></span>
+      </div>
+      <p><b>触发：</b>{{ learningResult.card.trigger }}</p>
+      <p><b>建议：</b>{{ learningResult.card.recommendation }}</p>
+      <p><b>可执行指令：</b>{{ directiveLabel(learningResult.card.directive) }}</p>
+      <code>replay {{ learningResult.receipt.replay_sha256.slice(0, 16) }}… · {{ learningResult.evidence_path }}</code>
+    </article>
+
+    <section v-if="receipts.length" class="growth-history">
+      <div class="section-heading">
+        <h3>AI 成长记录</h3>
+        <span>{{ receipts.length }} 次有原始证据的学习</span>
+      </div>
+      <ol>
+        <li v-for="receipt in [...receipts].reverse().slice(0, 8)" :key="receipt.strategy_id">
+          <span class="growth-dot" />
+          <div>
+            <strong>{{ receipt.title }}</strong>
+            <p>
+              seed {{ receipt.seed }} · {{ receipt.action_steps }} 个真实动作 ·
+              {{ receipt.generation_source === "deepseek" ? "DeepSeek 生成" : "规则兜底" }}
+            </p>
+          </div>
+          <code>{{ receipt.replay_sha256.slice(0, 8) }}</code>
+        </li>
+      </ol>
+    </section>
 
     <div v-if="library" class="lab-counts">
       <span>种子 {{ library.counts.seed }}</span>
@@ -393,7 +530,7 @@ onMounted(loadLibrary);
         <span>{{ library?.candidates.length ?? 0 }}</span>
       </div>
       <article
-        v-for="card in library?.candidates ?? []"
+        v-for="card in recentCandidates"
         :key="card.strategy_id"
         class="lab-card"
       >
@@ -403,7 +540,7 @@ onMounted(loadLibrary);
         </div>
         <p class="muted">
           {{ roleLabel(card.role) }} · {{ actionLabel(card.action) }} ·
-          {{ directiveLabel(card.directive) }}
+          {{ directiveLabel(card.directive) }} · {{ generationLabel(card) }}
         </p>
         <p class="lab-card-body">
           触发：{{ card.trigger }}<br />
@@ -467,6 +604,9 @@ onMounted(loadLibrary);
         <p class="muted">
           {{ roleLabel(card.role) }} · {{ actionLabel(card.action) }} ·
           {{ directiveLabel(card.directive) }} · 参与正式检索与执行
+        </p>
+        <p class="lab-card-evidence">
+          {{ generationLabel(card) }} · {{ evaluationText(card) }}
         </p>
         <div class="lab-card-actions">
           <button

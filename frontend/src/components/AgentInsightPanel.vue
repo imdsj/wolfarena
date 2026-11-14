@@ -63,6 +63,10 @@ function targetSeat(playerId: string | null): string {
   const player = playerById.value.get(playerId);
   return player ? `${player.seat}号` : playerId;
 }
+
+function formatPlan(plan: string): string {
+  return plan.replace(/p(\d+)\b/g, (_, seat) => `${seat}号`);
+}
 </script>
 
 <template>
@@ -83,7 +87,8 @@ function targetSeat(playerId: string | null): string {
         </span>
       </div>
       <p v-if="agent.current_plan" class="agent-plan">
-        {{ agent.current_plan }}
+        <span>行动前计划</span>
+        {{ formatPlan(agent.current_plan) }}
       </p>
       <ol v-if="agent.decision_traces.length" class="trace-list">
         <li
@@ -108,8 +113,14 @@ function targetSeat(playerId: string | null): string {
             </span>
           </span>
           <span v-if="trace.tactic_ids.length" class="trace-tactics">
-            战术：{{ trace.tactic_ids.join("、") }}
+            命中战术：{{ trace.tactic_ids.join("、") }}
           </span>
+          <span v-if="trace.rationale" class="trace-rationale">
+            {{ trace.rationale }}
+          </span>
+          <blockquote v-if="trace.content" class="trace-content">
+            {{ trace.content }}
+          </blockquote>
         </li>
       </ol>
       <p v-else class="muted">还没有决策记录。</p>

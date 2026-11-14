@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -91,6 +92,7 @@ def rule_fallback_card(game: dict[str, Any]) -> dict[str, Any]:
     winner = game.get("winner")
     if winner == "wolf":
         return {
+            "_generation_source": "rule_fallback",
             "title": "狼队优先处理神职",
             "role": "werewolf",
             "phase": "NIGHT_WOLF_KILL",
@@ -102,6 +104,7 @@ def rule_fallback_card(game: dict[str, Any]) -> dict[str, Any]:
             "risk": "刀错平民可能暴露刀口逻辑，且让神职多活一天。",
         }
     return {
+        "_generation_source": "rule_fallback",
         "title": "好人集中归票",
         "role": "villager",
         "phase": "VOTE",
@@ -189,6 +192,7 @@ def review_game(
             payload = json.loads(
                 body["choices"][0]["message"]["content"]
             )
+            payload["_generation_source"] = "deepseek"
     except Exception:
         LEDGER.record_failure()
         return rule_fallback_card(game)
@@ -279,9 +283,11 @@ def card_from_review(
     actions: Sequence[dict[str, Any]],
     settings: DeepSeekSettings | None = None,
 ) -> StrategyCard:
-    lesson = _sanitize_lesson(
-        review_game(game=game, actions=actions, settings=settings)
+    raw_lesson = review_game(game=game, actions=actions, settings=settings)
+    generation_source = str(
+        raw_lesson.get("_generation_source") or "rule_fallback"
     )
+    lesson = _sanitize_lesson(raw_lesson)
     seed = game.get("seed", 0)
     winner = game.get("winner", "unknown")
     digest = hashlib.sha1(f"{seed}:{winner}".encode()).hexdigest()[:8]
@@ -298,11 +304,12 @@ def card_from_review(
         rationale=lesson["rationale"],
         risk=lesson["risk"],
         evidence_level="untested",
+        tags=[f"generation:{generation_source}"],
         source_type="agent_observation",
         source=f"对局复盘 seed={seed} 胜方={winner}",
         status="candidate",
         created_by="ai",
-        created_at="2026-11-05T00:00:00+08:00",
+        created_at=datetime.now(UTC).isoformat(),
     )
 
 

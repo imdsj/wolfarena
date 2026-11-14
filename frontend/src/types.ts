@@ -65,6 +65,7 @@ export interface DecisionTraceView {
   tool_calls: Array<Record<string, unknown>>;
   evidence_event_ids: number[];
   tactic_ids: string[];
+  content: string | null;
 }
 
 export interface AgentInsight {
@@ -74,6 +75,30 @@ export interface AgentInsight {
   archetype: string | null;
   current_plan: string | null;
   decision_traces: DecisionTraceView[];
+}
+
+export interface WinRatePoint {
+  event_seq: number;
+  day: number;
+  phase: string;
+  event_type: string;
+  label: string;
+  good: number;
+  wolf: number;
+  delta: number;
+  drivers: string[];
+  actor_seat: number | null;
+  target_seat: number | null;
+}
+
+export interface WinRatePrediction extends WinRatePoint {
+  baseline_good: number;
+  llm_good: number | null;
+  source: "deepseek_hybrid" | "statistical_fallback" | "result_confirmed";
+  model: string | null;
+  reason: string;
+  transcript_sha256: string;
+  created_at: string;
 }
 
 export interface ActionSubmission {
@@ -103,6 +128,8 @@ export interface RoomSnapshot {
   last_night_summary: string | null;
   awaiting_continue: boolean;
   agent_insights: AgentInsight[];
+  win_rate_timeline: WinRatePoint[];
+  win_rate_predictions: WinRatePrediction[];
 }
 
 export interface RoomSessionResponse {
@@ -149,6 +176,27 @@ export interface StrategyCardSummary {
   samples: number;
   win_rate: number | null;
   evaluation: Record<string, unknown> | null;
+  tags: string[];
+}
+
+export interface LearningReceipt {
+  seed: number;
+  generated_at: string;
+  policy: string;
+  validated_tactics_in_play: string[];
+  winner: "good" | "wolf";
+  days: number;
+  action_steps: number;
+  replay_sha256: string;
+  generation_source: "deepseek" | "rule_fallback";
+  strategy_id: string;
+  title: string;
+}
+
+export interface LearningResult {
+  receipt: LearningReceipt;
+  card: StrategyCardSummary;
+  evidence_path: string;
 }
 
 export interface StrategyLibraryView {

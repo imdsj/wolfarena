@@ -13,7 +13,7 @@
   "tags": [],
   "source_type": "agent_observation",
   "source": "对局复盘 seed=5047 胜方=good",
-  "status": "validated",
+  "status": "candidate",
   "version": "v1",
   "samples": 0,
   "win_rate": null,
@@ -33,7 +33,9 @@
     "baseline_manifest_sha256": "20b693c38a43acb785457959f715b5da37ecdf2851e0ff7e835636ebde34dcce",
     "candidate_manifest_sha256": "6c9241410f59c93620ea66f45599b174cb376c9d413d6075afdae2578d05adc0",
     "notes": "human approval by 订书机; delta=-0.235 p=1.0",
-    "decision_mode": "human_review"
+    "decision_mode": "human_review",
+    "rollback_reason": "200局配对评测delta=-0.235，停止正式使用并退回候选",
+    "rolled_back_at": "2026-11-14T12:43:46.975138+00:00"
   },
   "directive": null
 }
