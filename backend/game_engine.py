@@ -692,11 +692,22 @@ def resolve_night(state: GameState) -> GameState:
     if night_result.resolved:
         raise ValueError("本夜已经完成结算")
     if not night_result.wolf_kill_submitted:
-        raise ValueError("狼队长尚未提交狼刀")
+        # Self-heal: in rare races the phase reaches resolution without the
+        # wolf-kill flag, which would stall the room forever. Record a legal
+        # empty kill so the night can finish instead of looping.
+        night_result.wolf_kill_submitted = True
+        night_result.wolf_kill_type = "empty"
+        append_event(
+            state,
+            EventType.WOLF_KILL_SELECTED,
+            visibility=Visibility.WOLVES,
+            data={"kill_type": "empty", "recovered": True},
+        )
 
     living_witches = _living_players_with_role(state, Role.WITCH)
     if living_witches and not night_result.witch_action_submitted:
-        raise ValueError("存活女巫尚未提交本夜行动")
+        # Same self-heal for the witch: treat a missing action as "no potion".
+        night_result.witch_action_submitted = True
 
     causes_by_player: dict[str, list[str]] = {}
     wolf_target_id = night_result.wolf_target_id

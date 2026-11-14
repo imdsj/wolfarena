@@ -998,3 +998,24 @@ class NightResolutionTests(TestCase):
         )
         self.assertEqual(winner_event.data["winner"], "good")
         self.assertEqual(revealed_death.data["causes"], ["poisoned"])
+
+
+class ResolveNightSelfHealTests(TestCase):
+    def test_missing_wolf_kill_is_recovered_as_empty_kill(self) -> None:
+        state = create_game(seed=401, human_count=0)
+        state.phase = Phase.NIGHT_RESOLUTION
+        state.day = 1
+        state.night_result = NightResult()
+
+        resolve_night(state)
+
+        self.assertTrue(state.night_result.wolf_kill_submitted)
+        self.assertEqual(state.night_result.wolf_kill_type, "empty")
+        self.assertIsNot(state.phase, Phase.NIGHT_RESOLUTION)
+        recovered = [
+            event
+            for event in state.events
+            if event.event_type is EventType.WOLF_KILL_SELECTED
+            and event.data.get("recovered")
+        ]
+        self.assertEqual(len(recovered), 1)
