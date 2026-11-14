@@ -598,7 +598,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 onMounted(() => {
   window.addEventListener("pointerdown", armAudio, { once: true });
-  restoreRememberedSession();
+  // Only the lobby resumes a previous room. The strategy lab and screenshot
+  // review are standalone tools, so a dead room session must not surface a
+  // misleading "room not found" banner over their own errors.
+  if (homeView.value === "lobby") {
+    restoreRememberedSession();
+  }
 });
 onBeforeUnmount(() => {
   socket?.close();
