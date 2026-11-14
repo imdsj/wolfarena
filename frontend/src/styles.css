@@ -1664,3 +1664,66 @@ body.night-mode .chip-active {
   padding-left: 10px;
 }
 
+.review-upload {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.review-image {
+  max-width: 320px;
+  max-height: 420px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.review-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-forms textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.review-result {
+  margin-top: 16px;
+}
+
+.review-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-finding {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  color: #ffd7d0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 179, 167, 0.08);
+}
+
+.finding-kind {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: #ffb3a7;
+}
+
+.review-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #d8d2c4;
+  margin-top: 10px;
+}
+

@@ -195,6 +195,11 @@ class StrategyRollbackRequest(ApiModel):
     reason: str = Field(min_length=1, max_length=400)
 
 
+class ScreenshotReviewRequest(ApiModel):
+    day: int = Field(default=1, ge=1, le=20)
+    lines: list[str] = Field(default_factory=list, max_length=200)
+
+
 class CreatedRoomResponse(ApiModel):
     room_id: str
     player_token: str

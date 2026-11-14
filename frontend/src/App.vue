@@ -11,6 +11,7 @@ import {
 
 import LobbyPanel from "./components/LobbyPanel.vue";
 import RoomPanel from "./components/RoomPanel.vue";
+import ScreenshotReviewPanel from "./components/ScreenshotReviewPanel.vue";
 import StrategyLabPanel from "./components/StrategyLabPanel.vue";
 import {
   audioEnabled,
@@ -29,7 +30,7 @@ import type {
 } from "./types";
 
 const busy = ref(false);
-const showLab = ref(false);
+const homeView = ref<"lobby" | "lab" | "review">("lobby");
 const errorMessage = ref("");
 const room = ref<RoomSnapshot | null>(null);
 const events = ref<GameEvent[]>([]);
@@ -634,20 +635,28 @@ onBeforeUnmount(() => {
       <nav class="home-tabs">
         <button
           type="button"
-          :class="{ active: !showLab }"
-          @click="showLab = false"
+          :class="{ active: homeView === 'lobby' }"
+          @click="homeView = 'lobby'"
         >
           进入游戏
         </button>
         <button
           type="button"
-          :class="{ active: showLab }"
-          @click="showLab = true"
+          :class="{ active: homeView === 'lab' }"
+          @click="homeView = 'lab'"
         >
           策略实验室
         </button>
+        <button
+          type="button"
+          :class="{ active: homeView === 'review' }"
+          @click="homeView = 'review'"
+        >
+          截图复盘
+        </button>
       </nav>
-      <StrategyLabPanel v-if="showLab" />
+      <StrategyLabPanel v-if="homeView === 'lab'" />
+      <ScreenshotReviewPanel v-else-if="homeView === 'review'" />
       <LobbyPanel
         v-else
         :busy="busy || restoring"

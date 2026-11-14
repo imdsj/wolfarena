@@ -63,6 +63,7 @@ from .rooms import (
     SeatUnavailableError,
 )
 from .timers import RoomTimerService
+from .vision_review import review_transcript
 from .schemas import (
     ActionRequest,
     AvailableSeatsResponse,
@@ -73,6 +74,7 @@ from .schemas import (
     JoinedRoomResponse,
     JoinRoomRequest,
     RoomSnapshot,
+    ScreenshotReviewRequest,
     StrategyApproveRequest,
     StrategyEvaluateRequest,
     StrategyRejectRequest,
@@ -379,6 +381,10 @@ def create_app(
             )
         except StrategyError as error:
             raise _error(404, "STRATEGY_NOT_FOUND", str(error)) from error
+
+    @application.post("/api/review/screenshot")
+    def screenshot_review(payload: ScreenshotReviewRequest):
+        return review_transcript(payload.lines, day=payload.day)
 
     @application.post("/api/rooms/{room_id}/chat")
     async def room_chat(

@@ -174,3 +174,18 @@ export interface StrategyEvaluation {
   confidence_interval_95: number[];
   directive: string | null;
 }
+
+export interface ScreenshotFinding {
+  kind: string;
+  speaker_seat: number | null;
+  detail: string;
+}
+
+export interface ScreenshotReviewResult {
+  day: number;
+  transcript: string[];
+  findings: ScreenshotFinding[];
+  claims: Record<string, string[]>;
+  top_accused: Array<{ seat: number; count: number }>;
+  reports: Record<string, string>;
+}
