@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -125,12 +125,13 @@ await mkdir(outputDirectory, { recursive: true });
 await compileTypescriptModule("main.ts", { dropCss: true });
 await compileTypescriptModule("audio.ts");
 await compileVueComponent("App.vue");
-await compileVueComponent(path.join("components", "ActionForm.vue"));
-await compileVueComponent(path.join("components", "ConnectionStatus.vue"));
-await compileVueComponent(path.join("components", "GameResultPanel.vue"));
-await compileVueComponent(path.join("components", "LobbyPanel.vue"));
-await compileVueComponent(path.join("components", "PhaseCountdown.vue"));
-await compileVueComponent(path.join("components", "RoomPanel.vue"));
+const componentsDirectory = path.join(sourceDirectory, "components");
+const componentFiles = (await readdir(componentsDirectory))
+  .filter((file) => file.endsWith(".vue"))
+  .sort();
+for (const file of componentFiles) {
+  await compileVueComponent(path.join("components", file));
+}
 await copyFile(
   path.join(sourceDirectory, "styles.css"),
   path.join(outputDirectory, "src", "styles.css"),
