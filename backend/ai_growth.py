@@ -59,12 +59,18 @@ def speech_content(state: GameState, actor, view) -> str | None:
         if pick is not None:
             return rng.choice(
                 [
-                    f"狼队频道 {seat} 号：我建议今晚处理 {pick.seat} 号，白天我跟票。",
-                    f"狼队频道 {seat} 号：我倾向刀 {pick.seat} 号，白天我带节奏。",
-                    f"狼队频道 {seat} 号：{pick.seat} 号威胁大，今晚优先。",
+                    f"狼队频道 {seat} 号：刀 {pick.seat} 号我同意；白天我去悍跳预言家，"
+                    "另一个队友跟票，剩下的别抢话，先看我报查验。",
+                    f"狼队频道 {seat} 号：刀口定 {pick.seat} 号；白天我踩他带节奏，"
+                    "队友一个跟票一个深水，别一起冲。",
+                    f"狼队频道 {seat} 号：{pick.seat} 号威胁最大，今晚处理他；"
+                    "如果女巫救人，白天我装作不信预言家，队友补刀跟票。",
                 ]
             )
-        return f"狼队频道 {seat} 号：今晚按队长意见行动，白天我跟票。"
+        return (
+            f"狼队频道 {seat} 号：刀口按队长定的走；白天我去悍跳预言家，"
+            "队友一个跟票一个深水，别分票。"
+        )
 
     if view.action == "last_words":
         return rng.choice(

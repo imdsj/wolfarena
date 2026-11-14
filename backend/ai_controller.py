@@ -591,10 +591,9 @@ class AIController:
     ) -> tuple[str | None, list[dict]]:
         persona = getattr(policy, "archetype", None)
         tool_calls: list[dict] = []
-        # Night wolf-channel chat stays on the fast deterministic template so
-        # AI night actions never stall behind an LLM round-trip. Public
-        # day speech keeps the optional LLM path.
-        if llm_speech_enabled() and view.action != "wolf_speech":
+        # Public day speech and night wolf-channel planning both use the LLM
+        # when enabled; the deterministic template is only the fallback.
+        if llm_speech_enabled():
             text, tool_calls = compose_speech_with_tools(
                 state=state,
                 actor=actor,
