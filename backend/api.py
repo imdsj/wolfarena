@@ -340,6 +340,7 @@ def create_app(
                 candidate_id,
                 payload.reviewer,
                 strategy_root=resolved_strategy_root,
+                skip_evaluation=payload.skip_evaluation,
             )
         except ValueError as error:
             raise _error(422, "APPROVE_REJECTED", str(error)) from error

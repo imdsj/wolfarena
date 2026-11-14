@@ -190,7 +190,10 @@ async function evaluateCandidate(candidateId: string): Promise<void> {
   }
 }
 
-async function approveCandidate(candidateId: string): Promise<void> {
+async function approveCandidate(
+  candidateId: string,
+  skipEvaluation = false,
+): Promise<void> {
   if (!requireReviewer()) {
     return;
   }
@@ -203,10 +206,15 @@ async function approveCandidate(candidateId: string): Promise<void> {
       {
         method: "POST",
         headers: reviewerHeaders(),
-        body: JSON.stringify({ reviewer: reviewerName.value.trim() }),
+        body: JSON.stringify({
+          reviewer: reviewerName.value.trim(),
+          skip_evaluation: skipEvaluation,
+        }),
       },
     );
-    notice.value = "已批准并通过人工审核，进入正式检索与执行。";
+    notice.value = skipEvaluation
+      ? "已直接通过（跳过评测），进入正式检索与执行。"
+      : "已批准并通过人工审核，进入正式检索与执行。";
     await loadLibrary();
   } catch (error) {
     errorMessage.value =
@@ -418,9 +426,17 @@ onMounted(loadLibrary);
             class="secondary-button"
             type="button"
             :disabled="approving"
-            @click="approveCandidate(card.strategy_id)"
+            @click="approveCandidate(card.strategy_id, false)"
           >
-            {{ approving ? "审批中…" : "通过" }}
+            {{ approving ? "审批中…" : "通过（评测）" }}
+          </button>
+          <button
+            class="text-button"
+            type="button"
+            :disabled="approving"
+            @click="approveCandidate(card.strategy_id, true)"
+          >
+            直接通过
           </button>
           <button
             class="text-button"

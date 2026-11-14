@@ -213,7 +213,7 @@ class StrategyLibraryTests(unittest.TestCase):
                 candidate_policy="candidate.test",
                 seed_start=1,
                 seed_end=10,
-                sample_size=10,
+                sample_size=5,
                 baseline_run_id="a",
                 candidate_run_id="b",
                 baseline_manifest_sha256="a" * 64,

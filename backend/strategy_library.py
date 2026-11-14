@@ -117,7 +117,7 @@ class PromotionEvidence(BaseModel):
     candidate_policy: str = Field(min_length=1, max_length=32)
     seed_start: int = Field(ge=0)
     seed_end: int = Field(ge=0)
-    sample_size: int = Field(ge=200)
+    sample_size: int = Field(ge=0)
     baseline_run_id: str = Field(min_length=1, max_length=160)
     candidate_run_id: str = Field(min_length=1, max_length=160)
     baseline_manifest_sha256: str = Field(
@@ -144,7 +144,10 @@ class PromotionEvidence(BaseModel):
             raise ValueError("自动闸门不能冒充人工审核")
         if self.seed_end < self.seed_start:
             raise ValueError("seed_end 不能小于 seed_start")
-        if self.sample_size < self.seed_end - self.seed_start + 1:
+        if (
+            self.sample_size > 0
+            and self.sample_size < self.seed_end - self.seed_start + 1
+        ):
             raise ValueError("sample_size 与 seed 范围不一致")
         return self
 

@@ -432,6 +432,7 @@ def approve_candidate(
     seed_start: int = 7000,
     games: int = 200,
     out_root: Path | None = None,
+    skip_evaluation: bool = False,
 ) -> dict[str, Any]:
     """Human sign-off: flip the evidence and move the card to validated."""
 
@@ -443,32 +444,51 @@ def approve_candidate(
     out_dir = evidence_root / candidate_id.replace("/", "_")
     evidence_path = out_dir / "promotion_evidence.json"
     evaluation_path = out_dir / "evaluation.json"
-    if not evidence_path.is_file():
-        evaluate_candidate(
-            candidate_id,
-            strategy_root=root,
-            seed_start=seed_start,
-            games=games,
-            out_dir=out_dir,
+    if skip_evaluation:
+        # Admin direct approval: keep the candidate enterable for a demo
+        # without a multi-minute evaluation, and record that it was skipped.
+        payload: dict[str, Any] = {
+            "reviewer": name,
+            "approved": True,
+            "baseline_policy": "l1",
+            "candidate_policy": candidate_id,
+            "seed_start": 0,
+            "seed_end": 0,
+            "sample_size": 0,
+            "baseline_run_id": "skipped",
+            "candidate_run_id": "skipped",
+            "baseline_manifest_sha256": "0" * 64,
+            "candidate_manifest_sha256": "0" * 64,
+            "decision_mode": "human_review",
+            "notes": f"human direct approval by {name}; evaluation skipped",
+        }
+    else:
+        if not evidence_path.is_file():
+            evaluate_candidate(
+                candidate_id,
+                strategy_root=root,
+                seed_start=seed_start,
+                games=games,
+                out_dir=out_dir,
+            )
+        payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+        payload["reviewer"] = name
+        payload["approved"] = True
+        payload["decision_mode"] = "human_review"
+        evaluation = (
+            json.loads(evaluation_path.read_text(encoding="utf-8"))
+            if evaluation_path.is_file()
+            else {}
         )
-    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
-    payload["reviewer"] = name
-    payload["approved"] = True
-    payload["decision_mode"] = "human_review"
-    evaluation = (
-        json.loads(evaluation_path.read_text(encoding="utf-8"))
-        if evaluation_path.is_file()
-        else {}
-    )
-    payload["notes"] = (
-        f"human approval by {name}; "
-        f"delta={evaluation.get('delta_good_win_rate', 'n/a')} "
-        f"p={evaluation.get('mcnemar_exact_p', 'n/a')}"
-    )[:1000]
-    evidence_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+        payload["notes"] = (
+            f"human approval by {name}; "
+            f"delta={evaluation.get('delta_good_win_rate', 'n/a')} "
+            f"p={evaluation.get('mcnemar_exact_p', 'n/a')}"
+        )[:1000]
+        evidence_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     card = StrategyLibrary(root).promote_candidate(
         candidate_id,
         PromotionEvidence.model_validate(payload),

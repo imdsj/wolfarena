@@ -185,6 +185,7 @@ class StrategyEvaluateRequest(ApiModel):
 
 class StrategyApproveRequest(ApiModel):
     reviewer: str = Field(min_length=1, max_length=64)
+    skip_evaluation: bool = False
 
 
 class StrategyRejectRequest(ApiModel):

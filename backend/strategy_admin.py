@@ -139,11 +139,13 @@ def approve(
     reviewer: str,
     *,
     strategy_root: Path | None = None,
+    skip_evaluation: bool = False,
 ) -> dict[str, Any]:
     return approve_candidate(
         candidate_id,
         reviewer,
         strategy_root=strategy_root or DEFAULT_STRATEGY_ROOT,
+        skip_evaluation=skip_evaluation,
     )
 
 
