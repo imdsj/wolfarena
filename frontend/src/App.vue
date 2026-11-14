@@ -11,6 +11,7 @@ import {
 
 import LobbyPanel from "./components/LobbyPanel.vue";
 import RoomPanel from "./components/RoomPanel.vue";
+import StrategyLabPanel from "./components/StrategyLabPanel.vue";
 import {
   audioEnabled,
   initAudio,
@@ -28,6 +29,7 @@ import type {
 } from "./types";
 
 const busy = ref(false);
+const showLab = ref(false);
 const errorMessage = ref("");
 const room = ref<RoomSnapshot | null>(null);
 const events = ref<GameEvent[]>([]);
@@ -628,13 +630,32 @@ onBeforeUnmount(() => {
       @reconnect="connectSocket"
       @leave="leaveRoom"
     />
-    <LobbyPanel
-      v-else
-      :busy="busy || restoring"
-      @create="createRoom"
-      @join="joinRoom"
-      @watch="watchRoom"
-    />
+    <template v-else>
+      <nav class="home-tabs">
+        <button
+          type="button"
+          :class="{ active: !showLab }"
+          @click="showLab = false"
+        >
+          进入游戏
+        </button>
+        <button
+          type="button"
+          :class="{ active: showLab }"
+          @click="showLab = true"
+        >
+          策略实验室
+        </button>
+      </nav>
+      <StrategyLabPanel v-if="showLab" />
+      <LobbyPanel
+        v-else
+        :busy="busy || restoring"
+        @create="createRoom"
+        @join="joinRoom"
+        @watch="watchRoom"
+      />
+    </template>
 
     <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
   </main>

@@ -165,6 +165,36 @@ class ChatRequest(ApiModel):
     seat: int | None = Field(default=None, ge=1, le=9)
 
 
+class StrategySubmitRequest(ApiModel):
+    title: str = Field(min_length=1, max_length=120)
+    role: Literal["werewolf", "villager", "seer", "witch", "hunter"]
+    phase: str = Field(default="ANY", max_length=64)
+    action: str = Field(min_length=1, max_length=64)
+    trigger: str = Field(min_length=1, max_length=600)
+    recommendation: str = Field(min_length=1, max_length=600)
+    rationale: str = Field(min_length=1, max_length=1000)
+    risk: str = Field(min_length=1, max_length=600)
+    directive: str | None = Field(default=None, max_length=64)
+    created_by: str = Field(min_length=1, max_length=64)
+
+
+class StrategyEvaluateRequest(ApiModel):
+    seed_start: int = Field(default=7000, ge=0)
+    games: int = Field(default=200, ge=200, le=2000)
+
+
+class StrategyApproveRequest(ApiModel):
+    reviewer: str = Field(min_length=1, max_length=64)
+
+
+class StrategyRejectRequest(ApiModel):
+    reason: str = Field(min_length=1, max_length=400)
+
+
+class StrategyRollbackRequest(ApiModel):
+    reason: str = Field(min_length=1, max_length=400)
+
+
 class CreatedRoomResponse(ApiModel):
     room_id: str
     player_token: str

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from json import JSONDecodeError
+import os
 from pathlib import Path
 from secrets import randbits
 import subprocess
@@ -29,9 +30,20 @@ from .ai_provider import (
     CandidateProvider,
     DeepSeekCandidateProvider,
     DeepSeekSettings,
+    _load_private_env,
 )
 from .realtime import RealtimeHub
-from .strategy_library import StrategyToolError, search_strategy
+from .strategy_library import StrategyError, StrategyToolError, search_strategy
+from .strategy_admin import (
+    approve,
+    evaluate,
+    evaluation_for,
+    list_library,
+    reject,
+    reviewer_authorized,
+    rollback,
+    submit_candidate,
+)
 from .training import (
     TrainingToolError,
     rollout_faction_win_rates,
@@ -61,7 +73,12 @@ from .schemas import (
     JoinedRoomResponse,
     JoinRoomRequest,
     RoomSnapshot,
+    StrategyApproveRequest,
+    StrategyEvaluateRequest,
+    StrategyRejectRequest,
+    StrategyRollbackRequest,
     StrategySearchRequest,
+    StrategySubmitRequest,
 )
 
 
@@ -144,6 +161,7 @@ def create_app(
     ai_provider: CandidateProvider | None = None,
     strategy_root: Path | None = None,
 ) -> FastAPI:
+    _load_private_env()
     room_repository = repository or InMemoryRoomRepository()
     realtime = RealtimeHub(room_repository)
     timer_service = RoomTimerService(room_repository, realtime)
@@ -257,6 +275,110 @@ def create_app(
                 "STRATEGY_TOOL_REJECTED",
                 str(error),
             ) from error
+
+    def _require_reviewer(header_token: str | None) -> None:
+        env_token = os.environ.get("WOLFARENA_REVIEWER_TOKEN")
+        if not reviewer_authorized(header_token, env_token):
+            raise _error(
+                401,
+                "REVIEWER_UNAUTHORIZED",
+                "审核凭证无效或服务端未配置 WOLFARENA_REVIEWER_TOKEN",
+            )
+
+    @application.get("/api/strategy/library")
+    def strategy_library_index():
+        return list_library(strategy_root=resolved_strategy_root)
+
+    @application.post(
+        "/api/strategy/candidates",
+        status_code=status.HTTP_201_CREATED,
+    )
+    def strategy_submit(payload: StrategySubmitRequest):
+        try:
+            return submit_candidate(
+                payload.model_dump(),
+                strategy_root=resolved_strategy_root,
+            )
+        except (ValueError, StrategyError) as error:
+            raise _error(422, "STRATEGY_REJECTED", str(error)) from error
+
+    @application.get("/api/strategy/candidates/{candidate_id}/evaluation")
+    def strategy_evaluation(candidate_id: str):
+        result = evaluation_for(candidate_id)
+        if result is None:
+            raise _error(404, "EVALUATION_NOT_FOUND", "该候选还没有评测证据")
+        return result
+
+    @application.post("/api/strategy/candidates/{candidate_id}/evaluate")
+    def strategy_evaluate(
+        candidate_id: str,
+        payload: StrategyEvaluateRequest,
+    ):
+        try:
+            return evaluate(
+                candidate_id,
+                strategy_root=resolved_strategy_root,
+                seed_start=payload.seed_start,
+                games=payload.games,
+            )
+        except ValueError as error:
+            raise _error(404, "CANDIDATE_NOT_FOUND", str(error)) from error
+
+    @application.post("/api/strategy/candidates/{candidate_id}/approve")
+    def strategy_approve(
+        candidate_id: str,
+        payload: StrategyApproveRequest,
+        reviewer_token: str | None = Header(
+            default=None, alias="X-Reviewer-Token"
+        ),
+    ):
+        _require_reviewer(reviewer_token)
+        try:
+            return approve(
+                candidate_id,
+                payload.reviewer,
+                strategy_root=resolved_strategy_root,
+            )
+        except ValueError as error:
+            raise _error(422, "APPROVE_REJECTED", str(error)) from error
+        except StrategyError as error:
+            raise _error(404, "CANDIDATE_NOT_FOUND", str(error)) from error
+
+    @application.post("/api/strategy/candidates/{candidate_id}/reject")
+    def strategy_reject(
+        candidate_id: str,
+        payload: StrategyRejectRequest,
+        reviewer_token: str | None = Header(
+            default=None, alias="X-Reviewer-Token"
+        ),
+    ):
+        _require_reviewer(reviewer_token)
+        try:
+            return reject(
+                candidate_id,
+                payload.reason,
+                strategy_root=resolved_strategy_root,
+            )
+        except StrategyError as error:
+            raise _error(404, "CANDIDATE_NOT_FOUND", str(error)) from error
+
+    @application.post("/api/strategy/validated/{strategy_id}/rollback")
+    def strategy_rollback(
+        strategy_id: str,
+        payload: StrategyRollbackRequest,
+        reviewer_token: str | None = Header(
+            default=None, alias="X-Reviewer-Token"
+        ),
+    ):
+        _require_reviewer(reviewer_token)
+        try:
+            return rollback(
+                strategy_id,
+                payload.reason,
+                strategy_root=resolved_strategy_root,
+            )
+        except StrategyError as error:
+            raise _error(404, "STRATEGY_NOT_FOUND", str(error)) from error
 
     @application.post("/api/rooms/{room_id}/chat")
     async def room_chat(

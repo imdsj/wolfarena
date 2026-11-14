@@ -129,3 +129,48 @@ export interface AiActionResponse {
   phase: string;
   event_seq: number;
 }
+
+export interface StrategyCardSummary {
+  strategy_id: string;
+  title: string;
+  role: string;
+  phase: string;
+  action: string;
+  trigger: string;
+  recommendation: string;
+  rationale: string;
+  risk: string;
+  evidence_level: string;
+  source: string;
+  status: string;
+  directive: string | null;
+  created_by: string;
+  created_at: string;
+  samples: number;
+  win_rate: number | null;
+  evaluation: Record<string, unknown> | null;
+}
+
+export interface StrategyLibraryView {
+  counts: {
+    seed: number;
+    candidate: number;
+    validated: number;
+    rejected: number;
+  };
+  candidates: StrategyCardSummary[];
+  validated: StrategyCardSummary[];
+  rejected: StrategyCardSummary[];
+}
+
+export interface StrategyEvaluation {
+  candidate_id: string;
+  decision: string;
+  delta_good_win_rate: number;
+  mcnemar_exact_p: number;
+  sample_size: number;
+  baseline_good_win_rate: number;
+  candidate_good_win_rate: number;
+  confidence_interval_95: number[];
+  directive: string | null;
+}

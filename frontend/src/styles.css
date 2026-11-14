@@ -1524,3 +1524,143 @@ body.night-mode .chip-active {
   color: #e3c2ff;
 }
 
+.home-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 12px 0 4px;
+}
+
+.home-tabs button {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: #d8d2c4;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.home-tabs button.active {
+  background: rgba(167, 216, 194, 0.16);
+  color: #a7d8c2;
+  border-color: rgba(167, 216, 194, 0.4);
+}
+
+.lab-counts {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #d8d2c4;
+  margin: 8px 0 12px;
+}
+
+.lab-counts span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lab-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.lab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.lab-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lab-form-row .field {
+  flex: 1 1 160px;
+}
+
+.lab-form textarea {
+  min-height: 54px;
+  resize: vertical;
+}
+
+.lab-error {
+  color: #ffb3a7;
+  font-size: 13px;
+}
+
+.lab-notice {
+  color: #a7d8c2;
+  font-size: 13px;
+}
+
+.lab-evaluation {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(167, 216, 194, 0.3);
+  border-radius: 10px;
+}
+
+.lab-section {
+  margin-top: 16px;
+}
+
+.lab-card {
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lab-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lab-card-head code {
+  font-size: 12px;
+  color: #8f9d8c;
+}
+
+.lab-card-body {
+  font-size: 13px;
+  color: #d8d2c4;
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.lab-card-eval code {
+  display: block;
+  font-size: 12px;
+  color: #a8c8ff;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.lab-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.lab-card-validated {
+  border-left: 3px solid rgba(167, 216, 194, 0.4);
+  padding-left: 10px;
+}
+
+.lab-card-rejected {
+  border-left: 3px solid rgba(255, 179, 167, 0.4);
+  padding-left: 10px;
+}
+
