@@ -361,6 +361,11 @@ function handleServerMessage(message: unknown): void {
         playSfx("death");
       } else if (event.event_type === "VOTE_RESULT") {
         playSfx("vote");
+      } else if (
+        event.event_type === "PUBLIC_SPEECH" ||
+        event.event_type === "WOLF_SPEECH"
+      ) {
+        playSfx("speech");
       }
     }
     return;
@@ -614,7 +619,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="app-shell">
+  <main class="app-shell" :class="{ 'app-home': !room }">
     <button
       class="audio-toggle"
       type="button"

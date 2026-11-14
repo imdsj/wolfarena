@@ -1338,6 +1338,20 @@ def resolve_vote(state: GameState) -> GameState:
         data={"causes": ["banished"]},
     )
 
+    # Eliminating the last wolf ends the game immediately. Waiting for a
+    # last-words queue here left the public win curve stuck near 50% even
+    # though every wolf was already out.
+    if check_winner(state) is Team.GOOD:
+        day_result.banishment_pending = False
+        day_result.resolved = True
+        state.phase = Phase.END
+        append_event(
+            state,
+            EventType.WINNER_DECIDED,
+            visibility=Visibility.PUBLIC,
+            data={"winner": Team.GOOD.value, "reason": "vote_all_wolves_out"},
+        )
+
     return state
 
 

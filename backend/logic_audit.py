@@ -75,6 +75,19 @@ _SPOKEN_DENIAL = re.compile(
     r"(?:开口|发言|说话|表态)"
     r"|(?<!\d)(\d{1,2})\s*号\s*(?:的)?\s*发言前"
 )
+_UNFOUNDED_ACCUSATION = re.compile(
+    r"(?<!\d)(\d{1,2})\s*号\s*"
+    r"(?:有点问题|有问题|可疑|不对劲|像狼|是狼|要出|要票)"
+    r"|(?:怀疑|压|踩|咬|盯)\s*(\d{1,2})\s*号"
+    r"|我看\s*(\d{1,2})\s*号\s*"
+    r"(?:有点问题|有问题|可疑|不对劲|像狼|是狼)"
+)
+_UNCLAIMED_CHECK_PROMPT = re.compile(
+    r"(?<!\d)(\d{1,2})\s*号\s*(?:你)?\s*(?:就|快|先|来)?\s*"
+    r"(?:报|报一下|说说|讲|讲清楚|交出)(?:你的)?(?:查验|验人|查验链)"
+    r"|(?:让|请|叫)\s*(\d{1,2})\s*号\s*"
+    r"(?:报|报一下|说说|讲)(?:你的)?(?:查验|验人|查验链)"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -200,6 +213,53 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                                 f"{speaker}号说{denied_seat}号还没发言，"
                                 f"但{denied_seat}号今天已经公开发言，"
                                 "与发言记录直接矛盾"
+                            ),
+                            weight=4,
+                        )
+                    )
+
+            unspoken_seats = alive_seats - current_day_spoken - {speaker}
+            accused_seat = unfounded_unspoken_accusation(
+                content,
+                unspoken_seats,
+            )
+            if accused_seat is not None:
+                key = ("unfounded_unspoken_accusation", speaker, accused_seat)
+                if key not in seen:
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="unfounded_unspoken_accusation",
+                            speaker_seat=speaker,
+                            subject_seat=accused_seat,
+                            detail=(
+                                f"{speaker}号在{accused_seat}号尚未发言、"
+                                "也没有公开证据时直接怀疑对方，属于无依据定罪"
+                            ),
+                            weight=3,
+                        )
+                    )
+
+            seer_claimants = {
+                seat for seat, roles in claims.items() if "seer" in roles
+            }
+            prompted_seat = prompts_unclaimed_check(
+                content,
+                seer_claimants,
+                speaker,
+            )
+            if prompted_seat is not None:
+                key = ("unclaimed_check_prompt", speaker, prompted_seat)
+                if key not in seen:
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="unclaimed_check_prompt",
+                            speaker_seat=speaker,
+                            subject_seat=prompted_seat,
+                            detail=(
+                                f"{speaker}号要求尚未自报预言家的{prompted_seat}号"
+                                "报查验，像提前知道对方身份并在公开频道递话"
                             ),
                             weight=4,
                         )
@@ -419,6 +479,8 @@ def suspect_scores(findings: tuple[Finding, ...]) -> Counter:
             "impossible_identity",
             "self_counterclaim",
             "spoken_denial",
+            "unfounded_unspoken_accusation",
+            "unclaimed_check_prompt",
             "role_flip",
             "impossible_seer_checks",
             "one_night_two_checks",
@@ -442,6 +504,45 @@ def spoken_denial(text: str, spoken_seats: set[int]) -> int | None:
         raw_seat = match.group(1) or match.group(2)
         seat = int(raw_seat)
         if seat in spoken_seats:
+            return seat
+    return None
+
+
+def unfounded_unspoken_accusation(
+    text: str,
+    unspoken_seats: set[int],
+) -> int | None:
+    """Return an unspoken seat accused without any public evidence."""
+
+    if not isinstance(text, str) or not text:
+        return None
+    for match in _UNFOUNDED_ACCUSATION.finditer(text):
+        prefix = text[max(0, match.start() - 8) : match.start()]
+        if "不" in prefix or "别" in prefix:
+            continue
+        if "验" in prefix or "查杀" in prefix:
+            continue
+        if text[match.end() : match.end() + 4].startswith("自刀"):
+            continue
+        raw_seat = match.group(1) or match.group(2) or match.group(3)
+        seat = int(raw_seat)
+        if seat in unspoken_seats:
+            return seat
+    return None
+
+
+def prompts_unclaimed_check(
+    text: str,
+    seer_claimants: set[int],
+    speaker_seat: int,
+) -> int | None:
+    """Catch public prompting of a check from someone who never claimed seer."""
+
+    if not isinstance(text, str) or not text:
+        return None
+    for match in _UNCLAIMED_CHECK_PROMPT.finditer(text):
+        seat = int(match.group(1) or match.group(2))
+        if seat != speaker_seat and seat not in seer_claimants:
             return seat
     return None
 

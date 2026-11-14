@@ -52,6 +52,13 @@ const baseRoom = {
   max_humans: 3,
   players,
   visible_events: [],
+  announcements: [],
+  available_seats: [],
+  last_night_summary: null,
+  awaiting_continue: false,
+  agent_insights: [],
+  win_rate_timeline: [],
+  win_rate_predictions: [],
 };
 
 const maliciousAction = {
@@ -71,10 +78,12 @@ function mountRoom(room) {
     room,
     events: [],
     spectatorPassword: "",
+    spectatorAccessPassword: "",
     connectionState: "connected",
     busy: false,
     aiNotice: "",
     actionNotice: "",
+    chatLog: [],
   });
   app.mount(host);
   return { app, host };
@@ -173,12 +182,13 @@ const voteApp = createApp(ActionForm, {
 });
 voteApp.mount(voteHost);
 await delay(0);
-const targetValues = [...voteHost.querySelectorAll("select option")].map(
-  (option) => option.value,
+const targetValues = [...voteHost.querySelectorAll(".chip")].map(
+  (option) => option.textContent ?? "",
 );
-const deadTargetHidden = !targetValues.includes("p4");
+const deadTargetHidden = !targetValues.some((label) => label.includes("4号"));
 const aliveTargetShown =
-  targetValues.includes("p1") && targetValues.includes("p2");
+  targetValues.some((label) => label.includes("1号")) &&
+  targetValues.some((label) => label.includes("2号"));
 voteApp.unmount();
 voteHost.remove();
 

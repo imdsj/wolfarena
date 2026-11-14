@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 import httpx
@@ -27,8 +28,10 @@ from .logic_audit import (
     dead_vote_targets,
     impossible_seer_claim_in_text,
     mentions_two_nights_on_day_one,
+    prompts_unclaimed_check,
     spoken_denial,
     speech_claims_living_dead,
+    unfounded_unspoken_accusation,
     wolf_speech_targets_dead,
 )
 from .rulebook import rules_brief
@@ -59,7 +62,8 @@ SPEECH_STYLES = (
 ROLE_PERSONA = {
     "werewolf": (
         "你是狼人。白天必须伪装成好人，可以撒谎、误导他人、把嫌疑转移给别的玩家；"
-        "要和狼队友保持一致，绝不要攻击队友；如果有队友被怀疑，可以帮他辩护，"
+            "白天要伪装成独立判断的普通玩家，不能公开表现出你们知道彼此身份；"
+            "绝不要攻击队友，也不要公开指挥队友报查验、配合或跟票，"
         "也可以在必要时放弃他保全自己。残局只剩3人且你们2狼在场时，白天合力投走最后一个好人就能直接获胜。"
         "有真预言家跳出来时，你们必须有一个狼人悍跳预言家去对跳，编造查验把水搅浑，不要胆怯。"
         "夜晚可以自刀（刀自己人）来骗女巫解药或伪装身份，不要害怕自刀。"
@@ -468,7 +472,8 @@ def compose_speech_with_tools(
             wolf_plan_block = (
                 "=== 你们狼队的夜间战术（白天必须照着执行）===\n"
                 + "\n".join(wolf_lines)
-                + "\n白天按计划走：该悍跳的悍跳、该跟票的跟票、该低调的低调，不要临场改口。\n"
+                + "\n这些分工只能在心里执行，公开时不能提队友、分工、配合或隔空递话；"
+                "尤其不能催促尚未自报预言家的玩家报查验。\n"
             )
     spoken_seats: set[str] = set()
     if state.day_result is not None and state.day_result.speech_order:
@@ -543,8 +548,10 @@ def compose_speech_with_tools(
             "引用别人发言必须准确：只能引用他真正说过的内容，不能编造“X号说要票Y”；"
             "引用昨天的发言必须明确说“昨天”，不能把昨天的话当成今天的行为。"
             "不能刚说某人是金水/好人，又要票他。"
-            "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
+            "对还没发言的玩家只能等待，不能无证据怀疑、压、踩、咬或断言其神职身份；"
             "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
+            "除非对方已经公开自称预言家，否则不能要求他报查验或验人；"
+            "狼队夜间分工只能自己执行，公开不能指挥队友、配合投票或隔空递话。"
             "“悍跳”“对跳”只是狼队内部术语，公开发言时你只能以真预言家自居，"
             "绝不能说“我悍跳”“我在对跳”“我是假预言家”或承认自己是狼人；"
             "已经发言的座位以【已发言】名单为准，绝不能说他们还没开口或还没发言。"
@@ -695,6 +702,13 @@ def compose_speech_with_tools(
     prior_texts = list(history[-12:])
     if own_last:
         prior_texts.append(own_last)
+    seer_claimants: set[int] = set()
+    for line in history:
+        if "我是预言家" not in line:
+            continue
+        match = re.match(r"\s*(\d{1,2})\s*号[：:]", line)
+        if match:
+            seer_claimants.add(int(match.group(1)))
     if (
         asserts_unspoken_identity(cleaned, unspoken_seats, actor.seat)
         or speech_claims_living_dead(cleaned, alive_seats)
@@ -710,6 +724,19 @@ def compose_speech_with_tools(
         or (
             view.action == "speech"
             and spoken_denial(cleaned, spoken_seat_numbers) is not None
+        )
+        or (
+            view.action == "speech"
+            and unfounded_unspoken_accusation(cleaned, unspoken_seats) is not None
+        )
+        or (
+            view.action == "speech"
+            and prompts_unclaimed_check(
+                cleaned,
+                seer_claimants,
+                actor.seat,
+            )
+            is not None
         )
         or (
             actor.role is Role.WEREWOLF

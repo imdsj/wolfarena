@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import type {
   ActionSubmission,
@@ -90,6 +90,7 @@ const stickToBottom = ref(true);
 const pendingFeedCount = computed(() =>
   Math.max(0, feedItems.value.length - revealedCount.value),
 );
+let revealTimer: number | null = null;
 
 onMounted(() => {
   revealedCount.value = feedItems.value.length;
@@ -103,9 +104,47 @@ function revealNext(): void {
 }
 
 function revealAll(): void {
+  stopAutoReveal();
   stickToBottom.value = true;
   revealedCount.value = feedItems.value.length;
 }
+
+function stopAutoReveal(): void {
+  if (revealTimer !== null) {
+    window.clearInterval(revealTimer);
+    revealTimer = null;
+  }
+}
+
+function startAutoReveal(): void {
+  if (revealTimer !== null || pendingFeedCount.value === 0) {
+    return;
+  }
+  revealTimer = window.setInterval(() => {
+    if (pendingFeedCount.value === 0) {
+      stopAutoReveal();
+      return;
+    }
+    stickToBottom.value = true;
+    revealedCount.value += 1;
+  }, 650);
+}
+
+watch(
+  () => feedItems.value.length,
+  (count, previous) => {
+    if (count < previous) {
+      stopAutoReveal();
+      revealedCount.value = count;
+      return;
+    }
+    if (previous === 0) {
+      revealedCount.value = count;
+      return;
+    }
+    startAutoReveal();
+  },
+);
 
 function onFeedScroll(): void {
   const element = feedList.value;
@@ -130,6 +169,8 @@ watch(
 const visibleFeed = computed(() =>
   feedItems.value.slice(0, revealedCount.value),
 );
+
+onBeforeUnmount(stopAutoReveal);
 function isSpeech(event: GameEvent): boolean {
   return speechEventTypes.has(event.event_type);
 }
@@ -758,6 +799,7 @@ function openStrategyLab(): void {
             v-if="feedItems.length"
             ref="feedList"
             class="speech-list feed-scroll"
+            aria-live="polite"
             @scroll="onFeedScroll"
           >
             <template v-for="event in visibleFeed" :key="event.event_seq">
@@ -791,7 +833,7 @@ function openStrategyLab(): void {
           <p v-else class="muted">还没有对局事件。</p>
           <div v-if="pendingFeedCount" class="feed-more">
             <button class="primary-button" type="button" @click="revealNext">
-              继续 · 还有 {{ pendingFeedCount }} 条
+              立即播放 · 还有 {{ pendingFeedCount }} 条
             </button>
             <button class="text-button" type="button" @click="revealAll">
               全部显示

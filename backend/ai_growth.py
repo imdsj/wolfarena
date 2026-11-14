@@ -72,6 +72,21 @@ def speech_content(state: GameState, actor, view) -> str | None:
             "队友一个跟票一个深水，别分票。"
         )
 
+    if view.action == "speech":
+        # Public suspicion must be grounded in something the table actually
+        # heard. The old template picked any living seat, including players
+        # who had not spoken, which produced baseless accusations.
+        spoken_ids = {
+            event.actor_id
+            for event in get_visible_events(state, actor)
+            if event.event_type is EventType.PUBLIC_SPEECH
+            and event.day == state.day
+        }
+        spoken_others = [
+            player for player in others if player.player_id in spoken_ids
+        ]
+        pick = rng.choice(spoken_others) if spoken_others else None
+
     if view.action == "last_words":
         return rng.choice(
             [
@@ -175,9 +190,9 @@ def speech_content(state: GameState, actor, view) -> str | None:
             return with_reference(
                 rng.choice(
                     [
-                        f"我 {seat} 号觉得 {pick.seat} 号发言有点虚，大家留意。",
-                        f"我 {seat} 号先听一轮，{pick.seat} 号我再观察。",
-                        f"我 {seat} 号目前比较怀疑 {pick.seat} 号，理由先听后置位。",
+                        f"我 {seat} 号先记下 {pick.seat} 号的发言，后面拿票型对照。",
+                        f"我 {seat} 号先听一轮，{pick.seat} 号的表述还要继续验证。",
+                        f"我 {seat} 号不凭感觉定狼，先看 {pick.seat} 号后面怎么解释。",
                     ]
                 )
             )
@@ -187,13 +202,13 @@ def speech_content(state: GameState, actor, view) -> str | None:
         return with_reference(
             rng.choice(
                 [
-                    f"我是村民，我怀疑 {pick.seat} 号，他的投票和发言对不上。",
-                    f"我是村民，我看 {pick.seat} 号有点问题，先记着。",
-                    f"我是村民，目前最怀疑 {pick.seat} 号，等下看他怎么解释。",
+                        f"我是村民，{pick.seat} 号的发言我先记下，等查验和票型再对照。",
+                        f"我是村民，现在没有硬证据，先听 {pick.seat} 号后面怎么解释。",
+                        f"我是村民，我只按发言和票型归票，暂时不给 {pick.seat} 号定性。",
                 ]
             )
         )
-    return f"我 {seat} 号目前没有明确怀疑对象。"
+    return f"我是村民，{seat} 号目前没有明确怀疑对象，先听后面的发言。"
 
 
 @dataclass(slots=True)

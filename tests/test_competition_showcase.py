@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 from uuid import uuid4
@@ -12,13 +13,16 @@ from fastapi.testclient import TestClient
 from backend.api import create_app
 from backend.ai_provider import DeepSeekSettings
 from backend.game_engine import (
+    DayResult,
     EventType,
     Phase,
     Role,
     Visibility,
     append_event,
     create_game,
+    resolve_vote,
 )
+from backend.ai_growth import speech_content
 from backend.logic_audit import admits_deception, audit, spoken_denial
 from backend.rooms import InMemoryRoomRepository, ViewerAccess
 from backend.strategy_learning import learn_one_game, learning_history
@@ -69,6 +73,79 @@ class NewSpeechAuditTests(TestCase):
         self.assertIn("spoken_denial", {item.kind for item in findings})
         self.assertEqual(spoken_denial("1号发言前就被查杀", {1}), 1)
         self.assertIsNone(spoken_denial("1号发言前就被查杀", set()))
+
+    def test_unspoken_accusation_and_unclaimed_check_prompt_are_caught(self) -> None:
+        state = create_game(seed=9103, human_count=0)
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=state.players[5].player_id,
+            data={"content": "我是村民，我看8号有点问题，先记着。"},
+        )
+        self.assertIn(
+            "unfounded_unspoken_accusation",
+            {item.kind for item in audit(state, state.players[0])},
+        )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=state.players[3].player_id,
+            data={"content": "我4号先听一轮，1号我再观察。"},
+        )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=state.players[6].player_id,
+            data={"content": "4号报查验吧，对不上就把票压过去。"},
+        )
+        self.assertIn(
+            "unclaimed_check_prompt",
+            {item.kind for item in audit(state, state.players[0])},
+        )
+
+    def test_template_does_not_accuse_a_player_who_has_not_spoken(self) -> None:
+        state = create_game(seed=9104, human_count=0)
+        state.phase = Phase.DAY_DISCUSSION
+        state.day = 1
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=state.players[0].player_id,
+            data={"content": "大家好。"},
+        )
+        actor = next(
+            player
+            for player in state.players[1:]
+            if player.role is Role.VILLAGER
+        )
+        view = SimpleNamespace(action="speech", requires_content=True)
+        text = speech_content(state, actor, view) or ""
+        self.assertNotIn("有点问题", text)
+        self.assertNotIn("最怀疑", text)
+        self.assertNotIn("我怀疑", text)
+
+
+class TerminalWinRateTests(TestCase):
+    def test_last_wolf_vote_immediately_sets_good_to_one_hundred(self) -> None:
+        state = create_game(seed=9105, human_count=0)
+        last_wolf = next(
+            player for player in state.players if player.role is Role.WEREWOLF
+        )
+        for player in state.players:
+            if player.role is Role.WEREWOLF and player is not last_wolf:
+                player.is_alive = False
+        living_ids = [player.player_id for player in state.players if player.is_alive]
+        state.phase = Phase.VOTE
+        state.day_result = DayResult(
+            speech_order=living_ids,
+            votes={player_id: last_wolf.player_id for player_id in living_ids},
+            votes_closed=True,
+        )
+        resolve_vote(state)
+        self.assertEqual(state.phase, Phase.END)
+        self.assertEqual(state.events[-1].event_type, EventType.WINNER_DECIDED)
+        self.assertEqual(state.events[-1].data["winner"], "good")
+        self.assertEqual(baseline_timeline(state)[-1]["good"], 1.0)
 
 
 class WinProbabilityTests(TestCase):

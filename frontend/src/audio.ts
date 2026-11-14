@@ -6,7 +6,7 @@
  * muted from the header and the choice is remembered locally.
  */
 
-type SfxKind = "night" | "day" | "vote" | "death" | "turn" | "join";
+type SfxKind = "night" | "day" | "vote" | "death" | "turn" | "join" | "speech";
 
 let context: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -20,9 +20,21 @@ let enabled =
     ? true
     : localStorage.getItem("wolfarena.audio") !== "off";
 
-function ensureContext(): AudioContext {
+function ensureContext(): AudioContext | null {
   if (context === null) {
-    context = new AudioContext();
+    const AudioConstructor = (
+      globalThis as typeof globalThis & {
+        webkitAudioContext?: typeof AudioContext;
+      }
+    ).AudioContext ?? (
+      globalThis as typeof globalThis & {
+        webkitAudioContext?: typeof AudioContext;
+      }
+    ).webkitAudioContext;
+    if (!AudioConstructor) {
+      return null;
+    }
+    context = new AudioConstructor();
     master = context.createGain();
     master.gain.value = 0.7;
     master.connect(context.destination);
@@ -86,6 +98,9 @@ export function playSfx(kind: SfxKind): void {
     return;
   }
   const current = ensureContext();
+  if (!current) {
+    return;
+  }
   const now = current.currentTime;
   switch (kind) {
     case "night":
@@ -111,6 +126,10 @@ export function playSfx(kind: SfxKind): void {
     case "join":
       tone(659.25, 0.16, "triangle", now, 0.06);
       break;
+    case "speech":
+      tone(440, 0.08, "sine", now, 0.025);
+      tone(554.37, 0.12, "sine", now + 0.05, 0.018);
+      break;
   }
 }
 
@@ -119,7 +138,7 @@ export function startAmbient(): void {
     return;
   }
   const current = ensureContext();
-  if (master === null) {
+  if (!current || master === null) {
     return;
   }
   const gain = current.createGain();
