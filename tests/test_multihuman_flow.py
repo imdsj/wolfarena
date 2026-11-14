@@ -16,7 +16,10 @@ from backend.game_engine import (
 )
 from backend.rooms import InMemoryRoomRepository
 from backend.schemas import ActionRequest
-from backend.actions import available_actions_for_state
+from backend.actions import (
+    available_actions_for_state,
+    execute_engine_action,
+)
 
 
 class HumanIdleTimeoutTests(TestCase):
@@ -133,6 +136,28 @@ class CaptainConfirmationTests(TestCase):
         )
         with self.assertRaisesRegex(ValueError, "抢先确认"):
             elect_wolf_captain(state, captain_id=wolves[0].player_id)
+
+    def test_late_confirm_reports_the_race_result(self) -> None:
+        state, wolves = self._two_human_wolves(312)
+        execute_engine_action(
+            state,
+            wolves[1],
+            ActionRequest(action="confirm_captain"),
+            host_player_id=wolves[0].player_id,
+        )
+        execute_engine_action(
+            state,
+            wolves[1],
+            ActionRequest(action="confirm_captain"),
+            host_player_id=wolves[0].player_id,
+        )
+        with self.assertRaisesRegex(ValueError, "抢先确认"):
+            execute_engine_action(
+                state,
+                wolves[0],
+                ActionRequest(action="confirm_captain"),
+                host_player_id=wolves[0].player_id,
+            )
 
 
 class ReservedSeatGateTests(TestCase):

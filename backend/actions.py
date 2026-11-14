@@ -314,6 +314,15 @@ def execute_engine_action(
     }
     view = actions.get(request.action)
     if view is None:
+        if (
+            request.action == "confirm_captain"
+            and viewer.is_alive
+            and viewer.is_human
+            and viewer.role is Role.WEREWOLF
+            and state.phase in {Phase.INIT, Phase.NIGHT_WOLF_DISCUSSION_R1}
+        ):
+            elect_wolf_captain(state, captain_id=viewer.player_id)
+            return
         raise ActionUnavailableError(
             f"当前玩家不能执行动作：{request.action}"
         )
