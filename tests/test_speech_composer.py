@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest import TestCase
+from unittest.mock import patch
 
 from backend.ai_provider import DeepSeekSettings
 from backend.game_engine import (
@@ -193,3 +194,33 @@ class SpeechComposerTests(TestCase):
             ][:5]
         )
         self.assertEqual(speaking_order(state, dead), "")
+
+
+class SpeechFallbackTests(TestCase):
+    def test_llm_failure_falls_back_to_template(self) -> None:
+        from backend.ai_controller import AIController
+        from backend.ai_growth import L1RulePolicy
+
+        state = create_game(seed=5, human_count=0)
+        state.phase = Phase.DAY_DISCUSSION
+        state.day = 1
+        actor = state.players[3]
+        view = SimpleNamespace(action="speech", requires_content=True)
+        with patch(
+            "backend.ai_controller.llm_speech_enabled",
+            return_value=True,
+        ), patch(
+            "backend.ai_controller.compose_speech_with_tools",
+            return_value=(None, [{"name": "audit_logic"}]),
+        ):
+            text, tool_calls = AIController._speech_content_with_tools(
+                state,
+                actor,
+                view,
+                L1RulePolicy(seed=5),
+            )
+        # Empty LLM output must never reach the action layer: fall back to the
+        # deterministic template so later speakers are not stalled.
+        self.assertIsNotNone(text)
+        self.assertTrue(text.strip())
+        self.assertEqual(tool_calls, [{"name": "audit_logic"}])

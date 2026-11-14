@@ -590,6 +590,7 @@ class AIController:
         policy,
     ) -> tuple[str | None, list[dict]]:
         persona = getattr(policy, "archetype", None)
+        tool_calls: list[dict] = []
         # Night wolf-channel chat stays on the fast deterministic template so
         # AI night actions never stall behind an LLM round-trip. Public
         # day speech keeps the optional LLM path.
@@ -605,10 +606,13 @@ class AIController:
                     AIController._ensure_logic_catch(state, actor, view, text),
                     tool_calls,
                 )
-            return None, tool_calls
+            # An LLM timeout, budget stop or safety rejection must fall back
+            # to the deterministic template. Returning empty content here
+            # would make the speech action invalid and stall every later
+            # speaker for the rest of the day.
         if isinstance(policy, L1RulePolicy):
-            return policy.choose_content(state, actor, view), []
-        return speech_content(state, actor, view), []
+            return policy.choose_content(state, actor, view), tool_calls
+        return speech_content(state, actor, view), tool_calls
 
     @staticmethod
     def _ensure_logic_catch(state, actor, view, text: str) -> str:
