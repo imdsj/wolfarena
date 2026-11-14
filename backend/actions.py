@@ -86,10 +86,17 @@ def available_actions_for_state(
     if phase is Phase.INIT:
         if is_host:
             add("start_night", "开始首夜")
+        human_wolves = [
+            player
+            for player in living
+            if player.role is Role.WEREWOLF and player.is_human
+        ]
         if (
             viewer.is_alive
             and viewer.role is Role.WEREWOLF
             and viewer.is_human
+            and state.wolf_captain_id is None
+            and len(human_wolves) >= 2
         ):
             add("confirm_captain", "确认当狼队长")
         return tuple(actions)

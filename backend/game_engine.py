@@ -419,7 +419,9 @@ def elect_wolf_captain(
     if state.wolf_captain_id is not None:
         current = get_player(state, state.wolf_captain_id)
         if current.is_alive:
-            raise ValueError("存活狼队长已经存在")
+            if captain_id is not None and captain_id == current.player_id:
+                return state
+            raise ValueError("狼队长已由其他真人抢先确认")
 
     captain, selection_method = _choose_wolf_captain(
         state,

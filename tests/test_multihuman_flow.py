@@ -16,6 +16,7 @@ from backend.game_engine import (
 )
 from backend.rooms import InMemoryRoomRepository
 from backend.schemas import ActionRequest
+from backend.actions import available_actions_for_state
 
 
 class HumanIdleTimeoutTests(TestCase):
@@ -87,6 +88,51 @@ class CaptainConfirmationTests(TestCase):
 
         self.assertEqual(state.wolf_captain_id, wolves[1].player_id)
         self.assertEqual(state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
+
+    def test_single_human_wolf_does_not_see_confirm_button(self) -> None:
+        state = create_game(seed=310, human_count=1)
+        human = next(player for player in state.players if player.is_human)
+        human.role = Role.WEREWOLF
+        for player in state.players:
+            if player.role is Role.WEREWOLF and player is not human:
+                player.is_human = False
+        actions = available_actions_for_state(
+            state,
+            human,
+            host_player_id=human.player_id,
+        )
+        self.assertNotIn(
+            "confirm_captain",
+            {action.action for action in actions},
+        )
+        start_night(state)
+        self.assertEqual(state.wolf_captain_id, human.player_id)
+
+    def test_two_human_wolves_race_and_repeat_confirm_is_idempotent(self) -> None:
+        state, wolves = self._two_human_wolves(311)
+        first_actions = available_actions_for_state(
+            state,
+            wolves[0],
+            host_player_id=wolves[0].player_id,
+        )
+        self.assertIn(
+            "confirm_captain",
+            {action.action for action in first_actions},
+        )
+        elect_wolf_captain(state, captain_id=wolves[1].player_id)
+        elect_wolf_captain(state, captain_id=wolves[1].player_id)
+        self.assertEqual(state.wolf_captain_id, wolves[1].player_id)
+        second_actions = available_actions_for_state(
+            state,
+            wolves[0],
+            host_player_id=wolves[0].player_id,
+        )
+        self.assertNotIn(
+            "confirm_captain",
+            {action.action for action in second_actions},
+        )
+        with self.assertRaisesRegex(ValueError, "抢先确认"):
+            elect_wolf_captain(state, captain_id=wolves[0].player_id)
 
 
 class ReservedSeatGateTests(TestCase):
