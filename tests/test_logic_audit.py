@@ -19,6 +19,7 @@ from backend.logic_audit import (
     audit,
     contradicts_own_report,
     dead_vote_targets,
+    findings_summary,
     impossible_seer_claim_in_text,
     mentions_two_nights_on_day_one,
     strongest_finding,
@@ -399,6 +400,74 @@ class VoteDeadTargetTests(TestCase):
         )
         self.assertEqual(dead_vote_targets(content, {dead.seat}), {dead.seat})
         self.assertEqual(dead_vote_targets("别票7号", {7}), set())
+
+
+class SpeechVoteMismatchTests(TestCase):
+    def test_called_vote_then_different_ballot_is_flagged(self) -> None:
+        state = create_game(seed=400, human_count=0)
+        state.day = 1
+        speaker = state.players[0]
+        called = state.players[2]
+        actual = state.players[4]
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": f"今天归票{called.seat}号，大家都投{called.seat}号。"},
+        )
+        append_event(
+            state,
+            EventType.VOTE_RESULT,
+            visibility=Visibility.PUBLIC,
+            data={
+                "votes": {
+                    speaker.player_id: actual.player_id,
+                    "p2": called.player_id,
+                }
+            },
+        )
+        findings = audit(state, state.players[0])
+        self.assertIn(
+            ("speech_vote_mismatch", speaker.seat, called.seat),
+            [
+                (finding.kind, finding.speaker_seat, finding.subject_seat)
+                for finding in findings
+            ],
+        )
+
+    def test_matching_ballot_is_not_flagged(self) -> None:
+        state = create_game(seed=401, human_count=0)
+        state.day = 1
+        speaker = state.players[0]
+        called = state.players[2]
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": f"今天归票{called.seat}号。"},
+        )
+        append_event(
+            state,
+            EventType.VOTE_RESULT,
+            visibility=Visibility.PUBLIC,
+            data={"votes": {speaker.player_id: called.player_id}},
+        )
+        kinds = {finding.kind for finding in audit(state, state.players[0])}
+        self.assertNotIn("speech_vote_mismatch", kinds)
+
+
+class FindingsSummaryTests(TestCase):
+    def test_summary_counts_each_kind(self) -> None:
+        state = create_game(seed=402, human_count=0)
+        speaker = state.players[8]
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=speaker.player_id,
+            data={"content": "3号才是真预言家。"},
+        )
+        summary = findings_summary(state, state.players[0])
+        self.assertEqual(summary.get("impossible_identity"), 1)
 
 
 class SeerCheckCountTests(TestCase):

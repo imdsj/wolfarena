@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { GameEvent, PublicPlayer } from "../types";
+import type { AgentInsight, GameEvent, PublicPlayer } from "../types";
 
 const props = defineProps<{
   events: GameEvent[];
   players: PublicPlayer[];
+  insights: AgentInsight[];
 }>();
 
 const roleLabels: Record<string, string> = {
@@ -22,6 +23,13 @@ const deathCauseLabels: Record<string, string> = {
   banished: "投票放逐",
   hunter_shot: "猎人开枪",
   self_destruct: "自爆",
+};
+
+const archetypeLabels: Record<string, string> = {
+  aggressive: "冲锋型",
+  steady: "稳健型",
+  logical: "逻辑型",
+  chaotic: "搅局型",
 };
 
 const winner = computed(() => {
@@ -81,6 +89,37 @@ function playerOutcome(player: PublicPlayer): string {
     ? causes.map((cause) => deathCauseLabels[cause] ?? cause).join("、")
     : "已出局";
 }
+
+function archetypeLabel(archetype: string | null | undefined): string {
+  return archetype ? archetypeLabels[archetype] ?? archetype : "";
+}
+
+interface TacticUse {
+  id: string;
+  aiInvented: boolean;
+}
+
+function usedTactics(agent: AgentInsight): TacticUse[] {
+  const seen = new Set<string>();
+  const uses: TacticUse[] = [];
+  for (const trace of agent.decision_traces) {
+    for (const id of trace.tactic_ids) {
+      if (seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      uses.push({ id, aiInvented: id.startsWith("cand.") });
+    }
+  }
+  return uses;
+}
+
+function toolCount(agent: AgentInsight): number {
+  return agent.decision_traces.reduce(
+    (sum, trace) => sum + trace.tool_calls.length,
+    0,
+  );
+}
 </script>
 
 <template>
@@ -101,6 +140,12 @@ function playerOutcome(player: PublicPlayer): string {
       >
         <span>{{ player.seat }}号</span>
         <strong>{{ player.name }}</strong>
+        <small
+          v-if="!player.is_human && archetypeLabel(player.archetype)"
+          class="result-archetype"
+        >
+          {{ archetypeLabel(player.archetype) }}
+        </small>
         <dl>
           <div>
             <dt>身份</dt>
@@ -113,5 +158,36 @@ function playerOutcome(player: PublicPlayer): string {
         </dl>
       </article>
     </div>
+
+    <section v-if="insights.length" class="review-panel">
+      <div class="section-heading">
+        <h2>AI 策略复盘</h2>
+        <span>人格 · 战术 · 工具</span>
+      </div>
+      <article
+        v-for="agent in insights"
+        :key="agent.player_id"
+        class="review-agent"
+      >
+        <div class="review-agent-head">
+          <strong>{{ agent.seat }}号 {{ agent.name }}</strong>
+          <span class="chip" :class="'chip-' + agent.archetype">
+            {{ archetypeLabel(agent.archetype) }}
+          </span>
+          <span class="muted">调用工具 {{ toolCount(agent) }} 次</span>
+        </div>
+        <p v-if="usedTactics(agent).length" class="review-tactics">
+          <span
+            v-for="use in usedTactics(agent)"
+            :key="use.id"
+            class="tactic-chip"
+            :class="{ 'tactic-invented': use.aiInvented }"
+          >
+            {{ use.id }}<template v-if="use.aiInvented"> · AI 发明</template>
+          </span>
+        </p>
+        <p v-else class="muted">本局未命中战术库。</p>
+      </article>
+    </section>
   </section>
 </template>

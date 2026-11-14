@@ -52,6 +52,9 @@ _KILL_TARGET = re.compile(
 _VOTE_TARGET = re.compile(
     r"(?:票|投|归票|抗推|放逐|出)\s*(\d{1,2})\s*号?"
 )
+_CALL_TO_VOTE = re.compile(
+    r"(?:归票|票|投|抗推|放逐)\s*(\d{1,2})\s*号?"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -88,6 +91,22 @@ def _hedged(text: str, start: int, end: int) -> bool:
     return any(suffix.startswith(word) for word in _QUESTION_SUFFIX)
 
 
+def _called_vote_targets(text: str) -> set[int]:
+    """Return seats the speech explicitly calls to vote out."""
+
+    if not isinstance(text, str) or not text:
+        return set()
+    found: set[int] = set()
+    for match in _CALL_TO_VOTE.finditer(text):
+        prefix = text[max(0, match.start() - 2) : match.start()]
+        if "不" in prefix or "别" in prefix:
+            continue
+        seat = int(match.group(1))
+        if 1 <= seat <= 12:
+            found.add(seat)
+    return found
+
+
 def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
     """Return contradictions visible to ``viewer`` in chronological order."""
 
@@ -100,6 +119,25 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
     seer_checks: dict[int, set[int]] = {}
     findings: list[Finding] = []
     seen: set[tuple[str, int, int]] = set()
+
+    # Public vote history lets us catch a speaker who tells the table to
+    # vote one way and then casts a different ballot.
+    votes_by_day: dict[int, dict[int, int | None]] = {}
+    for event in get_visible_events(state, viewer):
+        if event.event_type is not EventType.VOTE_RESULT:
+            continue
+        raw = event.data.get("votes")
+        if not isinstance(raw, dict):
+            continue
+        row: dict[int, int | None] = {}
+        for voter_id, target_id in raw.items():
+            voter_seat = _seat_of(players, str(voter_id))
+            if voter_seat is None:
+                continue
+            row[voter_seat] = (
+                _seat_of(players, str(target_id)) if target_id else None
+            )
+        votes_by_day[int(event.day)] = row
 
     for event in get_visible_events(state, viewer):
         if event.event_type not in PUBLIC_EVENTS:
@@ -235,6 +273,33 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                     )
                 )
 
+            # Telling the table to vote one seat and then voting another is
+            # a direct behavioural contradiction.
+            day_votes = votes_by_day.get(int(event.day), {})
+            actual = day_votes.get(speaker)
+            if actual is not None:
+                for subject in _called_vote_targets(content):
+                    if subject == speaker or subject not in alive_seats:
+                        continue
+                    if subject == actual:
+                        continue
+                    key = ("speech_vote_mismatch", speaker, subject)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="speech_vote_mismatch",
+                            speaker_seat=speaker,
+                            subject_seat=subject,
+                            detail=(
+                                f"{speaker}号白天号召票{subject}号，"
+                                f"实际却投了{actual}号，言行不一"
+                            ),
+                            weight=3,
+                        )
+                    )
+
             # A seer checks exactly one player per night; on day N at most N
             # checks can exist. Reporting more is a hard rule violation.
             if "seer" in claims.get(speaker, set()) and reports:
@@ -299,6 +364,15 @@ def suspect_scores(findings: tuple[Finding, ...]) -> Counter:
         }:
             scores[finding.speaker_seat] += finding.weight
     return scores
+
+
+def findings_summary(state: GameState, viewer: Player) -> dict[str, int]:
+    """Count each contradiction kind visible to ``viewer``."""
+
+    counts: Counter = Counter()
+    for finding in audit(state, viewer):
+        counts[finding.kind] += 1
+    return dict(counts)
 
 
 def top_suspect(
