@@ -60,13 +60,6 @@ NIGHT_PACED_PHASES = frozenset(
     }
 )
 
-# A real player is never replaced quickly: the room waits for their action
-# instead of silently voting or acting for them. The long limit only exists
-# so an abandoned seat cannot stall a room forever.
-HUMAN_TURN_TIMEOUT_SECONDS = HUMAN_ACTION_TIMEOUT_SECONDS
-VOTE_TURN_TIMEOUT_SECONDS = HUMAN_ACTION_TIMEOUT_SECONDS
-
-
 @dataclass(frozen=True, slots=True)
 class AIControllerResult:
     steps: int
@@ -341,16 +334,10 @@ class AIController:
             and actor.is_human
             and actor.is_alive
         ):
-            # Wait for the real player. The timeout is intentionally long so
-            # an unfinished human turn is never auto-played within a normal
-            # game session.
-            timeout = (
-                VOTE_TURN_TIMEOUT_SECONDS
-                if state.phase is Phase.VOTE
-                else HUMAN_TURN_TIMEOUT_SECONDS
-            )
-            state.phase_deadline_at = reference + timeout
-            state.phase_deadline_kind = "human_action"
+            # A real player's turn waits indefinitely: never auto-play and
+            # never auto-abstain for them. The room advances only when the
+            # player acts.
+            self._clear_phase_deadline(state)
             return
         elif state.phase in NIGHT_PACED_PHASES:
             state.phase_deadline_at = reference + NIGHT_PHASE_PACE_SECONDS
@@ -603,7 +590,10 @@ class AIController:
         policy,
     ) -> tuple[str | None, list[dict]]:
         persona = getattr(policy, "archetype", None)
-        if llm_speech_enabled():
+        # Night wolf-channel chat stays on the fast deterministic template so
+        # AI night actions never stall behind an LLM round-trip. Public
+        # day speech keeps the optional LLM path.
+        if llm_speech_enabled() and view.action != "wolf_speech":
             text, tool_calls = compose_speech_with_tools(
                 state=state,
                 actor=actor,

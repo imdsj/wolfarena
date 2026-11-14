@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from backend.ai_controller import (
-    AIController,
-    HUMAN_TURN_TIMEOUT_SECONDS,
-    VOTE_TURN_TIMEOUT_SECONDS,
-)
+from backend.ai_controller import AIController
 from backend.game_engine import (
     DayResult,
     EventType,
@@ -31,11 +27,8 @@ class HumanIdleTimeoutTests(TestCase):
 
         controller._ensure_phase_deadline(state, now=100.0)
 
-        self.assertEqual(state.phase_deadline_kind, "human_action")
-        self.assertEqual(
-            state.phase_deadline_at,
-            100.0 + VOTE_TURN_TIMEOUT_SECONDS,
-        )
+        self.assertIsNone(state.phase_deadline_kind)
+        self.assertIsNone(state.phase_deadline_at)
 
     def test_night_action_waits_for_the_real_player(self) -> None:
         state = create_game(seed=302, human_count=1)
@@ -47,38 +40,8 @@ class HumanIdleTimeoutTests(TestCase):
 
         controller._ensure_phase_deadline(state, now=100.0)
 
-        self.assertEqual(state.phase_deadline_kind, "human_action")
-        self.assertEqual(
-            state.phase_deadline_at,
-            100.0 + HUMAN_TURN_TIMEOUT_SECONDS,
-        )
-
-    def test_idle_human_vote_is_auto_abstained(self) -> None:
-        repository = InMemoryRoomRepository()
-        created = repository.create_room(
-            seed=303,
-            human_count=1,
-            max_humans=3,
-            nickname="房主",
-        )
-        room = repository._rooms[created.room_id]
-        human = next(player for player in room.state.players if player.is_human)
-        with room.lock:
-            room.state.day = 1
-            room.state.phase = Phase.VOTE
-            room.state.day_result = DayResult(votes={})
-            room.state.phase_deadline_at = 99.0
-            room.state.phase_deadline_kind = "human_action"
-
-        repository.process_expired_deadlines(now=100.0)
-
-        human_vote = next(
-            event
-            for event in room.state.events
-            if event.event_type is EventType.VOTE_CAST
-            and event.actor_id == human.player_id
-        )
-        self.assertTrue(human_vote.data["abstain"])
+        self.assertIsNone(state.phase_deadline_kind)
+        self.assertIsNone(state.phase_deadline_at)
 
 
 class CaptainConfirmationTests(TestCase):

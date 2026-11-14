@@ -6,7 +6,6 @@ from unittest import IsolatedAsyncioTestCase
 
 from fastapi.testclient import TestClient
 
-from backend.ai_controller import HUMAN_TURN_TIMEOUT_SECONDS
 from backend.api import create_app
 from backend.game_engine import (
     DayResult,
@@ -119,40 +118,6 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
             if event.event_type is EventType.LAST_WORDS_TIMEOUT
         ]
         self.assertEqual(len(timeout_after), 1)
-
-    async def test_idle_human_night_role_is_auto_played(self) -> None:
-        repository = InMemoryRoomRepository()
-        created = repository.create_room(
-            seed=3,
-            human_count=1,
-            max_humans=3,
-            nickname="H",
-        )
-        room = repository._rooms[created.room_id]
-        access = ViewerAccess(
-            room_id=created.room_id,
-            kind="player",
-            player_id="p1",
-        )
-        repository.execute_action_and_advance_ai(
-            access,
-            ActionRequest(action="start_night"),
-            now=0.0,
-        )
-        self.assertEqual(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
-        self.assertEqual(room.state.phase_deadline_kind, "human_action")
-        self.assertEqual(
-            room.state.phase_deadline_at,
-            HUMAN_TURN_TIMEOUT_SECONDS,
-        )
-
-        realtime = FakeRealtime()
-        timer = RoomTimerService(repository, realtime)
-        await timer.tick(now=HUMAN_TURN_TIMEOUT_SECONDS)
-
-        # The idle human's wolf turn was played for them, so the discussion
-        # moved past the first round instead of stalling forever.
-        self.assertNotEqual(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
 
     def test_late_begin_day_is_ignored_after_phase_advanced(self) -> None:
         repository = InMemoryRoomRepository()
