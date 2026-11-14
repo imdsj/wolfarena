@@ -30,7 +30,12 @@ import type {
 } from "./types";
 
 const busy = ref(false);
-const homeView = ref<"lobby" | "lab" | "review">("lobby");
+const requestedView = new URLSearchParams(window.location.search).get("view");
+const homeView = ref<"lobby" | "lab" | "review">(
+  requestedView === "lab" || requestedView === "review"
+    ? requestedView
+    : "lobby",
+);
 const errorMessage = ref("");
 const room = ref<RoomSnapshot | null>(null);
 const events = ref<GameEvent[]>([]);

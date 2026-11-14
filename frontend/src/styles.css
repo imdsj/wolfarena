@@ -1727,3 +1727,9 @@ body.night-mode .chip-active {
   margin-top: 10px;
 }
 
+.room-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+

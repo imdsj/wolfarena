@@ -368,6 +368,10 @@ async function copyRoomId(): Promise<void> {
     copyLabel.value = "请手动选择";
   }
 }
+
+function openStrategyLab(): void {
+  window.open("/?view=lab", "_blank", "noopener");
+}
 </script>
 
 <template>
@@ -385,9 +389,18 @@ async function copyRoomId(): Promise<void> {
         </div>
         <h1>{{ phaseLabel(room.phase) }}</h1>
       </div>
-      <button class="text-button" type="button" @click="emit('leave')">
-        离开
-      </button>
+      <div class="room-header-actions">
+        <button
+          class="text-button"
+          type="button"
+          @click="openStrategyLab"
+        >
+          策略实验室
+        </button>
+        <button class="text-button" type="button" @click="emit('leave')">
+          离开
+        </button>
+      </div>
     </header>
 
     <ConnectionStatus
