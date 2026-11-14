@@ -102,6 +102,16 @@ class NewSpeechAuditTests(TestCase):
             "unclaimed_check_prompt",
             {item.kind for item in audit(state, state.players[0])},
         )
+        append_event(
+            state,
+            EventType.PUBLIC_SPEECH,
+            actor_id=state.players[8].player_id,
+            data={"content": "7号却只报一晚金水，也没自证。"},
+        )
+        self.assertIn(
+            "fabricated_report_attribution",
+            {item.kind for item in audit(state, state.players[0])},
+        )
 
     def test_template_does_not_accuse_a_player_who_has_not_spoken(self) -> None:
         state = create_game(seed=9104, human_count=0)

@@ -88,6 +88,11 @@ _UNCLAIMED_CHECK_PROMPT = re.compile(
     r"|(?:让|请|叫)\s*(\d{1,2})\s*号\s*"
     r"(?:报|报一下|说说|讲)(?:你的)?(?:查验|验人|查验链)"
 )
+_REPORT_ATTRIBUTION = re.compile(
+    r"(?<!\d)(\d{1,2})\s*号\s*([^，。；\n]{0,10}?)"
+    r"(?:报|汇报|说)(?:了|过|一晚|一次|一个)?\s*"
+    r"(?:一晚|一次|一个)?\s*(金水|查杀)"
+)
 
 _NEGATED_PREFIX = ("不", "非", "假", "冒", "装", "别")
 _HEDGED_PREFIX = ("认", "觉得", "认为", "猜", "可能", "大概", "也许", "如果", "假如", "要是", "若")
@@ -150,6 +155,7 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
     spoken: set[int] = set()
     spoken_by_day: dict[int, set[int]] = {}
     claims: dict[int, set[str]] = {}
+    public_reporters: set[int] = set()
     seer_checks: dict[int, set[int]] = {}
     findings: list[Finding] = []
     seen: set[tuple[str, int, int]] = set()
@@ -265,6 +271,28 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
                         )
                     )
 
+            attributed_seat = fabricated_report_attribution(
+                content,
+                public_reporters,
+                speaker,
+            )
+            if attributed_seat is not None:
+                key = ("fabricated_report_attribution", speaker, attributed_seat)
+                if key not in seen:
+                    seen.add(key)
+                    findings.append(
+                        Finding(
+                            kind="fabricated_report_attribution",
+                            speaker_seat=speaker,
+                            subject_seat=attributed_seat,
+                            detail=(
+                                f"{speaker}号声称{attributed_seat}号报过金水或查杀，"
+                                "但公开发言记录里对方没有这类查验声明"
+                            ),
+                            weight=4,
+                        )
+                    )
+
             # A speaker who claims two different god roles is contradicting
             # themselves, whatever their real role is.
             for match in _SELF_CLAIM.finditer(content):
@@ -351,6 +379,8 @@ def audit(state: GameState, viewer: Player) -> tuple[Finding, ...]:
 
             # "1号是金水，今天票1号" contradicts the speaker's own report.
             _, accusations, reports = parse_speech(content)
+            if reports or "金水" in content or "查杀" in content:
+                public_reporters.add(speaker)
             for subject, result in reports.items():
                 if result != "good" or accusations.get(subject, 0) <= 0:
                     continue
@@ -481,6 +511,7 @@ def suspect_scores(findings: tuple[Finding, ...]) -> Counter:
             "spoken_denial",
             "unfounded_unspoken_accusation",
             "unclaimed_check_prompt",
+            "fabricated_report_attribution",
             "role_flip",
             "impossible_seer_checks",
             "one_night_two_checks",
@@ -543,6 +574,25 @@ def prompts_unclaimed_check(
     for match in _UNCLAIMED_CHECK_PROMPT.finditer(text):
         seat = int(match.group(1) or match.group(2))
         if seat != speaker_seat and seat not in seer_claimants:
+            return seat
+    return None
+
+
+def fabricated_report_attribution(
+    text: str,
+    public_reporters: set[int],
+    speaker_seat: int,
+) -> int | None:
+    """Catch assigning a golden-water/wolf report to someone who never made one."""
+
+    if not isinstance(text, str) or not text:
+        return None
+    for match in _REPORT_ATTRIBUTION.finditer(text):
+        seat = int(match.group(1))
+        middle = match.group(2)
+        if any(word in middle for word in ("没", "未", "不")):
+            continue
+        if seat != speaker_seat and seat not in public_reporters:
             return seat
     return None
 

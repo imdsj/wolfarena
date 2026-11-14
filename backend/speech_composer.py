@@ -26,6 +26,7 @@ from .logic_audit import (
     claims_kill_target_knowledge,
     contradicts_own_report,
     dead_vote_targets,
+    fabricated_report_attribution,
     impossible_seer_claim_in_text,
     mentions_two_nights_on_day_one,
     prompts_unclaimed_check,
@@ -551,6 +552,7 @@ def compose_speech_with_tools(
             "对还没发言的玩家只能等待，不能无证据怀疑、压、踩、咬或断言其神职身份；"
             "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
             "除非对方已经公开自称预言家，否则不能要求他报查验或验人；"
+            "不得把别人没有报过的查验、金水或查杀安到对方身上；"
             "狼队夜间分工只能自己执行，公开不能指挥队友、配合投票或隔空递话。"
             "“悍跳”“对跳”只是狼队内部术语，公开发言时你只能以真预言家自居，"
             "绝不能说“我悍跳”“我在对跳”“我是假预言家”或承认自己是狼人；"
@@ -703,7 +705,11 @@ def compose_speech_with_tools(
     if own_last:
         prior_texts.append(own_last)
     seer_claimants: set[int] = set()
+    public_reporters: set[int] = set()
     for line in history:
+        report_match = re.match(r"\s*(\d{1,2})\s*号[：:]", line)
+        if report_match and ("金水" in line or "查杀" in line):
+            public_reporters.add(int(report_match.group(1)))
         if "我是预言家" not in line:
             continue
         match = re.match(r"\s*(\d{1,2})\s*号[：:]", line)
@@ -734,6 +740,15 @@ def compose_speech_with_tools(
             and prompts_unclaimed_check(
                 cleaned,
                 seer_claimants,
+                actor.seat,
+            )
+            is not None
+        )
+        or (
+            view.action == "speech"
+            and fabricated_report_attribution(
+                cleaned,
+                public_reporters,
                 actor.seat,
             )
             is not None
