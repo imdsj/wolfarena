@@ -52,6 +52,14 @@ _KILL_TARGET = re.compile(
 _VOTE_TARGET = re.compile(
     r"(?:票|投|归票|抗推|放逐|出)\s*(\d{1,2})\s*号?"
 )
+_KILL_KNOWLEDGE = re.compile(
+    r"被刀的人(?:自己)?(?:心里)?有数"
+    r"|知道(?:谁)?被刀"
+    r"|知道刀口"
+    r"|刀口是"
+    r"|我清楚刀口"
+    r"|被刀的是"
+)
 _CALL_TO_VOTE = re.compile(
     r"(?:归票|票|投|抗推|放逐)\s*(\d{1,2})\s*号?"
 )
@@ -523,3 +531,16 @@ def mentions_two_nights_on_day_one(text: str, day: int) -> bool:
     if day > 1 or not isinstance(text, str):
         return False
     return "两晚" in text or "两夜" in text
+
+
+def claims_kill_target_knowledge(text: str) -> bool:
+    """True when a speech claims to know the night kill target.
+
+    Only wolves (who chose the kill) and a witch holding the antidote know
+    this. Any other good player claiming it is either role-claiming by
+    accident or leaking information they cannot have.
+    """
+
+    if not isinstance(text, str) or not text:
+        return False
+    return bool(_KILL_KNOWLEDGE.search(text))

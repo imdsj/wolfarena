@@ -60,10 +60,11 @@ NIGHT_PACED_PHASES = frozenset(
     }
 )
 
-# A living human who does not act in time is replaced by the AI so a
-# 2-3 player game can never stall on a disconnected seat.
-HUMAN_TURN_TIMEOUT_SECONDS = 30.0
-VOTE_TURN_TIMEOUT_SECONDS = 10.0
+# A real player is never replaced quickly: the room waits for their action
+# instead of silently voting or acting for them. The long limit only exists
+# so an abandoned seat cannot stall a room forever.
+HUMAN_TURN_TIMEOUT_SECONDS = HUMAN_ACTION_TIMEOUT_SECONDS
+VOTE_TURN_TIMEOUT_SECONDS = HUMAN_ACTION_TIMEOUT_SECONDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,8 +341,9 @@ class AIController:
             and actor.is_human
             and actor.is_alive
         ):
-            # An idle human is eventually replaced by the AI policy so the
-            # room keeps moving; voting gets a shorter grace period.
+            # Wait for the real player. The timeout is intentionally long so
+            # an unfinished human turn is never auto-played within a normal
+            # game session.
             timeout = (
                 VOTE_TURN_TIMEOUT_SECONDS
                 if state.phase is Phase.VOTE

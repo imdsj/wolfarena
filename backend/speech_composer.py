@@ -21,6 +21,7 @@ from .llm_budget import LEDGER
 from .logic_audit import (
     asserts_unspoken_identity,
     audit,
+    claims_kill_target_knowledge,
     contradicts_own_report,
     dead_vote_targets,
     impossible_seer_claim_in_text,
@@ -527,6 +528,8 @@ def compose_speech_with_tools(
             "死亡信息只以【本轮公开信息】里的昨晚结果为准，绝对不能编造谁死了、谁被票了。"
             "场上存活/出局名单也必须以【本轮公开信息】为准，绝不能把活人说成死人。"
             "已出局的人不能再被票、被刀、被验；不要号召票死人。"
+            "只有女巫用解药时才知道刀口，狼人知道刀口；其他好人不知道谁被刀。"
+            "绝不能声称“被刀的人心里有数”“我知道谁被刀”或暗示自己掌握了刀口。"
             "不能刚说某人是金水/好人，又要票他。"
             "对还没发言的玩家，只能表示怀疑或等待，绝不能断言其神职身份；"
             "如果发现别人对未发言玩家下身份结论，要直接点破这个逻辑漏洞。"
@@ -686,6 +689,10 @@ def compose_speech_with_tools(
         or (
             actor.role is Role.WEREWOLF
             and wolf_speech_targets_dead(cleaned, dead_seats)
+        )
+        or (
+            actor.role not in {Role.WEREWOLF, Role.WITCH}
+            and claims_kill_target_knowledge(cleaned)
         )
     ):
         # The model leaked information a player could not have. Drop the

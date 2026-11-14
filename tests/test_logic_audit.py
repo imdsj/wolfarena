@@ -17,6 +17,7 @@ from backend.game_engine import (
 from backend.logic_audit import (
     asserts_unspoken_identity,
     audit,
+    claims_kill_target_knowledge,
     contradicts_own_report,
     dead_vote_targets,
     findings_summary,
@@ -468,6 +469,18 @@ class FindingsSummaryTests(TestCase):
         )
         summary = findings_summary(state, state.players[0])
         self.assertEqual(summary.get("impossible_identity"), 1)
+
+
+class KillKnowledgeTests(TestCase):
+    def test_claims_about_kill_target_are_flagged(self) -> None:
+        self.assertTrue(
+            claims_kill_target_knowledge("被刀的人自己心里有数")
+        )
+        self.assertTrue(claims_kill_target_knowledge("我知道谁被刀"))
+        self.assertTrue(claims_kill_target_knowledge("刀口是3号"))
+        self.assertFalse(
+            claims_kill_target_knowledge("昨晚是平安夜，先听预言家")
+        )
 
 
 class SeerCheckCountTests(TestCase):

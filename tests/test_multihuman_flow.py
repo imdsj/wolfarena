@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from backend.ai_controller import AIController
+from backend.ai_controller import (
+    AIController,
+    HUMAN_TURN_TIMEOUT_SECONDS,
+    VOTE_TURN_TIMEOUT_SECONDS,
+)
 from backend.game_engine import (
     DayResult,
     EventType,
@@ -19,7 +23,7 @@ from backend.schemas import ActionRequest
 
 
 class HumanIdleTimeoutTests(TestCase):
-    def test_vote_arms_a_ten_second_human_deadline(self) -> None:
+    def test_vote_waits_for_the_real_player(self) -> None:
         state = create_game(seed=301, human_count=1)
         state.phase = Phase.VOTE
         state.day_result = DayResult(votes={})
@@ -28,9 +32,12 @@ class HumanIdleTimeoutTests(TestCase):
         controller._ensure_phase_deadline(state, now=100.0)
 
         self.assertEqual(state.phase_deadline_kind, "human_action")
-        self.assertEqual(state.phase_deadline_at, 110.0)
+        self.assertEqual(
+            state.phase_deadline_at,
+            100.0 + VOTE_TURN_TIMEOUT_SECONDS,
+        )
 
-    def test_night_action_arms_a_thirty_second_human_deadline(self) -> None:
+    def test_night_action_waits_for_the_real_player(self) -> None:
         state = create_game(seed=302, human_count=1)
         human = next(player for player in state.players if player.is_human)
         human.role = Role.WEREWOLF
@@ -41,7 +48,10 @@ class HumanIdleTimeoutTests(TestCase):
         controller._ensure_phase_deadline(state, now=100.0)
 
         self.assertEqual(state.phase_deadline_kind, "human_action")
-        self.assertEqual(state.phase_deadline_at, 130.0)
+        self.assertEqual(
+            state.phase_deadline_at,
+            100.0 + HUMAN_TURN_TIMEOUT_SECONDS,
+        )
 
     def test_idle_human_vote_is_auto_abstained(self) -> None:
         repository = InMemoryRoomRepository()

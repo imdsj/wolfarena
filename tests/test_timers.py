@@ -6,6 +6,7 @@ from unittest import IsolatedAsyncioTestCase
 
 from fastapi.testclient import TestClient
 
+from backend.ai_controller import HUMAN_TURN_TIMEOUT_SECONDS
 from backend.api import create_app
 from backend.game_engine import (
     DayResult,
@@ -140,11 +141,14 @@ class RoomTimerTests(IsolatedAsyncioTestCase):
         )
         self.assertEqual(room.state.phase, Phase.NIGHT_WOLF_DISCUSSION_R1)
         self.assertEqual(room.state.phase_deadline_kind, "human_action")
-        self.assertEqual(room.state.phase_deadline_at, 30.0)
+        self.assertEqual(
+            room.state.phase_deadline_at,
+            HUMAN_TURN_TIMEOUT_SECONDS,
+        )
 
         realtime = FakeRealtime()
         timer = RoomTimerService(repository, realtime)
-        await timer.tick(now=30.0)
+        await timer.tick(now=HUMAN_TURN_TIMEOUT_SECONDS)
 
         # The idle human's wolf turn was played for them, so the discussion
         # moved past the first round instead of stalling forever.
