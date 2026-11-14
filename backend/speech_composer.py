@@ -32,6 +32,7 @@ from .rulebook import rules_brief
 from .speech_quality import is_repetitive
 from .strategy_library import StrategyLibrary
 from .personas import persona_guidance
+from .tactic_retrieval import rank_tactics
 from .vote_analysis import format_vote_analysis
 
 STRATEGY_ROOT = Path(__file__).resolve().parent.parent / "strategy_library"
@@ -275,12 +276,7 @@ def tactic_query(state: GameState, actor) -> str:
 def tactics_context(state: GameState, actor) -> str:
     """Retrieve sourced tactics relevant to the actor's current public board."""
 
-    matches = StrategyLibrary(STRATEGY_ROOT).search(
-        tactic_query(state, actor),
-        role=actor.role.value,
-        phase=state.phase.value,
-        limit=3,
-    )
+    matches = rank_tactics(state, actor, root=STRATEGY_ROOT, limit=3)
     if not matches:
         return ""
     lines = [

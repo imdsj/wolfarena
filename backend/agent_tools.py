@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .game_engine import EventType, GameState, get_visible_events
+from .game_engine import GameState
 from .logic_audit import audit
-from .strategy_library import StrategyLibrary
+from .tactic_retrieval import rank_tactics
 from .vote_analysis import format_vote_analysis
 
 
@@ -69,29 +69,6 @@ TOOL_DEFINITIONS: list[dict] = [
 ]
 
 
-def _seat_of(state: GameState, player_id: str | None) -> str:
-    if not player_id:
-        return "?"
-    for player in state.players:
-        if player.player_id == player_id:
-            return str(player.seat)
-    return "?"
-
-
-def _public_lines(state: GameState, actor, limit: int = 6) -> list[str]:
-    lines: list[str] = []
-    for event in get_visible_events(state, actor):
-        if event.event_type not in {
-            EventType.PUBLIC_SPEECH,
-            EventType.LAST_WORDS,
-        }:
-            continue
-        content = event.data.get("content")
-        if event.actor_id and isinstance(content, str) and content.strip():
-            lines.append(f"{_seat_of(state, event.actor_id)} 号：{content}")
-    return lines[-limit:]
-
-
 def audit_logic(state: GameState, actor) -> dict:
     findings = [
         {
@@ -115,18 +92,7 @@ def analyze_votes(state: GameState, actor) -> dict:
 
 
 def search_tactics(state: GameState, actor) -> dict:
-    lines = _public_lines(state, actor)
-    lines.extend(finding.detail for finding in audit(state, actor)[-3:])
-    votes = format_vote_analysis(state, actor)
-    if votes:
-        lines.append(votes)
-    query = "\n".join(lines)
-    matches = StrategyLibrary(STRATEGY_ROOT).search(
-        query,
-        role=actor.role.value,
-        phase=state.phase.value,
-        limit=3,
-    )
+    matches = rank_tactics(state, actor, root=STRATEGY_ROOT, limit=3)
     return {
         "tactics": [
             {
