@@ -10,6 +10,7 @@ import type {
 const library = ref<StrategyLibraryView | null>(null);
 const loading = ref(false);
 const evaluating = ref(false);
+const approving = ref(false);
 const errorMessage = ref("");
 const notice = ref("");
 const lastEvaluation = ref<StrategyEvaluation | null>(null);
@@ -18,6 +19,18 @@ const showForm = ref(false);
 const reviewerName = ref("");
 const reviewerToken = ref("");
 const rejectReason = ref("");
+
+function updateReviewerName(event: Event): void {
+  reviewerName.value = (event.target as HTMLInputElement).value;
+}
+
+function updateReviewerToken(event: Event): void {
+  reviewerToken.value = (event.target as HTMLInputElement).value;
+}
+
+function updateRejectReason(event: Event): void {
+  rejectReason.value = (event.target as HTMLInputElement).value;
+}
 
 const form = reactive({
   title: "",
@@ -183,6 +196,7 @@ async function approveCandidate(candidateId: string): Promise<void> {
   }
   errorMessage.value = "";
   notice.value = "";
+  approving.value = true;
   try {
     await requestJson(
       `/api/strategy/candidates/${encodeURIComponent(candidateId)}/approve`,
@@ -197,6 +211,8 @@ async function approveCandidate(candidateId: string): Promise<void> {
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "批准失败";
+  } finally {
+    approving.value = false;
   }
 }
 
@@ -401,9 +417,10 @@ onMounted(loadLibrary);
           <button
             class="secondary-button"
             type="button"
+            :disabled="approving"
             @click="approveCandidate(card.strategy_id)"
           >
-            通过
+            {{ approving ? "审批中…" : "通过" }}
           </button>
           <button
             class="text-button"
@@ -475,17 +492,38 @@ onMounted(loadLibrary);
       <div class="lab-form-row">
         <label class="field">
           <span>审核人姓名</span>
-          <input v-model="reviewerName" maxlength="64" />
+          <input
+            :value="reviewerName"
+            maxlength="64"
+            @input="updateReviewerName"
+          />
         </label>
         <label class="field">
           <span>审核凭证（X-Reviewer-Token）</span>
-          <input v-model="reviewerToken" type="password" maxlength="128" />
+          <input
+            :value="reviewerToken"
+            type="password"
+            maxlength="128"
+            @input="updateReviewerToken"
+          />
         </label>
       </div>
       <label class="field">
         <span>驳回理由</span>
-        <input v-model="rejectReason" maxlength="400" />
+        <input
+          :value="rejectReason"
+          maxlength="400"
+          @input="updateRejectReason"
+        />
       </label>
     </section>
+
+    <div
+      v-if="errorMessage || notice"
+      class="lab-toast"
+      :class="{ 'lab-toast-error': Boolean(errorMessage) }"
+    >
+      {{ errorMessage || notice }}
+    </div>
   </section>
 </template>
